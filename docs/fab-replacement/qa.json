@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-27",
+  "tests": {
+    "passed": 38,
+    "failed": 0
+  },
+  "build": "passed; existing Cesium chunk-size warning",
+  "backupHashes": "verified against checkpoint.json",
+  "productionPreview": "http://localhost:5181/",
+  "productionAssets": [
+    "/assets/portal-terrain-Doh_4ySs.glb",
+    "/assets/camera-CHFY8YzL.glb",
+    "/assets/vehicle-detector-D9K5hzqu.glb"
+  ],
+  "canvas": {
+    "width": 2548,
+    "height": 1287,
+    "clientWidth": 2548,
+    "clientHeight": 1287,
+    "devicePixelRatio": 1
+  },
+  "browserChecks": [
+    "west/east portal trees, rocks, grass visible",
+    "camera-1 and camera-11 visible and selectable",
+    "camera-1 direct model picking opens original ID",
+    "detector-1 and detector-4 retain speed reading and location",
+    "camera offline: preview disabled",
+    "camera recovered: online and preview enabled",
+    "distributed model credits link visible"
+  ],
+  "stableFPS": "not measured",
+  "deployment": "not requested; not performed"
+}

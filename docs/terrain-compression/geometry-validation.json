@@ -1,0 +1,35 @@
+{
+  "decodedMeshCount": 7,
+  "meshes": [
+    {
+      "name": "stone_small_a.001",
+      "triangles": 4990
+    },
+    {
+      "name": "stone_small_b.001",
+      "triangles": 4996
+    },
+    {
+      "name": "stone_small_c.001",
+      "triangles": 4996
+    },
+    {
+      "name": "Sculpted mountain with two excavated bores",
+      "triangles": 9984
+    },
+    {
+      "name": "立方体",
+      "triangles": 12
+    },
+    {
+      "name": "平面.003",
+      "triangles": 6
+    },
+    {
+      "name": "tree.001",
+      "triangles": 161754
+    }
+  ],
+  "storedTriangles": 186738,
+  "maxNearestVertexErrorMetres": 0.002787332754566519
+}

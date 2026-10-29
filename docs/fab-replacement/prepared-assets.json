@@ -1,0 +1,29 @@
+{
+  "fab-grass-clump": {
+    "triangles": 132,
+    "materials": 3,
+    "dimensions": [
+      0.8500000238418579,
+      0.8499999642372131,
+      0.47999998927116394
+    ]
+  },
+  "fab-gatso-overhead": {
+    "triangles": 9674,
+    "materials": 11,
+    "dimensions": [
+      0.21094772219657898,
+      0.5234978199005127,
+      0.8300000429153442
+    ]
+  },
+  "fab-plaggy-camera": {
+    "triangles": 1016,
+    "materials": 4,
+    "dimensions": [
+      0.4332387149333954,
+      0.9927011728286743,
+      0.550000011920929
+    ]
+  }
+}

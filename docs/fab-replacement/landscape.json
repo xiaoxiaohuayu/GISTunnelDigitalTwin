@@ -1,0 +1,68 @@
+{
+  "source": "src/assets/modelAssets/legacy/portal-terrain-before-fab.glb",
+  "trees": 200,
+  "groups": [
+    {
+      "name": "fir-a-lod2",
+      "instances": 20,
+      "trianglesPerInstance": 3268,
+      "effectiveTriangles": 65360
+    },
+    {
+      "name": "fir-b-lod2",
+      "instances": 26,
+      "trianglesPerInstance": 2506,
+      "effectiveTriangles": 65156
+    },
+    {
+      "name": "fir-c-lod2",
+      "instances": 19,
+      "trianglesPerInstance": 3014,
+      "effectiveTriangles": 57266
+    },
+    {
+      "name": "fir-b-lod0",
+      "instances": 7,
+      "trianglesPerInstance": 9872,
+      "effectiveTriangles": 69104
+    },
+    {
+      "name": "fir-a-lod0",
+      "instances": 10,
+      "trianglesPerInstance": 12969,
+      "effectiveTriangles": 129690
+    },
+    {
+      "name": "fir-c-lod3",
+      "instances": 42,
+      "trianglesPerInstance": 20,
+      "effectiveTriangles": 840
+    },
+    {
+      "name": "fir-b-lod3",
+      "instances": 34,
+      "trianglesPerInstance": 20,
+      "effectiveTriangles": 680
+    },
+    {
+      "name": "fir-c-lod0",
+      "instances": 5,
+      "trianglesPerInstance": 11786,
+      "effectiveTriangles": 58930
+    },
+    {
+      "name": "fir-a-lod3",
+      "instances": 37,
+      "trianglesPerInstance": 20,
+      "effectiveTriangles": 740
+    }
+  ],
+  "treeEffectiveTriangles": 447766,
+  "grassClumps": 548,
+  "grassTrianglesPerClump": 132,
+  "runtimeBytes": 17559956,
+  "runtimeSHA256": "a8ccc9373fcce9e403ae700ff51cc87d0fea85b9a2285969fec1a97f491f9e76",
+  "oldTreeEffectiveTriangles": 648192,
+  "treeReductionPercent": 30.92,
+  "dracoMethod": "sequential"
+}

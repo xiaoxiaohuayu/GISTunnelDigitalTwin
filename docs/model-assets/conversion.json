@@ -1,0 +1,74 @@
+[
+  {
+    "name": "substation-new",
+    "triangles": 77952,
+    "budget": 180000,
+    "dimensions": [
+      11.333333015441895,
+      8.5,
+      4.637458324432373
+    ],
+    "materials": 8,
+    "bytes": 2321000
+  },
+  {
+    "name": "substation-original",
+    "triangles": 2120,
+    "budget": 200000,
+    "dimensions": [
+      9.815587997436523,
+      6.320451736450195,
+      4.486171722412109
+    ],
+    "materials": 1,
+    "bytes": 3996300
+  },
+  {
+    "name": "car-van",
+    "triangles": 952,
+    "budget": 10000,
+    "dimensions": [
+      5.0,
+      2.284830093383789,
+      2.391679048538208
+    ],
+    "materials": 1,
+    "bytes": 771972
+  },
+  {
+    "name": "water-tank",
+    "triangles": 1470,
+    "budget": 10000,
+    "dimensions": [
+      2.4084036350250244,
+      2.349867343902588,
+      2.5999999046325684
+    ],
+    "materials": 5,
+    "bytes": 76228
+  },
+  {
+    "name": "human",
+    "triangles": 9946,
+    "budget": 25000,
+    "dimensions": [
+      0.3226918876171112,
+      0.5840452313423157,
+      1.75
+    ],
+    "materials": 1,
+    "bytes": 2095260
+  },
+  {
+    "name": "worker",
+    "triangles": 10300,
+    "budget": 25000,
+    "dimensions": [
+      0.5983718037605286,
+      1.0585523843765259,
+      1.7499998807907104
+    ],
+    "materials": 1,
+    "bytes": 540560
+  }
+]

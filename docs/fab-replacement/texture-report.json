@@ -1,0 +1,268 @@
+{
+  "source": "modelSources/processed/portal-terrain-fir-uncompressed.glb",
+  "sourceSHA256": "ad7c9effe57c5c9c6903d347e05f1b5dce51cab77a33f1175320788e4fcfa57f",
+  "beforeBytes": 28132860,
+  "afterBytes": 18714324,
+  "reductionPercent": 33.48,
+  "instanceCount": 835,
+  "geometryAndInstancesByteIdentical": true,
+  "images": [
+    {
+      "name": "limestone-0",
+      "dimensions": [
+        512,
+        512
+      ],
+      "beforeBytes": 13868,
+      "afterBytes": 13868,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "limestone-1",
+      "dimensions": [
+        512,
+        512
+      ],
+      "beforeBytes": 13270,
+      "afterBytes": 13270,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "limestone-2",
+      "dimensions": [
+        512,
+        512
+      ],
+      "beforeBytes": 12852,
+      "afterBytes": 12852,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "Poliigon_GrassPatchyGround_4585_Normal",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 7677144,
+      "afterBytes": 7677144,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "Poliigon_GrassPatchyGround_4585_BaseColor",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 2298766,
+      "afterBytes": 2298766,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "Poliigon_GrassPatchyGround_4585_Roughness",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 2046620,
+      "afterBytes": 2046620,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "Cliff mineral detail",
+      "dimensions": [
+        256,
+        256
+      ],
+      "beforeBytes": 4486,
+      "afterBytes": 4486,
+      "alphaUnchanged": true,
+      "reused": true
+    },
+    {
+      "name": "Brunches_normal",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "beforeBytes": 1591439,
+      "afterBytes": 1339500,
+      "alphaUnchanged": true,
+      "rgbPSNR": null,
+      "options": [
+        "-lossless",
+        "-near_lossless",
+        "80",
+        "-m",
+        "6"
+      ]
+    },
+    {
+      "name": "BrunchesAlbedo",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 5789181,
+      "afterBytes": 998976,
+      "alphaUnchanged": true,
+      "rgbPSNR": 39.96,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Bark_normal",
+      "dimensions": [
+        512,
+        1024
+      ],
+      "beforeBytes": 1363545,
+      "afterBytes": 1287292,
+      "alphaUnchanged": true,
+      "rgbPSNR": null,
+      "options": [
+        "-lossless",
+        "-near_lossless",
+        "80",
+        "-m",
+        "6"
+      ]
+    },
+    {
+      "name": "BarkAlbedo",
+      "dimensions": [
+        512,
+        1024
+      ],
+      "beforeBytes": 847722,
+      "afterBytes": 102972,
+      "alphaUnchanged": true,
+      "rgbPSNR": 40.55,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Christmas tree_BillboardAlbedo",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "beforeBytes": 1163550,
+      "afterBytes": 206972,
+      "alphaUnchanged": true,
+      "rgbPSNR": 40.69,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Christmas tree_2_BillboardAlbedo",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "beforeBytes": 1026580,
+      "afterBytes": 178568,
+      "alphaUnchanged": true,
+      "rgbPSNR": 41.1,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Christmas tree_3_BillboardAlbedo",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "beforeBytes": 1263462,
+      "afterBytes": 219258,
+      "alphaUnchanged": true,
+      "rgbPSNR": 40.4,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Image_3",
+      "dimensions": [
+        1024,
+        2048
+      ],
+      "beforeBytes": 405764,
+      "afterBytes": 53820,
+      "alphaUnchanged": true,
+      "rgbPSNR": 50.63,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Image_1",
+      "dimensions": [
+        1024,
+        2048
+      ],
+      "beforeBytes": 201160,
+      "afterBytes": 40522,
+      "alphaUnchanged": true,
+      "rgbPSNR": 53.76,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Image_0",
+      "dimensions": [
+        1024,
+        2048
+      ],
+      "beforeBytes": 250443,
+      "afterBytes": 56058,
+      "alphaUnchanged": true,
+      "rgbPSNR": 52.02,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    }
+  ]
+}

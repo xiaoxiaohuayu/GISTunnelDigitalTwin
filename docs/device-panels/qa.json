@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-28",
+  "tests": {
+    "pass": 42,
+    "fail": 0
+  },
+  "build": "passed",
+  "designDetector": [],
+  "browser": {
+    "faultPersistsAfterEscapeAndCameraNavigation": true,
+    "alertOpensDevice": "fan-1",
+    "recoveryRemovesAlerts": true,
+    "cameraOfflineDisablesPreview": true,
+    "simultaneousFireDeviceAlerts": 5,
+    "mobileViewport": [
+      390,
+      844
+    ],
+    "mobileMultipleAlertRect": [
+      20,
+      94,
+      380,
+      267
+    ],
+    "mobileInspectorTop": 280,
+    "newAnimationsRespectReducedMotion": true
+  },
+  "preview": "http://localhost:5180/",
+  "deployed": false
+}

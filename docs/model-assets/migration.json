@@ -1,0 +1,888 @@
+[
+  {
+    "from": "public/models/assets/camera.glb",
+    "to": "src/assets/modelAssets/equipment/camera.glb",
+    "bytes": 277796,
+    "sha256": "3b1a50f6302c55997120c3406ab0923dcee806cfca4201a1114250b4dc608a1f",
+    "preservedAt": "src/assets/modelAssets/legacy/camera-before-fab.glb"
+  },
+  {
+    "from": "public/models/assets/car-audi.glb",
+    "to": "src/assets/modelAssets/vehicles/car-audi.glb",
+    "bytes": 7120824,
+    "sha256": "0867084486a3f7f247ae6bc1fb66e10f9bd84ce04f58f6fa39bca57abfdf9b80"
+  },
+  {
+    "from": "public/models/assets/car-blue.glb",
+    "to": "src/assets/modelAssets/vehicles/car-blue.glb",
+    "bytes": 1041996,
+    "sha256": "5969bc05a2c696ceba4cac618c156c54764d013df8c1328022136d7d62af65d1"
+  },
+  {
+    "from": "public/models/assets/car-orange.glb",
+    "to": "src/assets/modelAssets/vehicles/car-orange.glb",
+    "bytes": 1042000,
+    "sha256": "3785bf43beabc890d82535c18a7d193c7d1fff4289fcd46096e0390d365ec4ce"
+  },
+  {
+    "from": "public/models/assets/car-white.glb",
+    "to": "src/assets/modelAssets/vehicles/car-white.glb",
+    "bytes": 1041984,
+    "sha256": "6403be01dfaad18cbd9a6990948548da1786dd0c74ba798be9de6671b1c0da29"
+  },
+  {
+    "from": "public/models/assets/covi.glb",
+    "to": "src/assets/modelAssets/equipment/covi.glb",
+    "bytes": 106176,
+    "sha256": "2239015320df0d76b0e6647ada7845461867260df2229dd2b40c65ae84eac07e"
+  },
+  {
+    "from": "public/models/assets/distribution.glb",
+    "to": "src/assets/modelAssets/equipment/distribution.glb",
+    "bytes": 118552,
+    "sha256": "7bd07775dbe799cbe32768c8e6e5ed757dce15f17c5ae6d3672d73e1ade4b467"
+  },
+  {
+    "from": "public/models/assets/emergency-telephone.glb",
+    "to": "src/assets/modelAssets/equipment/emergency-telephone.glb",
+    "bytes": 234284,
+    "sha256": "e1dcee7d73a22d8e0e636808215448516b843e6ae8bcff958bc844db7bfdd44e"
+  },
+  {
+    "from": "public/models/assets/escape-sign-left.glb",
+    "to": "src/assets/modelAssets/equipment/escape-sign-left.glb",
+    "bytes": 378372,
+    "sha256": "cb6869e66eaeb9e21fea1bd52f24d0576d5d4372762bc9aa98d5f1b28399e807"
+  },
+  {
+    "from": "public/models/assets/escape-sign-right.glb",
+    "to": "src/assets/modelAssets/equipment/escape-sign-right.glb",
+    "bytes": 378372,
+    "sha256": "e435c9931592c25d2df525560e8ee762cb9b930e54c7b4abe8bb4db00437cd30"
+  },
+  {
+    "from": "public/models/assets/escape-sign.glb",
+    "to": "src/assets/modelAssets/equipment/escape-sign.glb",
+    "bytes": 372436,
+    "sha256": "39c7cc2b1527fd7a851fd5b7c340053704a5cfbea659a7c5cab70dc128f0169e"
+  },
+  {
+    "from": "public/models/assets/fbg.glb",
+    "to": "src/assets/modelAssets/equipment/fbg.glb",
+    "bytes": 109784,
+    "sha256": "63c980dd7a7f72df3022a1967649e2ab2eab02669d0e91a6cd0d3520d749c7ee"
+  },
+  {
+    "from": "public/models/assets/fire-cabinet.glb",
+    "to": "src/assets/modelAssets/equipment/fire-cabinet.glb",
+    "bytes": 1619180,
+    "sha256": "cd124dc1521e909211c3d551c589b360a324234636fa5b0f99aeeab2ba453ec0"
+  },
+  {
+    "from": "public/models/assets/fire-pump.glb",
+    "to": "src/assets/modelAssets/equipment/fire-pump.glb",
+    "bytes": 46744,
+    "sha256": "9f2be7db5b6103e9acde51c5146aa055ffc28571f2725e574e0aba69e7e1752b"
+  },
+  {
+    "from": "public/models/assets/flame.glb",
+    "to": "src/assets/modelAssets/equipment/flame.glb",
+    "bytes": 10048,
+    "sha256": "829a88cae569c8ea90d940a2ecc934ee6e2ebe0d17423cf16ca64f7856cf3e16"
+  },
+  {
+    "from": "public/models/assets/humidity.glb",
+    "to": "src/assets/modelAssets/equipment/humidity.glb",
+    "bytes": 29600,
+    "sha256": "0c2aded550d37d96f9161dcfdb95447c1b9160791c40d945ded53d407491b795"
+  },
+  {
+    "from": "public/models/assets/incident-rock-0.glb",
+    "to": "src/assets/modelAssets/environment/incident-rock-0.glb",
+    "bytes": 342056,
+    "sha256": "d55c43d4e06f02117563d9d21ddc7cca232b0272ebc1c9c58ad0690b608af2e3"
+  },
+  {
+    "from": "public/models/assets/incident-rock-1.glb",
+    "to": "src/assets/modelAssets/environment/incident-rock-1.glb",
+    "bytes": 349312,
+    "sha256": "dd3ff16afdb62eab839735da55c4baf02408680103e04d50c6d4fa878b12f3e5"
+  },
+  {
+    "from": "public/models/assets/incident-rock-2.glb",
+    "to": "src/assets/modelAssets/environment/incident-rock-2.glb",
+    "bytes": 348612,
+    "sha256": "1717c47292109507c7436b0c023457fb696d7fbed43ae27905471178e3fa29e6"
+  },
+  {
+    "from": "public/models/assets/interior-vms.glb",
+    "to": "src/assets/modelAssets/equipment/interior-vms.glb",
+    "bytes": 1127076,
+    "sha256": "eefbe0550492b91bf0f76a62007dc3b9e8b23758045d987c3025a07b54d8b56f"
+  },
+  {
+    "from": "public/models/assets/jet-fan-active.glb",
+    "to": "src/assets/modelAssets/equipment/jet-fan-active.glb",
+    "bytes": 833804,
+    "sha256": "9f3ac4afb1369da2118be19b4cafbec6ca68074504b101b301c3e1da75f91061"
+  },
+  {
+    "from": "public/models/assets/jet-fan.glb",
+    "to": "src/assets/modelAssets/equipment/jet-fan.glb",
+    "bytes": 708852,
+    "sha256": "d31780c5e333d5fc03abb6af0e013657999be4a7737bc1f29f596def0f5ca93e"
+  },
+  {
+    "from": "public/models/assets/lane-head.glb",
+    "to": "src/assets/modelAssets/equipment/lane-head.glb",
+    "bytes": 34468,
+    "sha256": "fbb92c0ee696b824283236a26ccfe8923e00c55afdc44341941ff282d0bd532a"
+  },
+  {
+    "from": "public/models/assets/lane-indicators.glb",
+    "to": "src/assets/modelAssets/equipment/lane-indicators.glb",
+    "bytes": 40956,
+    "sha256": "eff49abe92c51352f93322afd2086d8956a4ff156f56cf9817f32e6c39bbf3aa"
+  },
+  {
+    "from": "public/models/assets/layby-marking.glb",
+    "to": "src/assets/modelAssets/equipment/layby-marking.glb",
+    "bytes": 577776,
+    "sha256": "54355b4854f3331ddddb38877a80ff03321f8495ccfcedd443fa8ebf38957b48"
+  },
+  {
+    "from": "public/models/assets/layby-sign.glb",
+    "to": "src/assets/modelAssets/equipment/layby-sign.glb",
+    "bytes": 840520,
+    "sha256": "d3e64f8ffe39592cfa1c96df5409b1d646cf4394dd4d938d2bfc077b088bfa8a"
+  },
+  {
+    "from": "public/models/assets/manual.glb",
+    "to": "src/assets/modelAssets/equipment/manual.glb",
+    "bytes": 31544,
+    "sha256": "ca0d5aafdd338eee349ef3e054bd25e7d622cddb645f6af2d5e299b454c4fb04"
+  },
+  {
+    "from": "public/models/assets/no2.glb",
+    "to": "src/assets/modelAssets/equipment/no2.glb",
+    "bytes": 103708,
+    "sha256": "4035373444d03d86809d58581df283c3d1fe3d5241feeb5fd762f544de7934fc"
+  },
+  {
+    "from": "public/models/assets/pedestrian-shutter.glb",
+    "to": "src/assets/modelAssets/equipment/pedestrian-shutter.glb",
+    "bytes": 278692,
+    "sha256": "83039462a316c4fee557a00890c56653e52c825b0f8c0ea1d9e50d476208f3c1"
+  },
+  {
+    "from": "public/models/assets/plc.glb",
+    "to": "src/assets/modelAssets/equipment/plc.glb",
+    "bytes": 118456,
+    "sha256": "cb67e6115985712a8bf8332944915b9436ea40669de006dd762fd29fb5777f7d"
+  },
+  {
+    "from": "public/models/assets/speaker.glb",
+    "to": "src/assets/modelAssets/equipment/speaker.glb",
+    "bytes": 16176,
+    "sha256": "1be4e2311fa1ee7ec50274a61ec33583a58abacce0c873dee8c7c85405fa1b51"
+  },
+  {
+    "from": "public/models/assets/streetlight.glb",
+    "to": "src/assets/modelAssets/equipment/streetlight.glb",
+    "bytes": 317272,
+    "sha256": "4d57670118a502d7bb6ec18a929d6c6ee2ef6614d0b0d145a1e35702d39c8c2c"
+  },
+  {
+    "from": "public/models/assets/traffic-signal.glb",
+    "to": "src/assets/modelAssets/equipment/traffic-signal.glb",
+    "bytes": 49948,
+    "sha256": "18ba696988acfefdcf732c0749e7f4aabbf98abd0891048202c74531ca5e785b"
+  },
+  {
+    "from": "public/models/assets/vehicle-detector.glb",
+    "to": "src/assets/modelAssets/equipment/vehicle-detector.glb",
+    "bytes": 33664,
+    "sha256": "f37bc5522b3f07243fd89c9383a5584e664a952eb08eabc13ebbea8ba9873dff",
+    "preservedAt": "src/assets/modelAssets/legacy/vehicle-detector-before-fab.glb"
+  },
+  {
+    "from": "public/models/assets/vehicle-shutter.glb",
+    "to": "src/assets/modelAssets/equipment/vehicle-shutter.glb",
+    "bytes": 376968,
+    "sha256": "493021f77dafe1176239e22a899cb028306bfe58c47c8669be44433d8b520e29"
+  },
+  {
+    "from": "public/models/assets/vms-body.glb",
+    "to": "src/assets/modelAssets/equipment/vms-body.glb",
+    "bytes": 22472,
+    "sha256": "4c76dacfd90f59804203ae759c34638d2276a0ef614feea2a8c86abea364445e"
+  },
+  {
+    "from": "public/models/assets/water-tank.glb",
+    "to": "src/assets/modelAssets/legacy/water-tank-original.glb",
+    "bytes": 121244,
+    "sha256": "6d96f18fdacd32358cf2f604f2727c0d3db2a7a4802ecfd9c7b4f05e81f615b8"
+  },
+  {
+    "from": "public/models/assets/wind.glb",
+    "to": "src/assets/modelAssets/equipment/wind.glb",
+    "bytes": 24752,
+    "sha256": "a135b4df6696e8bfe8ad8293d5aef71f909e040067669b64ec70d17513590220"
+  },
+  {
+    "from": "public/models/assets/work-barrier.glb",
+    "to": "src/assets/modelAssets/equipment/work-barrier.glb",
+    "bytes": 44428,
+    "sha256": "00a71d1553133dcc9910051c2d8120e8985de1fde55a0dde3eada8d662fa1989"
+  },
+  {
+    "from": "public/models/assets/work-cone.glb",
+    "to": "src/assets/modelAssets/equipment/work-cone.glb",
+    "bytes": 51412,
+    "sha256": "1afdb6c1e14d601683104cf6936d40ca5b3a787327c1c5223d639606b79255dc"
+  },
+  {
+    "from": "public/models/assets/work-worker.glb",
+    "to": "src/assets/modelAssets/legacy/work-worker.glb",
+    "bytes": 82740,
+    "sha256": "47bb8fe5e22c17565aeef9b2fdd417b9806cbc0070b917f2d9c6fa7e8cc33b83"
+  },
+  {
+    "from": "public/models/portal-signs.glb",
+    "to": "src/assets/modelAssets/portal/portal-signs.glb",
+    "bytes": 294332,
+    "sha256": "370c99c8e1bc53130ea784b162063c18dab9a1b015be726c9fe566d16c95f37a"
+  },
+  {
+    "from": "public/models/portal-structures.glb",
+    "to": "src/assets/modelAssets/portal/portal-structures.glb",
+    "bytes": 7395304,
+    "sha256": "dafdc69a4b13265ae1532fe7bc9eae0cd79f4b68380ecf4b5ad3c0052aa797b4",
+    "preservedAt": "src/assets/modelAssets/legacy/portal-structures-original.glb"
+  },
+  {
+    "from": "public/models/portal-terrain.glb",
+    "to": "src/assets/modelAssets/portal/portal-terrain.glb",
+    "bytes": 39223056,
+    "sha256": "da31d6bafc14ed9284cf38a1bfdaedca40af2c6c9436d81c2ffa02e2d5ae9f98",
+    "preservedAt": "src/assets/modelAssets/legacy/portal-terrain_back.glb"
+  },
+  {
+    "from": "src/assets/fan.glb",
+    "to": "src/assets/modelAssets/equipment/fan.glb",
+    "bytes": 1137108,
+    "sha256": "e42f1d7164999180f97a98bf014f0421a610e03e810484c031aa044dd431e0b8"
+  },
+  {
+    "from": "src/assets/human/scene.bin",
+    "to": "modelSources/new/human/scene.bin",
+    "bytes": 2794000,
+    "sha256": "74a9f999a69ac4409db45fd159bcff49c3f15483241414efa815b9646b1f8172"
+  },
+  {
+    "from": "src/assets/human/scene.gltf",
+    "to": "modelSources/new/human/scene.gltf",
+    "bytes": 6245,
+    "sha256": "444317d67ac4a6480151089c39d4a91ec059d3a54641836ac25e1f1ab8084a87"
+  },
+  {
+    "from": "src/assets/human/textures/M_JPGV00_M01_H50k_BaseColor.jpeg",
+    "to": "modelSources/new/human/textures/M_JPGV00_M01_H50k_BaseColor.jpeg",
+    "bytes": 1241382,
+    "sha256": "7d9670e2ad0a387f2ad7fb6246fdb02d8a8048884d79b1ed3dbe4a63a242a0a1"
+  },
+  {
+    "from": "src/assets/human/textures/M_JPGV00_M01_H50k_Normal.png",
+    "to": "modelSources/new/human/textures/M_JPGV00_M01_H50k_Normal.png",
+    "bytes": 3254924,
+    "sha256": "f22d26ceefd0ff4ff544bd6b1150809837407c94308558b1de4274b55929a1a5"
+  },
+  {
+    "from": "src/assets/human/textures/M_JPGV00_M01_H50k_ORM.jpeg",
+    "to": "modelSources/new/human/textures/M_JPGV00_M01_H50k_ORM.jpeg",
+    "bytes": 437490,
+    "sha256": "2ab863089c0d1fc416b1ce12bc7b5b1cdc6625d6ee032cb766371aebdfebb765"
+  },
+  {
+    "from": "src/assets/human/textures/M_JPGV00_M01_L10k_BaseColor.jpeg",
+    "to": "modelSources/new/human/textures/M_JPGV00_M01_L10k_BaseColor.jpeg",
+    "bytes": 407147,
+    "sha256": "f4ade27af1065e41a56f433582cb414b1cf8b27de1d35fcd11119caea5fb2e91"
+  },
+  {
+    "from": "src/assets/human/textures/M_JPGV00_M01_L10k_Normal.png",
+    "to": "modelSources/new/human/textures/M_JPGV00_M01_L10k_Normal.png",
+    "bytes": 1179475,
+    "sha256": "aad40f7eb46f0584ddb5e95f8e3b150093700483e1faf90788b83d79085bb5eb"
+  },
+  {
+    "from": "src/assets/human/textures/M_JPGV00_M01_L10k_ORM.jpeg",
+    "to": "modelSources/new/human/textures/M_JPGV00_M01_L10k_ORM.jpeg",
+    "bytes": 159595,
+    "sha256": "ac6777de442b59e4b29392866130aed526f3be169d1886df4ef08bd432b289b4"
+  },
+  {
+    "from": "src/assets/low_poly_human/CharacterTexture_BaseColor.png",
+    "to": "modelSources/new/low_poly_human/CharacterTexture_BaseColor.png",
+    "bytes": 26530,
+    "sha256": "f134484e9a1ffd5f7ff8bdb9c5d1398590a06bbd23118454b52dadbb7cd54ba0"
+  },
+  {
+    "from": "src/assets/low_poly_human/CharacterTexture_Roughness.png",
+    "to": "modelSources/new/low_poly_human/CharacterTexture_Roughness.png",
+    "bytes": 20155,
+    "sha256": "ab80294969e282bf42cd6b9a6ab40f4efb65e674a93e4c6dd1e50755578b8004"
+  },
+  {
+    "from": "src/assets/low_poly_human/Male_002.fbx",
+    "to": "modelSources/new/low_poly_human/Male_002.fbx",
+    "bytes": 2160960,
+    "sha256": "a1ad73877073805e3bd8c5ddd7f0a4e7dc7f57e4a6163873ef789e56f9d2ad16"
+  },
+  {
+    "from": "src/assets/vanCar/scene.bin",
+    "to": "modelSources/new/vanCar/scene.bin",
+    "bytes": 38304,
+    "sha256": "1aa7e47ba3951aa2fbfcb124025a949012408de3ffdbd14f7eed6f7b0a009328"
+  },
+  {
+    "from": "src/assets/vanCar/scene.gltf",
+    "to": "modelSources/new/vanCar/scene.gltf",
+    "bytes": 2710,
+    "sha256": "92bdd15e5546e2f63d6f457185d670769a070c5e845fadfdf183308407d7551e"
+  },
+  {
+    "from": "src/assets/vanCar/textures/Standard_00FF2C_BaseColor.jpeg",
+    "to": "modelSources/new/vanCar/textures/Standard_00FF2C_BaseColor.jpeg",
+    "bytes": 737552,
+    "sha256": "07197f7d54d36a94af9da26aef9dc1c2d264729659f7a9020d3280f2c7712ca7"
+  },
+  {
+    "from": "src/assets/water_tank_gltf/scene.bin",
+    "to": "modelSources/new/water_tank_gltf/scene.bin",
+    "bytes": 78552,
+    "sha256": "a19b15ad77ac080a3196c4df764505285ba558fc8e7fbb3ee5b6a9989405a534"
+  },
+  {
+    "from": "src/assets/water_tank_gltf/scene.gltf",
+    "to": "modelSources/new/water_tank_gltf/scene.gltf",
+    "bytes": 7744,
+    "sha256": "af9e94da3a7941f7fe7c29edb421b9247afc68b02f7d12e126cf8c525e922934"
+  },
+  {
+    "from": "src/assets/变电所.blend",
+    "to": "blendFile/originals/substation-new.blend",
+    "bytes": 5483732,
+    "sha256": "317334fd0b42223b27f70806e74667a0d7edf0f107c56553c90149d6c4f02cec"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585.mtlx",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585.mtlx",
+    "bytes": 7576,
+    "sha256": "2eb2df4edee04a4ef1a884c4645ce9190ae96500072b709248495134d8627b4a"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_AmbientOcclusion.jpg",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_AmbientOcclusion.jpg",
+    "bytes": 2414814,
+    "sha256": "5af1ee1dcc6d93cf5105bfbf98aeb1e14d973a6fb32e9ddcbddc8ba04cdda3ec"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_BaseColor.jpg",
+    "bytes": 4654477,
+    "sha256": "1396ac4f43f02054ea002e52689fba1de729261b8f9b0fd8bdd27d5d2fcd3525"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Displacement.tiff",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Displacement.tiff",
+    "bytes": 5896421,
+    "sha256": "f3a2ad18bedcaac684b0e3b12b8c4a5f9c88deb32513afa4ca074771e40f65f4"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Metallic.jpg",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Metallic.jpg",
+    "bytes": 17511,
+    "sha256": "f42e7507ee978b07a32bd0c3c9a1643f94baa97f1d7a54330a7cf93eb8160411"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Normal.png",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Normal.png",
+    "bytes": 10109111,
+    "sha256": "5f67181c331528c4cae577288756046c192897b96b4eb529cd5c1c77cb6ac241"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Roughness.jpg",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/2K/Poliigon_GrassPatchyGround_4585_Roughness.jpg",
+    "bytes": 2191312,
+    "sha256": "19c55828c7b33599c75d78c9aa5702b0594bc09be77243d7926926d2e46c921a"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585/Poliigon_GrassPatchyGround_4585_Preview1.png",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585/Poliigon_GrassPatchyGround_4585_Preview1.png",
+    "bytes": 8788237,
+    "sha256": "2c392f00949727a3963399266a028026d535ee00fe5293a0160bd3a893186d1b"
+  },
+  {
+    "from": "3Dmodule/Poliigon_GrassPatchyGround_4585.zip",
+    "to": "modelSources/legacy/Poliigon_GrassPatchyGround_4585.zip",
+    "bytes": 34080973,
+    "sha256": "91f8ac4a805d80440f83827408edb51d18e1165fc44c82a6806e90488cd98941"
+  },
+  {
+    "from": "3Dmodule/clean_asphalt_1k.gltf/clean_asphalt.bin",
+    "to": "modelSources/legacy/clean_asphalt_1k.gltf/clean_asphalt.bin",
+    "bytes": 2370452,
+    "sha256": "d405db4c38b09649863d69957cedad20275a455e37dc5975f673751c3befeb2a"
+  },
+  {
+    "from": "3Dmodule/clean_asphalt_1k.gltf/clean_asphalt_1k.gltf",
+    "to": "modelSources/legacy/clean_asphalt_1k.gltf/clean_asphalt_1k.gltf",
+    "bytes": 2790,
+    "sha256": "11e11d934454a75c4ba1e3b0a058a6bbde1283b79f1e790ae451896c8e4e7309"
+  },
+  {
+    "from": "3Dmodule/clean_asphalt_1k.gltf/textures/clean_asphalt_arm_1k.jpg",
+    "to": "modelSources/legacy/clean_asphalt_1k.gltf/textures/clean_asphalt_arm_1k.jpg",
+    "bytes": 760451,
+    "sha256": "dedb9a28ebadd2848856af8672eeabed1286b5729c3387c0734efa66819dbed3"
+  },
+  {
+    "from": "3Dmodule/clean_asphalt_1k.gltf/textures/clean_asphalt_diff_1k.jpg",
+    "to": "modelSources/legacy/clean_asphalt_1k.gltf/textures/clean_asphalt_diff_1k.jpg",
+    "bytes": 697630,
+    "sha256": "ddf9224e9cfa3eb2998d9097e4cd34bd3630c85e0e6798e5a0a000415a684083"
+  },
+  {
+    "from": "3Dmodule/clean_asphalt_1k.gltf/textures/clean_asphalt_nor_gl_1k.jpg",
+    "to": "modelSources/legacy/clean_asphalt_1k.gltf/textures/clean_asphalt_nor_gl_1k.jpg",
+    "bytes": 776360,
+    "sha256": "99cdf6b6f0b8a319d206e1d561bf2a5d9933d8d33e1d685f8e25388101d21310"
+  },
+  {
+    "from": "3Dmodule/concrete_road_barrier_02_1k.gltf/concrete_road_barrier_02.bin",
+    "to": "modelSources/legacy/concrete_road_barrier_02_1k.gltf/concrete_road_barrier_02.bin",
+    "bytes": 542900,
+    "sha256": "254ee05467733e224e127dc76e019e5b5211c0da4248fa3fc75117ec005d7c90"
+  },
+  {
+    "from": "3Dmodule/concrete_road_barrier_02_1k.gltf/concrete_road_barrier_02_1k.gltf",
+    "to": "modelSources/legacy/concrete_road_barrier_02_1k.gltf/concrete_road_barrier_02_1k.gltf",
+    "bytes": 2910,
+    "sha256": "52d13b5105ce861db5dd1413a1a924ad5594dee5a8eb37dbe1a9df441fcd7caf"
+  },
+  {
+    "from": "3Dmodule/concrete_road_barrier_02_1k.gltf/textures/concrete_road_barrier_02_arm_1k.jpg",
+    "to": "modelSources/legacy/concrete_road_barrier_02_1k.gltf/textures/concrete_road_barrier_02_arm_1k.jpg",
+    "bytes": 717138,
+    "sha256": "6fb282f242ce86a3e44663678c2e0366c37de8244b08acc003d99771cb780e53"
+  },
+  {
+    "from": "3Dmodule/concrete_road_barrier_02_1k.gltf/textures/concrete_road_barrier_02_diff_1k.jpg",
+    "to": "modelSources/legacy/concrete_road_barrier_02_1k.gltf/textures/concrete_road_barrier_02_diff_1k.jpg",
+    "bytes": 741673,
+    "sha256": "9329260ebfc8632a5d47d9b344ab6f916e26604e73ebd2c495fee544df4bdefa"
+  },
+  {
+    "from": "3Dmodule/concrete_road_barrier_02_1k.gltf/textures/concrete_road_barrier_02_nor_gl_1k.jpg",
+    "to": "modelSources/legacy/concrete_road_barrier_02_1k.gltf/textures/concrete_road_barrier_02_nor_gl_1k.jpg",
+    "bytes": 923479,
+    "sha256": "42ec702843df209f0aef1d247c76dfb91385f0bf3b226b752d22a4c0e3780a31"
+  },
+  {
+    "from": "3Dmodule/forrest_ground_01_1k.gltf/forrest_ground_01.bin",
+    "to": "modelSources/legacy/forrest_ground_01_1k.gltf/forrest_ground_01.bin",
+    "bytes": 2369236,
+    "sha256": "0af862b36af89baf034e0121d2045e60c37d854171cc3ffefd784e83257198e6"
+  },
+  {
+    "from": "3Dmodule/forrest_ground_01_1k.gltf/forrest_ground_01_1k.gltf",
+    "to": "modelSources/legacy/forrest_ground_01_1k.gltf/forrest_ground_01_1k.gltf",
+    "bytes": 2741,
+    "sha256": "b6fadd070e3f5a34ad0464b9d813de3cb6d1586b5db52f1cbc8095d2ee02a067"
+  },
+  {
+    "from": "3Dmodule/forrest_ground_01_1k.gltf/textures/forrest_ground_01_diff_1k.jpg",
+    "to": "modelSources/legacy/forrest_ground_01_1k.gltf/textures/forrest_ground_01_diff_1k.jpg",
+    "bytes": 833711,
+    "sha256": "3dd6875cb3908e022a3c45ebbffa5e84c670ff2691fbbb6dc9ea4bff88523800"
+  },
+  {
+    "from": "3Dmodule/forrest_ground_01_1k.gltf/textures/forrest_ground_01_nor_gl_1k.jpg",
+    "to": "modelSources/legacy/forrest_ground_01_1k.gltf/textures/forrest_ground_01_nor_gl_1k.jpg",
+    "bytes": 1428763,
+    "sha256": "32528a7cdee962cc0b248ee4023a74d0df175737ea90e1eb425122351e0bdab4"
+  },
+  {
+    "from": "3Dmodule/forrest_ground_01_1k.gltf/textures/forrest_ground_01_rough_1k.jpg",
+    "to": "modelSources/legacy/forrest_ground_01_1k.gltf/textures/forrest_ground_01_rough_1k.jpg",
+    "bytes": 257165,
+    "sha256": "30d8b56a03d7b12da16f58011b675662a40e58e1cdc768119a5f03968140058c"
+  },
+  {
+    "from": "3Dmodule/低模车辆.blend",
+    "to": "blendFile/originals/legacy/低模车辆.blend",
+    "bytes": 26459604,
+    "sha256": "9e0cabb007c6060cd2ad954d4a267f1da1ed2056ca6017fd16d55058abc85994"
+  },
+  {
+    "from": "3Dmodule/变电所.blend",
+    "to": "blendFile/originals/legacy/变电所.blend",
+    "bytes": 59433928,
+    "sha256": "3cc31a9d509a769df30f6a5974be6312afa9afbe0ad28841e1f43c3cbf679336"
+  },
+  {
+    "from": "3Dmodule/护栏.fbx",
+    "to": "modelSources/legacy/护栏.fbx",
+    "bytes": 101392,
+    "sha256": "b29f98177ae2c47eaf150959297fde60742343936046b3f97990a855bcc9e642"
+  },
+  {
+    "from": "3Dmodule/摄像机.blend",
+    "to": "blendFile/originals/legacy/摄像机.blend",
+    "bytes": 1475200,
+    "sha256": "cef21d836828a3aa00982260c2deb87466055e63ad1b9241aae0963cee562e2e"
+  },
+  {
+    "from": "3Dmodule/树木.zip",
+    "to": "modelSources/legacy/树木.zip",
+    "bytes": 390603013,
+    "sha256": "2a867891c6461788da46c21d3f6ecbc0c7b2322c6362010e5347428df36528ba"
+  },
+  {
+    "from": "3Dmodule/消防栓.blend",
+    "to": "blendFile/originals/legacy/消防栓.blend",
+    "bytes": 17997048,
+    "sha256": "98b17dd54498dc25f3e97c1f2994c37d561dbb3433436e75118bd41badbb1a05"
+  },
+  {
+    "from": "3Dmodule/石头.blend",
+    "to": "blendFile/originals/legacy/石头.blend",
+    "bytes": 4103476,
+    "sha256": "294fd339c18a9821297c6e644e345ffd7779b0ba9b8f540d5d23f6dea992f974"
+  },
+  {
+    "from": "3Dmodule/路灯.fbx",
+    "to": "modelSources/legacy/路灯.fbx",
+    "bytes": 4745228,
+    "sha256": "723787669e8e80c2f8c34ca73e5456cacfce1e183081af62eec409102a04da1a"
+  },
+  {
+    "from": "3Dmodule/隧道内墙体贴图_1k.gltf/pebble_embedded_concrete_02.bin",
+    "to": "modelSources/legacy/隧道内墙体贴图_1k.gltf/pebble_embedded_concrete_02.bin",
+    "bytes": 2368852,
+    "sha256": "a6d9176a206391056d4206d35557f4a3d14fd771cbef5c5481bc8f6cdbac05ad"
+  },
+  {
+    "from": "3Dmodule/隧道内墙体贴图_1k.gltf/pebble_embedded_concrete_02_1k.gltf",
+    "to": "modelSources/legacy/隧道内墙体贴图_1k.gltf/pebble_embedded_concrete_02_1k.gltf",
+    "bytes": 2900,
+    "sha256": "2dced147e5f9987aad8a74525da75d4ec431aaef71550fe3ee5691d963d03104"
+  },
+  {
+    "from": "3Dmodule/隧道内墙体贴图_1k.gltf/textures/pebble_embedded_concrete_02_arm_1k.jpg",
+    "to": "modelSources/legacy/隧道内墙体贴图_1k.gltf/textures/pebble_embedded_concrete_02_arm_1k.jpg",
+    "bytes": 1246289,
+    "sha256": "079187c0d6f4e2a432399ac77800a52739c9d7f15d0e697cc9f9665e33142611"
+  },
+  {
+    "from": "3Dmodule/隧道内墙体贴图_1k.gltf/textures/pebble_embedded_concrete_02_diff_1k.jpg",
+    "to": "modelSources/legacy/隧道内墙体贴图_1k.gltf/textures/pebble_embedded_concrete_02_diff_1k.jpg",
+    "bytes": 1029806,
+    "sha256": "0056aa0b734e2977a7169a9b4f75c62dd5c833357f4f8b59ec397e977bf01564"
+  },
+  {
+    "from": "3Dmodule/隧道内墙体贴图_1k.gltf/textures/pebble_embedded_concrete_02_nor_gl_1k.jpg",
+    "to": "modelSources/legacy/隧道内墙体贴图_1k.gltf/textures/pebble_embedded_concrete_02_nor_gl_1k.jpg",
+    "bytes": 1409769,
+    "sha256": "2269df39c414a41e462c048542995d06c9f97e48d8ab1ea2d650e82f691eb58a"
+  },
+  {
+    "from": "3Dmodule/风机.obj",
+    "to": "modelSources/legacy/风机.obj",
+    "bytes": 14593933,
+    "sha256": "c1f5c315113db547cb225b503e7519ac72709d9fb9411daf26644339561c05c4"
+  },
+  {
+    "from": "3Dmodule/高模车辆Audi+RS+Q8+2019.blend",
+    "to": "blendFile/originals/legacy/高模车辆Audi+RS+Q8+2019.blend",
+    "bytes": 170340764,
+    "sha256": "9c835ea53bf88df082b0f980c78e08f2e5b1045f313a2a27a5f9dbde5df845d8"
+  },
+  {
+    "from": "models/imported/ready/camera.blend",
+    "to": "blendFile/prepared/camera.blend",
+    "bytes": 710855,
+    "sha256": "9bd6a35aec6cefdef2c90b5464f45d637326fad7f569b0612e0fc4f6012dec4f"
+  },
+  {
+    "from": "models/imported/ready/car-blue.blend",
+    "to": "blendFile/prepared/car-blue.blend",
+    "bytes": 775484,
+    "sha256": "683718e39c8d3ae943e5ca78db58fc254e953b0ef09d4a6dd32565de21994bb7"
+  },
+  {
+    "from": "models/imported/ready/car-orange.blend",
+    "to": "blendFile/prepared/car-orange.blend",
+    "bytes": 768701,
+    "sha256": "2d7b10af946d38ff3c4c814851addaaf55d1d5b68d7e223668b51fa2e2190cf4"
+  },
+  {
+    "from": "models/imported/ready/car-white.blend",
+    "to": "blendFile/prepared/car-white.blend",
+    "bytes": 965014,
+    "sha256": "6e2f327972ac6a3312b970e6a7a8286594f289a641c6d127f2fc1f5d9ad4746b"
+  },
+  {
+    "from": "models/imported/ready/fire-cabinet.blend",
+    "to": "blendFile/prepared/fire-cabinet.blend",
+    "bytes": 2492551,
+    "sha256": "0a681cd02238dd7713dbc50ec7fd177dc571d6d6b50005a8e498c41951878a45"
+  },
+  {
+    "from": "models/imported/ready/guardrail.blend",
+    "to": "blendFile/prepared/guardrail.blend",
+    "bytes": 238148,
+    "sha256": "ebc2883d150a98ab123ca01bbad492d15e37d817eecd169b46a6b9b436e0aae3"
+  },
+  {
+    "from": "models/imported/ready/jet-fan.blend",
+    "to": "blendFile/prepared/jet-fan.blend",
+    "bytes": 2244877,
+    "sha256": "5245eb0fa6f2309c685759bcf9fb26d4de0cd42e4718385105bee459e32f3805"
+  },
+  {
+    "from": "models/imported/ready/rock-0.blend",
+    "to": "blendFile/prepared/rock-0.blend",
+    "bytes": 823706,
+    "sha256": "af1deaada36c6b8d344978092508974070bc5664b54ed601c41e105041154e56"
+  },
+  {
+    "from": "models/imported/ready/rock-1.blend",
+    "to": "blendFile/prepared/rock-1.blend",
+    "bytes": 831299,
+    "sha256": "31dae405ba9659c532af5469b13657d1a878da7749f3e171e40a0aa5d9ce9fcb"
+  },
+  {
+    "from": "models/imported/ready/rock-2.blend",
+    "to": "blendFile/prepared/rock-2.blend",
+    "bytes": 832035,
+    "sha256": "647dea8affbad266971470195027b2e0032a18bf53e7d11d3307dd9159fb7cfd"
+  },
+  {
+    "from": "models/imported/ready/streetlight.blend",
+    "to": "blendFile/prepared/streetlight.blend",
+    "bytes": 985218,
+    "sha256": "6bee9cb2caef8e619c83f145b36df9b89972b40a8586a13ee5a77fabed86c0ea"
+  },
+  {
+    "from": "models/imported/ready/substation.blend",
+    "to": "blendFile/prepared/substation.blend",
+    "bytes": 4330598,
+    "sha256": "da1a6e0baa010353423b26e7d2d1819ea9fc9998e1aaa82c7bfe990c3a75e891"
+  },
+  {
+    "from": "models/imported/ready/tree-billboard.png",
+    "to": "modelSources/prepared/tree-billboard.png",
+    "bytes": 992152,
+    "sha256": "bab87550fa7033b9a02087485317cb3cfac9d77ad4e39b910bfdf43b22876759"
+  },
+  {
+    "from": "models/imported/ready/tree-far.blend",
+    "to": "blendFile/prepared/tree-far.blend",
+    "bytes": 1168015,
+    "sha256": "1bbf185b0c2000e36bc4beb52d831fc75c73ea7472db2160f9a597ffcb0b5191"
+  },
+  {
+    "from": "models/imported/ready/tree-full.blend",
+    "to": "blendFile/prepared/tree-full.blend",
+    "bytes": 104182939,
+    "sha256": "5a9ece3736e8695241281fb254b81ccc8da598ab4e911b7fa74c67ad06f78f99"
+  },
+  {
+    "from": "models/imported/ready/tree-near.blend",
+    "to": "blendFile/prepared/tree-near.blend",
+    "bytes": 40854319,
+    "sha256": "abdc949a4abff47762a6bc6b46849b006e5e043b9010546360129fcfa34fd087"
+  },
+  {
+    "from": "models/imported/trees/Finish tree.blend",
+    "to": "blendFile/originals/trees/Finish tree.blend",
+    "bytes": 19593624,
+    "sha256": "6806b03979707a684568970d3159f99e2d8adef6a7d1424aa6a5a17d302b84ec"
+  },
+  {
+    "from": "models/imported/trees/Image render/1.png",
+    "to": "blendFile/originals/trees/Image render/1.png",
+    "bytes": 3311793,
+    "sha256": "18a14fcf21aa775bfd6544177ba91cc24b0f2b5c117c2796c7d22eb48a92822c"
+  },
+  {
+    "from": "models/imported/trees/Image render/10.png",
+    "to": "blendFile/originals/trees/Image render/10.png",
+    "bytes": 1783025,
+    "sha256": "539f3c908b12e5c4b258bccda1f87456bb59b173068affaa60407c20ba8544cc"
+  },
+  {
+    "from": "models/imported/trees/Image render/11.png",
+    "to": "blendFile/originals/trees/Image render/11.png",
+    "bytes": 1851452,
+    "sha256": "ef32dc30330a26e20dca48736511b0a8ccea2e236ff0b3ac34fe92baea74bea0"
+  },
+  {
+    "from": "models/imported/trees/Image render/2.png",
+    "to": "blendFile/originals/trees/Image render/2.png",
+    "bytes": 1982083,
+    "sha256": "a6d456e623c741a74511dae38f51802139d2438509d5f06a4e3dcbaaa70f37b8"
+  },
+  {
+    "from": "models/imported/trees/Image render/3.png",
+    "to": "blendFile/originals/trees/Image render/3.png",
+    "bytes": 2636764,
+    "sha256": "4fa13c0f2506db1feb64c5be7655d0e959341ce30045df808e5f234d8b2720ae"
+  },
+  {
+    "from": "models/imported/trees/Image render/4.png",
+    "to": "blendFile/originals/trees/Image render/4.png",
+    "bytes": 4136513,
+    "sha256": "4f2979caa060898a61bba9d56e49c10466807dfba03b8ae03b0a26ec3a21d979"
+  },
+  {
+    "from": "models/imported/trees/Image render/5.png",
+    "to": "blendFile/originals/trees/Image render/5.png",
+    "bytes": 3368350,
+    "sha256": "38e0bb7351cd3f170777a037e28ceeff17f22a7850aff89cc63f88edc6791506"
+  },
+  {
+    "from": "models/imported/trees/Image render/6.png",
+    "to": "blendFile/originals/trees/Image render/6.png",
+    "bytes": 5522188,
+    "sha256": "3e6ec906f53928c001a6390db473a17d5520f6aa15038a76806d409b5a42a0be"
+  },
+  {
+    "from": "models/imported/trees/Image render/7.png",
+    "to": "blendFile/originals/trees/Image render/7.png",
+    "bytes": 6101682,
+    "sha256": "9fc961428dc90ab81399e46371eb882e6e2c5abc400b4e2dbc1e947744df96fa"
+  },
+  {
+    "from": "models/imported/trees/Image render/8.png",
+    "to": "blendFile/originals/trees/Image render/8.png",
+    "bytes": 5891072,
+    "sha256": "88070fc133445f7fb406373cbdbe236cb0d27fff3ece6cc02ce8f50c3f122e4a"
+  },
+  {
+    "from": "models/imported/trees/Image render/9.png",
+    "to": "blendFile/originals/trees/Image render/9.png",
+    "bytes": 3022933,
+    "sha256": "dcb5ed3bb701eba9b46a4c7869f76203abf2307bba2e0778e5572af029448283"
+  },
+  {
+    "from": "models/imported/trees/Tree component.blend",
+    "to": "blendFile/originals/trees/Tree component.blend",
+    "bytes": 49242580,
+    "sha256": "0e835946842091d87ecd0d5d3af8b85e555dc1313da3384d8802ce6e25ba9d3f"
+  },
+  {
+    "from": "models/imported/trees/bark/Bark_09_4K_AO.png",
+    "to": "blendFile/originals/trees/bark/Bark_09_4K_AO.png",
+    "bytes": 3028878,
+    "sha256": "7d804e6c260d5c50056a2fd49333080dbb6a7246c7ed57eb9a7c7632d8e991c4"
+  },
+  {
+    "from": "models/imported/trees/bark/Bark_09_4K_Base_Color.png",
+    "to": "blendFile/originals/trees/bark/Bark_09_4K_Base_Color.png",
+    "bytes": 9605873,
+    "sha256": "3a7d1899fdac5ef6bc92b1fe4fa52ae75d58322df667aa76e5c274b0f43b5663"
+  },
+  {
+    "from": "models/imported/trees/bark/Bark_09_4K_Height.png",
+    "to": "blendFile/originals/trees/bark/Bark_09_4K_Height.png",
+    "bytes": 1559221,
+    "sha256": "f0c3bf4a52c8e194c817dd259ac2a5ab3bc914fe6581aa874622302998482332"
+  },
+  {
+    "from": "models/imported/trees/bark/Bark_09_4K_Normal.png",
+    "to": "blendFile/originals/trees/bark/Bark_09_4K_Normal.png",
+    "bytes": 10541864,
+    "sha256": "077e3ba9dce248ce559efb902b7f7f341ee78f3d106345476205e58fa8ee4411"
+  },
+  {
+    "from": "models/imported/trees/bark/Bark_09_4K_Roughness.png",
+    "to": "blendFile/originals/trees/bark/Bark_09_4K_Roughness.png",
+    "bytes": 4448254,
+    "sha256": "4207e530d022f5a5db3e13be7d09ad266c7856f3da3ac40e63cc86ca67df9aaf"
+  },
+  {
+    "from": "models/imported/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_albedo.tif",
+    "to": "blendFile/originals/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_albedo.tif",
+    "bytes": 100663612,
+    "sha256": "64c6cfd9071a73b78720527685cfc77f51a69d111c94642b0bc2e66268571dd5"
+  },
+  {
+    "from": "models/imported/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_alpha.tif",
+    "to": "blendFile/originals/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_alpha.tif",
+    "bytes": 719615,
+    "sha256": "a1bd03681ed37d36aa575e94bf2a01ba38b9b442411afc0c11daa3cb5564d5ab"
+  },
+  {
+    "from": "models/imported/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_height.tif",
+    "to": "blendFile/originals/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_height.tif",
+    "bytes": 33576264,
+    "sha256": "dfb7fd21720efc33fac8be1299bde951220e1e39d2da179e1a2a09226abe6dbe"
+  },
+  {
+    "from": "models/imported/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_normal.tif",
+    "to": "blendFile/originals/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_normal.tif",
+    "bytes": 100663612,
+    "sha256": "83325b1b3a3adc6b77fafd5d52a7999c2dcecadb0d3f99e78409f5c77cccfa53"
+  },
+  {
+    "from": "models/imported/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_roughness.tif",
+    "to": "blendFile/originals/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_roughness.tif",
+    "bytes": 8952383,
+    "sha256": "73c96ce8fe82b86034189b94469dbdc954e53b00c7ef2ed4768074b18ea9fef0"
+  },
+  {
+    "from": "models/imported/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_translucency.tif",
+    "to": "blendFile/originals/trees/leaf/TexturesCom_Leaves_EuropeanBeech01_4K_translucency.tif",
+    "bytes": 86595190,
+    "sha256": "00f9ca344770d2c2dd3e2f3daed187101c44ac5cb65592b865ec0f548ed61bea"
+  },
+  {
+    "from": "models/source/portal-access.blend",
+    "to": "blendFile/scenes/portal-access.blend",
+    "bytes": 72328101,
+    "sha256": "505c82c7a8f0abe47dabe6df58e28943472dd1ca02ff8510de01fa123d144a73"
+  },
+  {
+    "from": "models/source/portal-access.blend1",
+    "to": "blendFile/scenes/portal-access.blend1",
+    "bytes": 72325253,
+    "sha256": "81b0d8131f9bfc25484cddcd3b82c8e12611874ab52f1ae5d3d9a478c3c38f3c"
+  },
+  {
+    "from": "models/source/portal-signs.blend",
+    "to": "blendFile/scenes/portal-signs.blend",
+    "bytes": 884600,
+    "sha256": "e5c293c23719205a8912a658ae96fcabb6339e5bac853023665db6be840c0a09"
+  },
+  {
+    "from": "models/source/portal-signs.blend1",
+    "to": "blendFile/scenes/portal-signs.blend1",
+    "bytes": 884600,
+    "sha256": "71bf534f12d67a5857a1fdd75b2ba9bd7cb03e5ff5d2ff649f944b17655aff6c"
+  },
+  {
+    "from": "models/source/portal-site.blend",
+    "to": "blendFile/scenes/portal-site.blend",
+    "bytes": 71513950,
+    "sha256": "9becdfb1d135b4c773704708f561f7585d55d405d3d91dabde8824495de78a6f"
+  },
+  {
+    "from": "models/source/portal-site.blend1",
+    "to": "blendFile/scenes/portal-site.blend1",
+    "bytes": 71513950,
+    "sha256": "4ed88c218a27c8685908f90ce8bb7ac50d767b37a59654adbff5712b9b2e72a7"
+  }
+]

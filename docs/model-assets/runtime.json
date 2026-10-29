@@ -1,0 +1,287 @@
+[
+  {
+    "file": "src/assets/modelAssets/characters/human.glb",
+    "bytes": 2095260,
+    "sha256": "1959a4f4ea1dab003fd6a54d563359e05d7d65948d8b8f2162739b858cc14f90"
+  },
+  {
+    "file": "src/assets/modelAssets/characters/worker.glb",
+    "bytes": 540560,
+    "sha256": "6b9b74c51ce411e84f3f6127a8e4da150b43902a9b2cd989088c9792c0505a91"
+  },
+  {
+    "file": "src/assets/modelAssets/environment/incident-rock-0.glb",
+    "bytes": 342056,
+    "sha256": "d55c43d4e06f02117563d9d21ddc7cca232b0272ebc1c9c58ad0690b608af2e3"
+  },
+  {
+    "file": "src/assets/modelAssets/environment/incident-rock-1.glb",
+    "bytes": 349312,
+    "sha256": "dd3ff16afdb62eab839735da55c4baf02408680103e04d50c6d4fa878b12f3e5"
+  },
+  {
+    "file": "src/assets/modelAssets/environment/incident-rock-2.glb",
+    "bytes": 348612,
+    "sha256": "1717c47292109507c7436b0c023457fb696d7fbed43ae27905471178e3fa29e6"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/camera.glb",
+    "bytes": 872264,
+    "sha256": "401bde35e6a1f148fd9f2806d175d7dc604feec563dbf3b6dd8d66e98bc3da5f"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/covi.glb",
+    "bytes": 106176,
+    "sha256": "2239015320df0d76b0e6647ada7845461867260df2229dd2b40c65ae84eac07e"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/distribution.glb",
+    "bytes": 118552,
+    "sha256": "7bd07775dbe799cbe32768c8e6e5ed757dce15f17c5ae6d3672d73e1ade4b467"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/emergency-telephone.glb",
+    "bytes": 234284,
+    "sha256": "e1dcee7d73a22d8e0e636808215448516b843e6ae8bcff958bc844db7bfdd44e"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/escape-sign-left.glb",
+    "bytes": 378372,
+    "sha256": "cb6869e66eaeb9e21fea1bd52f24d0576d5d4372762bc9aa98d5f1b28399e807"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/escape-sign-right.glb",
+    "bytes": 378372,
+    "sha256": "e435c9931592c25d2df525560e8ee762cb9b930e54c7b4abe8bb4db00437cd30"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/escape-sign.glb",
+    "bytes": 372436,
+    "sha256": "39c7cc2b1527fd7a851fd5b7c340053704a5cfbea659a7c5cab70dc128f0169e"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/fan.glb",
+    "bytes": 1137108,
+    "sha256": "e42f1d7164999180f97a98bf014f0421a610e03e810484c031aa044dd431e0b8"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/fbg.glb",
+    "bytes": 109784,
+    "sha256": "63c980dd7a7f72df3022a1967649e2ab2eab02669d0e91a6cd0d3520d749c7ee"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/fire-cabinet.glb",
+    "bytes": 1619180,
+    "sha256": "cd124dc1521e909211c3d551c589b360a324234636fa5b0f99aeeab2ba453ec0"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/fire-pump.glb",
+    "bytes": 46744,
+    "sha256": "9f2be7db5b6103e9acde51c5146aa055ffc28571f2725e574e0aba69e7e1752b"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/flame.glb",
+    "bytes": 10048,
+    "sha256": "829a88cae569c8ea90d940a2ecc934ee6e2ebe0d17423cf16ca64f7856cf3e16"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/humidity.glb",
+    "bytes": 29600,
+    "sha256": "0c2aded550d37d96f9161dcfdb95447c1b9160791c40d945ded53d407491b795"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/interior-vms.glb",
+    "bytes": 1127076,
+    "sha256": "eefbe0550492b91bf0f76a62007dc3b9e8b23758045d987c3025a07b54d8b56f"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/jet-fan-active.glb",
+    "bytes": 833804,
+    "sha256": "9f3ac4afb1369da2118be19b4cafbec6ca68074504b101b301c3e1da75f91061"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/jet-fan.glb",
+    "bytes": 708852,
+    "sha256": "d31780c5e333d5fc03abb6af0e013657999be4a7737bc1f29f596def0f5ca93e"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/lane-head.glb",
+    "bytes": 34468,
+    "sha256": "fbb92c0ee696b824283236a26ccfe8923e00c55afdc44341941ff282d0bd532a"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/lane-indicators.glb",
+    "bytes": 40956,
+    "sha256": "eff49abe92c51352f93322afd2086d8956a4ff156f56cf9817f32e6c39bbf3aa"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/layby-marking.glb",
+    "bytes": 577776,
+    "sha256": "54355b4854f3331ddddb38877a80ff03321f8495ccfcedd443fa8ebf38957b48"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/layby-sign.glb",
+    "bytes": 840520,
+    "sha256": "d3e64f8ffe39592cfa1c96df5409b1d646cf4394dd4d938d2bfc077b088bfa8a"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/manual.glb",
+    "bytes": 31544,
+    "sha256": "ca0d5aafdd338eee349ef3e054bd25e7d622cddb645f6af2d5e299b454c4fb04"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/no2.glb",
+    "bytes": 103708,
+    "sha256": "4035373444d03d86809d58581df283c3d1fe3d5241feeb5fd762f544de7934fc"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/pedestrian-shutter.glb",
+    "bytes": 278692,
+    "sha256": "83039462a316c4fee557a00890c56653e52c825b0f8c0ea1d9e50d476208f3c1"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/plc.glb",
+    "bytes": 118456,
+    "sha256": "cb67e6115985712a8bf8332944915b9436ea40669de006dd762fd29fb5777f7d"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/speaker.glb",
+    "bytes": 16176,
+    "sha256": "1be4e2311fa1ee7ec50274a61ec33583a58abacce0c873dee8c7c85405fa1b51"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/streetlight.glb",
+    "bytes": 317272,
+    "sha256": "4d57670118a502d7bb6ec18a929d6c6ee2ef6614d0b0d145a1e35702d39c8c2c"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/substation-new.glb",
+    "bytes": 2321000,
+    "sha256": "b13efa2af8f1ab6b09da86009e643b03ac19f278c398889f8d17bfa90a352753"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/traffic-signal.glb",
+    "bytes": 49948,
+    "sha256": "18ba696988acfefdcf732c0749e7f4aabbf98abd0891048202c74531ca5e785b"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/vehicle-detector.glb",
+    "bytes": 729632,
+    "sha256": "46d938feff4d2d68ec2b77ce32327257dae588ab5d3bd5f73a49a4ad2c675599"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/vehicle-shutter.glb",
+    "bytes": 376968,
+    "sha256": "493021f77dafe1176239e22a899cb028306bfe58c47c8669be44433d8b520e29"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/vms-body.glb",
+    "bytes": 22472,
+    "sha256": "4c76dacfd90f59804203ae759c34638d2276a0ef614feea2a8c86abea364445e"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/water-tank.glb",
+    "bytes": 76228,
+    "sha256": "017cd9ce0fa001b477884e6e0fcd4c7c04d9d7de6be72c098ed0002e62600b38"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/wind.glb",
+    "bytes": 24752,
+    "sha256": "a135b4df6696e8bfe8ad8293d5aef71f909e040067669b64ec70d17513590220"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/work-barrier.glb",
+    "bytes": 44428,
+    "sha256": "00a71d1553133dcc9910051c2d8120e8985de1fde55a0dde3eada8d662fa1989"
+  },
+  {
+    "file": "src/assets/modelAssets/equipment/work-cone.glb",
+    "bytes": 51412,
+    "sha256": "1afdb6c1e14d601683104cf6936d40ca5b3a787327c1c5223d639606b79255dc"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/portal-structures-original.glb",
+    "bytes": 7395304,
+    "sha256": "dafdc69a4b13265ae1532fe7bc9eae0cd79f4b68380ecf4b5ad3c0052aa797b4"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/substation-original.glb",
+    "bytes": 3996300,
+    "sha256": "a7cc77941052657285f875d48f1d1308a7775fed2b2c70e6facfce0667c7d106"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/water-tank-original.glb",
+    "bytes": 121244,
+    "sha256": "6d96f18fdacd32358cf2f604f2727c0d3db2a7a4802ecfd9c7b4f05e81f615b8"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/work-worker.glb",
+    "bytes": 82740,
+    "sha256": "47bb8fe5e22c17565aeef9b2fdd417b9806cbc0070b917f2d9c6fa7e8cc33b83"
+  },
+  {
+    "file": "src/assets/modelAssets/portal/portal-signs.glb",
+    "bytes": 294332,
+    "sha256": "370c99c8e1bc53130ea784b162063c18dab9a1b015be726c9fe566d16c95f37a"
+  },
+  {
+    "file": "src/assets/modelAssets/portal/portal-structures.glb",
+    "bytes": 7445884,
+    "sha256": "0309b4a7f246908ec1d241dcc6cfca8286f9f20cfb6ea8490ec26af23cf46fc1"
+  },
+  {
+    "file": "src/assets/modelAssets/portal/portal-terrain.glb",
+    "bytes": 17559956,
+    "sha256": "a8ccc9373fcce9e403ae700ff51cc87d0fea85b9a2285969fec1a97f491f9e76"
+  },
+  {
+    "file": "src/assets/modelAssets/vehicles/car-audi.glb",
+    "bytes": 7120824,
+    "sha256": "0867084486a3f7f247ae6bc1fb66e10f9bd84ce04f58f6fa39bca57abfdf9b80"
+  },
+  {
+    "file": "src/assets/modelAssets/vehicles/car-blue.glb",
+    "bytes": 1041996,
+    "sha256": "5969bc05a2c696ceba4cac618c156c54764d013df8c1328022136d7d62af65d1"
+  },
+  {
+    "file": "src/assets/modelAssets/vehicles/car-orange.glb",
+    "bytes": 1042000,
+    "sha256": "3785bf43beabc890d82535c18a7d193c7d1fff4289fcd46096e0390d365ec4ce"
+  },
+  {
+    "file": "src/assets/modelAssets/vehicles/car-van.glb",
+    "bytes": 771972,
+    "sha256": "f43e3324717598a17d6e4580f1aafd86f0cfeb8c4e6bc3d158f8d6d4af5e7cc1"
+  },
+  {
+    "file": "src/assets/modelAssets/vehicles/car-white.glb",
+    "bytes": 1041984,
+    "sha256": "6403be01dfaad18cbd9a6990948548da1786dd0c74ba798be9de6671b1c0da29"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/portal-terrain_back.glb",
+    "bytes": 39223056,
+    "sha256": "da31d6bafc14ed9284cf38a1bfdaedca40af2c6c9436d81c2ffa02e2d5ae9f98"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/portal-terrain-missing-instances.glb",
+    "bytes": 13852868,
+    "sha256": "80dc2c1a49eb927f9acf9a1c69be5de31c098be2226c100ca35c4d699ab79c9d"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/portal-terrain-before-fab.glb",
+    "bytes": 15228608,
+    "sha256": "63d25d844c9c20245001dc85c7fd41b440d43d1e161503fad31403deeb338766"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/vehicle-detector-before-fab.glb",
+    "bytes": 33664,
+    "sha256": "f37bc5522b3f07243fd89c9383a5584e664a952eb08eabc13ebbea8ba9873dff"
+  },
+  {
+    "file": "src/assets/modelAssets/legacy/camera-before-fab.glb",
+    "bytes": 277796,
+    "sha256": "3b1a50f6302c55997120c3406ab0923dcee806cfca4201a1114250b4dc608a1f"
+  }
+]

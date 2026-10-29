@@ -1,0 +1,33 @@
+{
+  "date": "2026-10-28",
+  "model": "existing single-arm FBX / portal-structures GLB",
+  "lampsPerPortal": 26,
+  "transitionMs": 420,
+  "build": "passed",
+  "focusedTests": {
+    "passed": 13,
+    "failed": 0
+  },
+  "fullTests": {
+    "passed": 58,
+    "failed": 1,
+    "failure": "existing portal-access.blend SHA-256 differs from migration manifest"
+  },
+  "runtimeRamp": {
+    "samples": 24,
+    "start": 1,
+    "end": 0,
+    "elapsedMs": 432,
+    "neighborValues": [
+      1
+    ],
+    "otherPortalValues": [
+      1
+    ]
+  },
+  "reducedMotionValues": [
+    0,
+    0
+  ],
+  "deployed": false
+}

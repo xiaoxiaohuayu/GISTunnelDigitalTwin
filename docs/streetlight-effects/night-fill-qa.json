@@ -1,0 +1,48 @@
+{
+  "date": "2026-10-28",
+  "build": "passed",
+  "nightSkyFill": {
+    "before": 0.08,
+    "after": 0.65
+  },
+  "structureNightDiffuse": {
+    "before": 0.08,
+    "after": 0.6
+  },
+  "bothPortalsCompared": true,
+  "lightingEffectsRetained": true,
+  "canvas": [
+    2560,
+    1299
+  ],
+  "clientSize": [
+    2560,
+    1299
+  ],
+  "staticTerrainImageComparison": {
+    "west": {
+      "ROI": [
+        600,
+        80,
+        1850,
+        390
+      ],
+      "meanSRGBLuma": {
+        "before": 35.51,
+        "after": 67.0
+      }
+    },
+    "east": {
+      "ROI": [
+        600,
+        80,
+        1850,
+        390
+      ],
+      "meanSRGBLuma": {
+        "before": 33.22,
+        "after": 65.29
+      }
+    }
+  }
+}

@@ -1,0 +1,132 @@
+[
+  {
+    "node": "streetlight.001",
+    "x": -168,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.002",
+    "x": -144,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.003",
+    "x": -120,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.004",
+    "x": -96,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.005",
+    "x": -72,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.006",
+    "x": -48,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.007",
+    "x": -24,
+    "y": -18.25
+  },
+  {
+    "node": "streetlight.008",
+    "x": -168,
+    "y": -5.75
+  },
+  {
+    "node": "streetlight.009",
+    "x": -144,
+    "y": -5.75
+  },
+  {
+    "node": "streetlight.010",
+    "x": -120,
+    "y": -5.75
+  },
+  {
+    "node": "streetlight.011",
+    "x": -96,
+    "y": -5.75
+  },
+  {
+    "node": "streetlight.013",
+    "x": -48,
+    "y": -5.75
+  },
+  {
+    "node": "streetlight.014",
+    "x": -24,
+    "y": -5.75
+  },
+  {
+    "node": "streetlight.015",
+    "x": -168,
+    "y": 5.75
+  },
+  {
+    "node": "streetlight.016",
+    "x": -144,
+    "y": 5.75
+  },
+  {
+    "node": "streetlight.017",
+    "x": -120,
+    "y": 5.75
+  },
+  {
+    "node": "streetlight.018",
+    "x": -96,
+    "y": 5.75
+  },
+  {
+    "node": "streetlight.020",
+    "x": -48,
+    "y": 5.75
+  },
+  {
+    "node": "streetlight.021",
+    "x": -24,
+    "y": 5.75
+  },
+  {
+    "node": "streetlight.022",
+    "x": -168,
+    "y": 18.25
+  },
+  {
+    "node": "streetlight.023",
+    "x": -144,
+    "y": 18.25
+  },
+  {
+    "node": "streetlight.024",
+    "x": -120,
+    "y": 18.25
+  },
+  {
+    "node": "streetlight.025",
+    "x": -96,
+    "y": 18.25
+  },
+  {
+    "node": "streetlight.026",
+    "x": -72,
+    "y": 18.25
+  },
+  {
+    "node": "streetlight.027",
+    "x": -48,
+    "y": 18.25
+  },
+  {
+    "node": "streetlight.028",
+    "x": -24,
+    "y": 18.25
+  }
+]

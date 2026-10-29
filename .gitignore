@@ -1,0 +1,17 @@
+node_modules/
+dist/
+.env
+.env.*.local
+.DS_Store
+*.local
+
+# Local authoring sources and review artifacts
+blendFile/
+modelSources/
+src/assets/modelAssets/legacy/
+.impeccable/
+*.mp4
+docs/**/*.png
+docs/**/*.jpg
+docs/**/*.jpeg
+docs/**/*.webp

@@ -1,0 +1,236 @@
+{
+  "source": "src/assets/modelAssets/legacy/portal-terrain_back.glb",
+  "sourceSHA256": "da31d6bafc14ed9284cf38a1bfdaedca40af2c6c9436d81c2ffa02e2d5ae9f98",
+  "beforeBytes": 39223056,
+  "reductionPercent": 61.17,
+  "instanceCount": 287,
+  "images": [
+    {
+      "name": "limestone-0",
+      "dimensions": [
+        512,
+        512
+      ],
+      "beforeBytes": 228746,
+      "afterBytes": 13868,
+      "alphaUnchanged": true,
+      "rgbPSNR": 46.35,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "limestone-1",
+      "dimensions": [
+        512,
+        512
+      ],
+      "beforeBytes": 235838,
+      "afterBytes": 13270,
+      "alphaUnchanged": true,
+      "rgbPSNR": 46.42,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "limestone-2",
+      "dimensions": [
+        512,
+        512
+      ],
+      "beforeBytes": 236574,
+      "afterBytes": 12852,
+      "alphaUnchanged": true,
+      "rgbPSNR": 46.7,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Poliigon_GrassPatchyGround_4585_Normal",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 10109111,
+      "afterBytes": 7677144,
+      "alphaUnchanged": true,
+      "rgbPSNR": 51.2,
+      "options": [
+        "-lossless",
+        "-near_lossless",
+        "80",
+        "-m",
+        "6"
+      ]
+    },
+    {
+      "name": "Poliigon_GrassPatchyGround_4585_BaseColor",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 4654477,
+      "afterBytes": 2298766,
+      "alphaUnchanged": true,
+      "rgbPSNR": 39.04,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Poliigon_GrassPatchyGround_4585_Roughness",
+      "dimensions": [
+        2048,
+        2048
+      ],
+      "beforeBytes": 3741401,
+      "afterBytes": 2046620,
+      "alphaUnchanged": true,
+      "rgbPSNR": null,
+      "options": [
+        "-lossless",
+        "-m",
+        "6"
+      ]
+    },
+    {
+      "name": "Cliff mineral detail",
+      "dimensions": [
+        256,
+        256
+      ],
+      "beforeBytes": 69910,
+      "afterBytes": 4486,
+      "alphaUnchanged": true,
+      "rgbPSNR": 44.62,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "tree-billboard",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "beforeBytes": 992152,
+      "afterBytes": 143324,
+      "alphaUnchanged": true,
+      "rgbPSNR": 43.15,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "Bark_09_4K_Base_Color",
+      "dimensions": [
+        341,
+        1024
+      ],
+      "beforeBytes": 694298,
+      "afterBytes": 131698,
+      "alphaUnchanged": true,
+      "rgbPSNR": 38.58,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    },
+    {
+      "name": "TexturesCom_Leaves_EuropeanBeech01_4K_albedo",
+      "dimensions": [
+        1024,
+        1024
+      ],
+      "beforeBytes": 3724314,
+      "afterBytes": 26674,
+      "alphaUnchanged": true,
+      "rgbPSNR": 47.1,
+      "options": [
+        "-q",
+        "90",
+        "-m",
+        "6",
+        "-sharp_yuv"
+      ]
+    }
+  ],
+  "texturePassBytes": 26905332,
+  "afterBytes": 15228608,
+  "texturePassGeometryAndInstancesByteIdentical": true,
+  "instanceDataByteIdentical": true,
+  "geometryCompression": {
+    "codec": "Draco",
+    "gltfTransformVersion": "4.3.0",
+    "positionBits": 16,
+    "normalBits": 14,
+    "texcoordBits": 16,
+    "quantizationVolume": "mesh",
+    "method": "edgebreaker"
+  },
+  "geometryValidation": {
+    "decodedMeshCount": 7,
+    "meshes": [
+      {
+        "name": "stone_small_a.001",
+        "triangles": 4990
+      },
+      {
+        "name": "stone_small_b.001",
+        "triangles": 4996
+      },
+      {
+        "name": "stone_small_c.001",
+        "triangles": 4996
+      },
+      {
+        "name": "Sculpted mountain with two excavated bores",
+        "triangles": 9984
+      },
+      {
+        "name": "立方体",
+        "triangles": 12
+      },
+      {
+        "name": "平面.003",
+        "triangles": 6
+      },
+      {
+        "name": "tree.001",
+        "triangles": 161754
+      }
+    ],
+    "storedTriangles": 186738,
+    "maxNearestVertexErrorMetres": 0.002787332754566519
+  },
+  "outputSHA256": "63d25d844c9c20245001dc85c7fd41b440d43d1e161503fad31403deeb338766"
+}

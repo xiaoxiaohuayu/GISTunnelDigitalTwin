@@ -1,0 +1,17 @@
+[
+  {
+    "active": "src/assets/modelAssets/portal/portal-terrain.glb",
+    "backup": "src/assets/modelAssets/legacy/portal-terrain-before-fab.glb",
+    "sha256": "63d25d844c9c20245001dc85c7fd41b440d43d1e161503fad31403deeb338766"
+  },
+  {
+    "active": "src/assets/modelAssets/equipment/vehicle-detector.glb",
+    "backup": "src/assets/modelAssets/legacy/vehicle-detector-before-fab.glb",
+    "sha256": "f37bc5522b3f07243fd89c9383a5584e664a952eb08eabc13ebbea8ba9873dff"
+  },
+  {
+    "active": "src/assets/modelAssets/equipment/camera.glb",
+    "backup": "src/assets/modelAssets/legacy/camera-before-fab.glb",
+    "sha256": "3b1a50f6302c55997120c3406ab0923dcee806cfca4201a1114250b4dc608a1f"
+  }
+]

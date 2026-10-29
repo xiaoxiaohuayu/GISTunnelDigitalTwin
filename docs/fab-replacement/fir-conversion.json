@@ -1,0 +1,56 @@
+[
+  {
+    "name": "fir-a-lod0",
+    "triangles": 12969,
+    "height": 11,
+    "source": "Christmas tree_LOD0"
+  },
+  {
+    "name": "fir-a-lod2",
+    "triangles": 3268,
+    "height": 11,
+    "source": "Christmas tree_LOD2"
+  },
+  {
+    "name": "fir-a-lod3",
+    "triangles": 20,
+    "height": 11,
+    "source": "Christmas tree_LOD3"
+  },
+  {
+    "name": "fir-b-lod0",
+    "triangles": 9872,
+    "height": 11,
+    "source": "Christmas tree_2_LOD0"
+  },
+  {
+    "name": "fir-b-lod2",
+    "triangles": 2506,
+    "height": 11,
+    "source": "Christmas tree_2_LOD2"
+  },
+  {
+    "name": "fir-b-lod3",
+    "triangles": 20,
+    "height": 11,
+    "source": "Christmas tree_2_LOD3"
+  },
+  {
+    "name": "fir-c-lod0",
+    "triangles": 11786,
+    "height": 11,
+    "source": "Christmas tree_3_LOD0"
+  },
+  {
+    "name": "fir-c-lod2",
+    "triangles": 3014,
+    "height": 11,
+    "source": "Christmas tree_3_LOD2"
+  },
+  {
+    "name": "fir-c-lod3",
+    "triangles": 20,
+    "height": 11,
+    "source": "Christmas tree_3_LOD3"
+  }
+]
