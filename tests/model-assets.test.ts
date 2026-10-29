@@ -154,8 +154,15 @@ test('Fir replacement preserves tree and rock placements and retains ground geom
     const next = after.meshes.find((m: any) => m.name === mesh.name)
     assert.ok(next, mesh.name)
     assert.equal(next.primitives.length, mesh.primitives.length)
-    mesh.primitives.forEach((p: any, i: number) =>
-      assert.equal(after.accessors[next.primitives[i].indices].count, before.accessors[p.indices].count, mesh.name))
+    mesh.primitives.forEach((p: any, i: number) => {
+      const primitive=next.primitives[i]
+      if(mesh.name==='立方体') {
+        // The approach keeps its sides and gains a grid for local grass colours.
+        assert.equal(after.accessors[primitive.indices].count,13530)
+        assert.ok(primitive.attributes.COLOR_0!==undefined)
+        assert.equal(after.accessors[primitive.attributes.COLOR_0].count,after.accessors[primitive.attributes.POSITION].count)
+      } else assert.equal(after.accessors[primitive.indices].count, before.accessors[p.indices].count, mesh.name)
+    })
   }
   const firs = after.meshes.filter((m: any) => /^fir-[abc]-lod[023]$/.test(m.name))
   assert.equal(firs.length, 9)
