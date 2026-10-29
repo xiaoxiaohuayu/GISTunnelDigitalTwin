@@ -7,6 +7,8 @@ export interface TunnelSurvey {
   minCover: number
   grade: number
   center: Cartesian3
+  pointAt?: (tube:number,distance:number,lateral:number,height:number) => Cartesian3
+  boreNames?: string[]
 }
 
 export interface RoamingState {playing:boolean;tube:0|1;speed:number;distance:number;length:number}

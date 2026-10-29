@@ -23,9 +23,16 @@ import { PORTAL_EXTENSION, tunnelPoint } from './tunnelDetails'
 import { addTunnelSystems, setEquipmentLighting } from './tunnelSystems'
 import { initialSystems, deviceAlarm, deviceEnabled, changeSystems, illuminationAt, incidentStation, incidentDefinition } from './tunnelSystemsState'
 import type { SceneDevice, SystemsState } from './tunnelSystemsState'
+import { readTunnelProject } from './projectStorage'
+import { defaultProject,seedAssets } from './projectConfig'
+import type { TunnelProject } from './projectConfig'
+import { createConfiguredMap } from './configuredMap'
 
 export type IntroPhase = 'earth' | 'region' | 'overview' | 'portal' | 'complete'
 export interface MapOptions {
+  onWarning?: (message:string) => void
+  onSystems?: (state:SystemsState) => void
+  onProject?: (project:TunnelProject,configured:boolean) => void
   onProgress?: (progress:LoadProgress) => void
   onOverlayPositions?: (positions:OverlayPosition[]) => void
   onOverlays?: (items:SceneOverlay[]) => void
@@ -40,6 +47,8 @@ export interface MapOptions {
   shouldSkipIntro?: () => boolean
 }
 export async function createCesiumMap(container: HTMLDivElement, options: MapOptions = {}): Promise<TunnelMapHandle> {
+  const configured=await readTunnelProject()
+  if(configured)return createConfiguredMap(container,configured,options)
   const report=createLoadReporter(progress=>options.onProgress?.(progress))
   report(2,'渲染引擎','Cesium 初始化')
   window.CESIUM_BASE_URL = new URL(`${import.meta.env.BASE_URL}cesium/`,document.baseURI).href
@@ -80,6 +89,14 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     systems=await addTunnelSystems(viewer,survey,(done,total,resource)=>report(55+done/total*25,'设备模型',resource),model.sites)
     traffic=await addTunnelTraffic(viewer,survey,()=>state,(done,total,resource)=>report(80+done/total*10,'车辆模型',resource))
     options.onDevices?.(systems.devices)
+    const project=defaultProject(),start=Cartesian3.midpoint(survey.tubes[0]![0]!,survey.tubes[1]![0]!,new Cartesian3()),geo=Cartographic.fromCartesian(start)
+    project.name=boards.config.name
+    project.origin={longitude:CesiumMath.toDegrees(geo.longitude),latitude:CesiumMath.toDegrees(geo.latitude),elevation:geo.height,heading:90,grade:survey.grade}
+    project.bores.forEach((b,i)=>{b.end=survey.length;b.laneWidth=4.3;b.offset=i===0?12:-12})
+    project.assets=seedAssets(systems.devices,project).map(a=>({...a,lateral:-a.lateral}))
+    const projectInverse=Matrix4.inverse(Transforms.eastNorthUpToFixedFrame(start),new Matrix4())
+    for(const asset of project.assets){const device=systems.devices.find(d=>d.id===asset.id);if(device?.position){const local=Matrix4.multiplyByPoint(projectInverse,device.position,new Cartesian3());asset.lateral=-local.y-project.bores[device.tube]!.offset}}
+    options.onProject?.(project,false)
   } catch(error) {viewer.destroy();throw error}
   const interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,device=>focusDevice(device.id),()=>{stopCamera();interaction.select();options.onSignEdit?.()},index=>{stopCamera();interaction.select();options.onTrafficSignEdit?.(index)})
   const events=addTunnelEvents(viewer,survey)

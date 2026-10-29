@@ -11,7 +11,7 @@ const incident=computed(()=>props.state.incident!=='none'&&props.device.tube===p
 </script>
 <template>
   <div class="individual-controls">
-    <p class="field-help">仅控制 {{device.id}}</p>
+    <p class="field-help">仅控制 {{device.code??device.id}}</p>
     <button v-if="controllable" class="locate-device" :aria-pressed="enabled" @click="emit('change',{enabled:!enabled})">{{verb}}</button>
     <label v-if="device.kind==='signal'">当前信号<select :value="deviceEntrance(device,state)" :disabled="incident" @change="emit('change',{entrance:($event.target as HTMLSelectElement).value as DeviceSettings['entrance']})"><option value="green">绿灯 · 通行</option><option value="yellow">黄灯 · 注意</option><option value="red">红灯 · 停止</option></select></label>
     <label v-if="device.kind==='lane'">当前车道指示<select :value="deviceLane(device,length,state)" :disabled="incident" @change="emit('change',{lane:($event.target as HTMLSelectElement).value as DeviceSettings['lane']})"><option value="down">向下 · 通行</option><option value="left">向左 · 疏散</option><option value="cross">红叉 · 禁止通行</option></select></label>

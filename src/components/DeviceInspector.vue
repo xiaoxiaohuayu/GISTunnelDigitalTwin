@@ -4,7 +4,7 @@ import { computed } from 'vue'
 import type { SceneDevice, SystemsState, DeviceSettings } from '../engines/tunnelSystemsState'
 import { deviceName, deviceTelemetry } from '../engines/deviceTelemetry'
 const props = defineProps<{ device: SceneDevice; state: SystemsState;index:number;total:number;length:number;returnLabel?:string }>()
-defineEmits<{ close: []; back:[]; locate: [id: string]; change:[patch:DeviceSettings]; camera:[id:string];next:[direction:number];editVms:[] }>()
+defineEmits<{ close: []; back:[]; locate: [id: string]; change:[patch:DeviceSettings]; camera:[id:string];next:[direction:number];editVms:[];editPosition:[] }>()
 const reading = computed(() => deviceTelemetry(props.device, props.state, props.length))
 
 </script>
@@ -16,12 +16,13 @@ const reading = computed(() => deviceTelemetry(props.device, props.state, props.
       <div class="device-stepper"><button :disabled="total<2" @click="$emit('next',-1)">上一个</button><span>{{index+1}} / {{total}}</span><button :disabled="total<2" @click="$emit('next',1)">下一个</button></div>
       <div :key="device.id" class="device-body">
       <h3 class="device-title">{{ deviceName(device) }}</h3>
-      <p class="device-address">{{device.portalEnd===undefined?(device.tube===0?'上行洞':'下行洞'):(device.portalEnd===0?'西洞口':'东洞口')}} · 距基点 {{ Math.round(device.station) }} m</p>
+      <p class="device-address">{{device.boreName??(device.portalEnd===undefined?(device.tube===0?'上行洞':'下行洞'):(device.portalEnd===0?'西洞口':'东洞口'))}} · {{device.chainage??`距基点 ${Math.round(device.station)} m`}}</p>
       <div class="device-state"><span class="state-caption">运行状态</span><span class="state-badge" :class="reading.severity"><i aria-hidden="true" />{{reading.status}}</span></div>
       <div class="device-reading"><span class="reading-caption">当前数值</span><strong :key="`${device.id}:${reading.value}`" class="reading-value">{{reading.value}}</strong><span class="reading-source">模拟数据 · 本地演示</span></div>
-      <dl class="device-facts"><div><dt>设备编号</dt><dd>{{device.id}}</dd></div><div><dt>所属方向</dt><dd>{{device.tube===0?'上行洞':'下行洞'}}</dd></div><div><dt>沿线位置</dt><dd>{{Math.round(device.station)}} m</dd></div></dl>
+      <dl class="device-facts"><div><dt>设备编号</dt><dd>{{device.code??device.id}}</dd></div><div><dt>所属洞筒</dt><dd>{{device.boreName??(device.tube===0?'上行洞':'下行洞')}}</dd></div><div><dt>沿线位置</dt><dd>{{Math.round(device.station)}} m</dd></div></dl>
       <p class="reading-note" :class="reading.severity" role="status">{{reading.note}}</p>
       <div class="inspector-actions">
+        <button class="locate-device" @click="$emit('editPosition')">编辑位置与台账</button>
         <button class="locate-device primary-locate" @click="$emit('locate', device.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>定位到设备</button>
         <button v-if="device.kind==='vms'" class="locate-device" @click="$emit('editVms')">编辑情报板内容与尺寸</button>
         <button v-if="device.kind==='camera'" class="locate-device" :disabled="reading.status==='通信离线'||reading.status==='关闭'" @click="$emit('camera',device.id)">预览三维监控视角</button>

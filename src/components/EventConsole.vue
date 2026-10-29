@@ -7,7 +7,7 @@ import IncidentImpact from './IncidentImpact.vue'
 import type { SceneDevice } from '../engines/tunnelSystemsState'
 import { updateDrillHistory } from '../engines/drillHistory'
 import type { DrillRecord } from '../engines/drillHistory'
-const props=defineProps<{state:SystemsState;ready:boolean;open:boolean;devices:SceneDevice[];length:number}>()
+const props=defineProps<{state:SystemsState;ready:boolean;open:boolean;devices:SceneDevice[];length:number;boreNames?:string[]}>()
 const emit=defineEmits<{close:[];change:[patch:Partial<SystemsState>];locateIncident:[];locateDevice:[id:string]}>()
 const tab=shallowRef<'traffic'|'devices'>('traffic')
 const records=shallowRef<DrillRecord[]>([])
@@ -27,10 +27,12 @@ function locateEntry(key:string):void{if(key.startsWith('incident:'))emit('locat
 function incident(kind:IncidentKind):void{emit('change',{incident:kind});emit('locateIncident')}
 function device(mode:SystemsState['deviceAlarm']):void {
   const scenario=alarmScenarios.find(item=>item.mode===mode);if(!scenario)return
-  const on=deviceAlarm(scenario.id,props.state)==='none'
-  const next=changeDevice(props.state,scenario.id,{alarm:on?mode:'none'})
-  emit('change',{devices:next.devices});emit('locateDevice',scenario.id)
+  const id=scenarioId(mode);if(!id)return
+  const on=deviceAlarm(id,props.state)==='none'
+  const next=changeDevice(props.state,id,{alarm:on?mode:'none'})
+  emit('change',{devices:next.devices});emit('locateDevice',id)
 }
+function scenarioId(mode:SystemsState['deviceAlarm']):string{return props.devices.find(d=>d.kind===(mode==='environment'?'covi':mode))?.id??''}
 function resolve():void {
   let next=props.state
   for(const id of deviceAlarmIds(next))next=changeDevice(next,id,{alarm:'none'})
@@ -48,10 +50,10 @@ function locate():void {
     <div class="alarm-console-body">
       <div class="event-tabs" role="group" aria-label="事件类别"><button :aria-pressed="tab==='traffic'" @click="tab='traffic'">交通事件</button><button :aria-pressed="tab==='devices'" @click="tab='devices'">设备异常</button></div>
       <template v-if="tab==='traffic'">
-        <label class="event-tube">事发方向<select :value="state.incidentTube" @change="emit('change',{incidentTube:Number(($event.target as HTMLSelectElement).value) as 0|1})"><option :value="0">上行洞</option><option :value="1">下行洞</option></select></label>
+        <label class="event-tube">事发洞筒<select :value="state.incidentTube" @change="emit('change',{incidentTube:Number(($event.target as HTMLSelectElement).value) as 0|1})"><option v-for="(name,i) in boreNames??['上行洞','下行洞']" :key="i" :value="i">{{name}}</option></select></label>
         <div class="event-grid"><button v-for="item in incidentCatalog" :key="item.kind" :disabled="!ready" :aria-pressed="state.incident===item.kind" @click="incident(item.kind)">{{item.name}}</button></div>
       </template>
-      <div v-else class="alarm-options"><button v-for="scenario in alarmScenarios" :key="scenario.mode" :disabled="!ready" :aria-pressed="deviceAlarm(scenario.id,state)===scenario.mode" @click="device(scenario.mode)">{{scenario.title}}</button></div>
+      <div v-else class="alarm-options"><button v-for="scenario in alarmScenarios" :key="scenario.mode" :disabled="!ready||!scenarioId(scenario.mode)" :aria-pressed="deviceAlarm(scenarioId(scenario.mode),state)===scenario.mode" @click="device(scenario.mode)">{{scenario.title}}</button></div>
       <div v-if="active" class="drill-active-list">
         <article v-for="entry in entries" :key="entry.key" class="drill-entry">
           <h3>{{entry.name}}</h3><p>{{entry.detail}}</p>

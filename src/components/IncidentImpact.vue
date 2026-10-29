@@ -8,7 +8,7 @@ defineEmits<{locate:[id:string]}>()
 const impact=computed(()=>incidentImpact(props.devices,props.state,props.length))
 const groups=computed(()=>[0,1].flatMap(tube=>deviceCatalog.flatMap(([,kind,name])=>{
   const items=impact.value.filter(item=>item.device.tube===tube&&item.device.kind===kind)
-  return items.length?[{key:`${tube}-${kind}`,name:`${tube===0?'上行洞':'下行洞'} · ${name}`,items}]:[]
+  return items.length?[{key:`${tube}-${kind}`,name:`${items[0]!.device.boreName??(tube===0?'上行洞':'下行洞')} · ${name}`,items}]:[]
 })))
 </script>
 

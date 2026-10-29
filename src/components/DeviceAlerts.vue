@@ -10,7 +10,7 @@ defineEmits<{ focus: [id: string] }>()
       <li v-for="alert in alerts" :key="alert.device.id">
         <button class="alert-target" :class="alert.severity" :aria-label="`查看${alert.name}${alert.status}`" @click="$emit('focus',alert.device.id)">
           <svg class="alert-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 3 10 18H2L12 3Z"/><path d="M12 9v5m0 3v1"/></svg>
-          <span class="alert-copy"><strong>{{alert.name}}<span>{{alert.status}}</span></strong><small>{{alert.device.tube===0?'上行洞':'下行洞'}} · {{Math.round(alert.device.station)}} m <span>· {{alert.value}}</span></small></span>
+          <span class="alert-copy"><strong>{{alert.name}}<span>{{alert.status}}</span></strong><small>{{alert.device.boreName??(alert.device.tube===0?'上行洞':'下行洞')}} · {{alert.device.chainage??`${Math.round(alert.device.station)} m`}} <span>· {{alert.value}}</span></small></span>
           <svg class="alert-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>
         </button>
       </li>

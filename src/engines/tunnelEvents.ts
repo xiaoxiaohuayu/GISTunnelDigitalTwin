@@ -69,7 +69,7 @@ export function addTunnelEvents(viewer:Viewer,survey:TunnelSurvey) {
     if(state.incident==='debris')for(let i=0;i<6;i++)solid((i%3)*1.3-1.5,-3.7+(i%2)*1.3,.35,.65,.45,.25,i%2?'#aa7c4c':'#6c777f')
     const target=point(0,state.incident==='line'?0:-2.15,.4),anchor=point(-3,1.4,2.8)
     label.position=new ConstantPositionProperty(anchor)
-    if(label.label)label.label.text=new ConstantProperty(`${incidentDefinition(state.incident)?.name} · ${tube===0?'上行':'下行'}\n本地演练 · 距基点 ${Math.round(s)} m`)
+    if(label.label)label.label.text=new ConstantProperty(`${incidentDefinition(state.incident)?.name} · ${survey.boreNames?.[tube]??(tube===0?'上行':'下行')}\n本地演练 · 距基点 ${Math.round(s)} m`)
     if(label.polyline)label.polyline.positions=new ConstantProperty([target,anchor])
     viewer.scene.requestRender()
   }

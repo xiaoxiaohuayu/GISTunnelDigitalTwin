@@ -16,6 +16,7 @@ export const PORTAL_EXTENSION = 60
 
 // Distance follows the surveyed centreline; lateral offset is north, height is above the floor.
 export function tunnelPoint(survey: TunnelSurvey, tube: number, distance: number, lateral = 0, height = 0): Cartesian3 {
+  if(survey.pointAt)return survey.pointAt(tube,distance,lateral,height)
   const positions = survey.tubes[tube]!
   const step = survey.length / (positions.length - 1)
   const index = Math.max(0, Math.min(positions.length - 2, Math.floor(distance / step)))

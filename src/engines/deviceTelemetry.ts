@@ -2,11 +2,13 @@ import { deviceAlarm, deviceEnabled, deviceVms, deviceMessage, deviceEntrance, d
 import type { SceneDevice, SystemsState } from './tunnelSystemsState.ts'
 
 export function deviceName(device: SceneDevice): string {
+  if(device.name)return `${device.name} · ${device.code??device.id}`
   return `${deviceCatalog.find(item => item[1] === device.kind)?.[2] ?? device.kind} · ${device.id.split('-').at(-1)}`
 }
 
 // Deliberately deterministic demo readings; never presented as live telemetry.
 export function deviceTelemetry(device: SceneDevice, state: SystemsState, length: number) {
+  length=device.boreLength??length
   const alarm = deviceAlarm(device.id,state)
   if (alarm === 'environment' && device.kind === 'covi') return { status: '数值超限', value: '85 ppm', severity: 'alarm', note: 'CO 超过演示阈值 50 ppm' }
   if (alarm === 'fan' && device.kind === 'fan') return { status: '设备故障', value: '0 r/min', severity: 'alarm', note: '转子停转，演示故障反馈' }

@@ -4,7 +4,7 @@ import { deviceTelemetry } from '../engines/deviceTelemetry'
 import { searchDevices } from '../engines/deviceSearch'
 import { categoryNames, deviceCatalog } from '../engines/tunnelSystemsState'
 import type { DeviceKind, SceneDevice, SystemsState } from '../engines/tunnelSystemsState'
-const props=defineProps<{devices:SceneDevice[];state:SystemsState;length:number}>()
+const props=defineProps<{devices:SceneDevice[];state:SystemsState;length:number;boreNames?:string[]}>()
 const emit=defineEmits<{focus:[id:string]}>()
 const search=shallowRef(''),selected=shallowRef<DeviceKind>('lane'),index=shallowRef(0)
 const tube=shallowRef<'all'|'0'|'1'>('all'),abnormalOnly=shallowRef(false),limit=shallowRef(30)
@@ -21,13 +21,13 @@ const status=computed(()=>current.value?`${deviceTelemetry(current.value,props.s
 <template>
   <label class="search-label">查找设备或设施<input v-model="search" type="search" placeholder="编号、名称、桩号，如 fan-1 / K1+000" @input="limit=30"></label>
   <div class="device-filters">
-    <label>方向<select v-model="tube" @change="limit=30"><option value="all">全部方向</option><option value="0">上行洞</option><option value="1">下行洞</option></select></label>
+    <label>洞筒<select v-model="tube" @change="limit=30"><option value="all">全部洞筒</option><option v-for="(name,i) in boreNames??['上行洞','下行洞']" :key="i" :value="String(i)">{{name}}</option></select></label>
     <label class="abnormal-filter"><input v-model="abnormalOnly" type="checkbox" @change="limit=30">仅异常</label>
   </div>
   <div v-if="filtering" class="device-results">
     <p class="result-count" role="status">找到 {{results.length}} 处 · 点击定位</p>
     <button v-for="item in visibleResults" :key="item.device.id" :data-device-id="item.device.id" class="device-result" @click="emit('focus',item.device.id)">
-      <span>{{item.name}}<small>{{item.device.id}}</small></span>
+      <span>{{item.name}}<small>{{item.device.code??item.device.id}}</small></span>
       <span class="result-address">{{item.address}}</span>
       <span class="result-reading" :class="item.reading.severity">{{item.reading.status}} · {{item.reading.value}}</span>
     </button>
