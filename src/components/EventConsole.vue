@@ -3,7 +3,9 @@ import { computed, shallowRef, watch } from 'vue'
 import { deviceAlarm, deviceAlarmIds, changeDevice, incidentCatalog, incidentDefinition } from '../engines/tunnelSystemsState'
 import type { IncidentKind, SystemsState } from '../engines/tunnelSystemsState'
 import { alarmScenarios } from '../engines/deviceTelemetry'
-const props=defineProps<{state:SystemsState;ready:boolean;open:boolean}>()
+import IncidentImpact from './IncidentImpact.vue'
+import type { SceneDevice } from '../engines/tunnelSystemsState'
+const props=defineProps<{state:SystemsState;ready:boolean;open:boolean;devices:SceneDevice[];length:number}>()
 const emit=defineEmits<{close:[];change:[patch:Partial<SystemsState>];locateIncident:[];locateDevice:[id:string]}>()
 const tab=shallowRef<'traffic'|'devices'>('traffic')
 const records=shallowRef<{id:number;name:string;time:string;resolved:boolean;key:string}[]>([])
@@ -50,6 +52,7 @@ function locate():void {
       <div v-if="active" class="active-alarm" role="status"><span class="alarm-pulse"/><div><strong>{{active.name}}</strong><span>{{active.detail}}</span></div></div>
       <p v-else class="alarm-empty">当前无演练事件</p>
       <div v-if="active" class="event-actions"><button @click="locate">定位事件</button><button @click="resolve">解除全部演练</button></div>
+      <IncidentImpact :devices="devices" :state="state" :length="length" @locate="emit('locateDevice',$event)" />
       <details v-if="records.length" class="event-history"><summary>本次演练记录 · {{records.length}}</summary><ol><li v-for="record in records" :key="record.id"><time>{{record.time}}</time><span>{{record.name}}</span><small>{{record.resolved?'已解除':'演练中'}}</small></li></ol></details>
       <small>仅本地模拟，未连接现场设备</small>
     </div>

@@ -101,7 +101,7 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
     </aside>
     <DeviceAlerts v-if="ready" :alerts="alerts" @focus="focusDevice" />
     <DeviceInspector v-if="selectedDevice" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
-    <EventConsole :open="panel==='events'" :state="state" :ready="ready" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
+    <EventConsole :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
     <SceneOverlayLayer ref="overlayLayer" :items="overlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
     <SceneRoaming v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
     <div v-if="monitor" class="monitor-view" role="status"><div><strong>{{monitor.tube===0?'上行':'下行'}}监控点 · {{monitor.id}}</strong><span>三维模拟视角 · 未接入视频流</span></div><button @click="monitor=undefined;view(()=>getHandle()?.focusPortal())">退出预览</button></div>
