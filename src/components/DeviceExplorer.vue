@@ -26,7 +26,7 @@ const status=computed(()=>current.value?`${deviceTelemetry(current.value,props.s
   </div>
   <div v-if="filtering" class="device-results">
     <p class="result-count" role="status">找到 {{results.length}} 处 · 点击定位</p>
-    <button v-for="item in visibleResults" :key="item.device.id" class="device-result" @click="emit('focus',item.device.id)">
+    <button v-for="item in visibleResults" :key="item.device.id" :data-device-id="item.device.id" class="device-result" @click="emit('focus',item.device.id)">
       <span>{{item.name}}<small>{{item.device.id}}</small></span>
       <span class="result-address">{{item.address}}</span>
       <span class="result-reading" :class="item.reading.severity">{{item.reading.status}} · {{item.reading.value}}</span>

@@ -27,6 +27,9 @@ const roamingOpen=shallowRef(false),detectionVisible=shallowRef(false),monitor=s
 const roamingState=shallowRef<RoamingState>({playing:false,tube:0,speed:60,distance:-220,length:0})
 const wallsVisible=shallowRef(true),canopyVisible=shallowRef(true),selectedDevice=shallowRef<SceneDevice>()
 const underground=shallowRef(false),panel=shallowRef<'devices'|'systems'|'events'|'sign'|'traffic'|null>(null)
+const returnPanel=shallowRef<'devices'|'systems'|'events'|null>(null)
+const returnLabel=computed(()=>returnPanel.value?{devices:'返回设备列表',systems:'返回系统控制',events:'返回演练清单'}[returnPanel.value]:'')
+let panelScrollTop=0
 const controlDeviceId=shallowRef('vms-1')
 const devices=shallowRef<SceneDevice[]>([]),state=shallowRef({...initialSystems}),intro=shallowRef<IntroPhase>('earth'),skipRequested=shallowRef(false)
 const progress=shallowRef<LoadProgress>({percent:0,stage:'渲染引擎',resource:'Cesium 资源初始化'})
@@ -42,7 +45,14 @@ const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiu
   onSignEdit:()=>{monitor.value=undefined;roamingOpen.value=false;selectedDevice.value=undefined;panel.value='sign';nextTick(()=>document.querySelector<HTMLElement>('.sign-editor input')?.focus())},
   onSignConfig:(config,warning)=>{signConfig.value=config;signWarning.value=warning},
   onRoaming:next=>{roamingState.value=next},
-  onDeviceSelect:device=>{monitor.value=undefined;roamingOpen.value=false;selectedDevice.value=device;panel.value=null;nextTick(()=>{const inspector=document.querySelector<HTMLElement>('.device-inspector');if(!inspector?.contains(document.activeElement))inspector?.querySelector<HTMLElement>('.inspector-close')?.focus({preventScroll:true})})},
+  onDeviceSelect:device=>{
+    if(panel.value==='devices'||panel.value==='systems'||panel.value==='events'){
+      returnPanel.value=panel.value
+      panelScrollTop=document.querySelector<HTMLElement>('.scene-panel:not([style*="display: none"])')?.scrollTop??0
+    }else if(!selectedDevice.value)returnPanel.value=null
+    monitor.value=undefined;roamingOpen.value=false;selectedDevice.value=device;panel.value=null
+    nextTick(()=>{const inspector=document.querySelector<HTMLElement>('.device-inspector');if(!inspector?.contains(document.activeElement))inspector?.querySelector<HTMLElement>('.inspector-close')?.focus({preventScroll:true})})
+  },
   onDevices:list=>{devices.value=list},onIntro:phase=>{intro.value=phase},shouldSkipIntro:()=>skipRequested.value,
 }))
 const phases:Record<IntroPhase,string>={earth:'地球视角',region:'区域定位',overview:'线路全览',portal:'抵达洞口',complete:''}
@@ -55,6 +65,15 @@ function replay():void{skipRequested.value=false;getHandle()?.playIntro()}
 function focusDevice(id:string):void{roamingOpen.value=false;view(()=>getHandle()?.focusDevice(id))}
 async function editVms():Promise<void>{if(selectedDevice.value)controlDeviceId.value=selectedDevice.value.id;closeDevice();panel.value='systems';await nextTick();document.querySelector<HTMLElement>('.vms-editor')?.scrollIntoView({block:'start'});document.querySelector<HTMLTextAreaElement>('.vms-editor textarea')?.focus({preventScroll:true})}
 function closeDevice():void{selectedDevice.value=undefined;getHandle()?.clearDeviceSelection()}
+async function backToPanel():Promise<void>{
+  const id=selectedDevice.value?.id,target=returnPanel.value
+  closeDevice();panel.value=target
+  await nextTick()
+  const drawer=document.querySelector<HTMLElement>('.scene-panel:not([style*="display: none"])')
+  if(drawer)drawer.scrollTop=panelScrollTop
+  const result=id?drawer?.querySelector<HTMLElement>(`[data-device-id="${id}"]`):null
+  ;(result??drawer?.querySelector<HTMLElement>('header button'))?.focus({preventScroll:true})
+}
 function closePanel():void{panel.value=null;panelTrigger?.focus()}
 async function togglePanel(next:'devices'|'systems'|'events',event:Event):Promise<void>{
   if(panel.value===next){closePanel();return}
@@ -94,13 +113,13 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
       <button :disabled="!ready" :aria-expanded="panel==='events'" @click="togglePanel('events',$event)">事件演练<span v-if="activeEvent" class="event-indicator">进行中</span></button>
       <button :disabled="!ready" @click="replay">重播入场</button>
     </div>
-    <aside v-if="panel&&panel!=='events'" class="scene-panel" :aria-label="panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'">
+    <aside v-show="panel&&panel!=='events'" class="scene-panel" :aria-label="panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'">
       <header><h2>{{panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'}}</h2><button aria-label="关闭面板" @click="closePanel">×</button></header>
-      <DeviceExplorer v-if="panel==='devices'" :devices="devices" :state="state" :length="roamingState.length" @focus="focusDevice" />
-      <template v-else><SystemsControls v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="panel==='traffic'||panel==='systems'" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @saved="trafficSignsConfig=$event" /></template>
+      <div v-show="panel==='devices'"><DeviceExplorer :devices="devices" :state="state" :length="roamingState.length" @focus="focusDevice" /></div>
+      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="panel==='traffic'||panel==='systems'" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @saved="trafficSignsConfig=$event" /></template>
     </aside>
     <DeviceAlerts v-if="ready" :alerts="alerts" @focus="focusDevice" />
-    <DeviceInspector v-if="selectedDevice" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
+    <DeviceInspector v-if="selectedDevice" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
     <EventConsole :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
     <SceneOverlayLayer ref="overlayLayer" :items="overlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
     <SceneRoaming v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
