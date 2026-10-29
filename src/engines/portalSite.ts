@@ -86,13 +86,14 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
     asynchronous: false, compressVertices: false,
   })
   progress?.('洞口地形采样与过渡网格')
-  const models = await Promise.all(['terrain', 'structures', 'substation-new'].map(part => Model.fromGltfAsync({
+  const models = await Promise.all(['terrain', 'structures', 'substation-new', 'finishes'].map(part => Model.fromGltfAsync({
     url: modelAssetUrl(part==='substation-new'?part:`portal-${part}`),
     modelMatrix: part==='substation-new'?Matrix4.multiplyByTranslation(frame,new Cartesian3(-50,0,.14),new Matrix4()):frame,
     // Blender exports Y-up with X along the alignment. Skip Cesium's Z-forward rotation.
     upAxis: Axis.Y, forwardAxis: Axis.X,
     id:part==='structures'?`portal-structures:${end}`:part==='substation-new'?`substation-${end+1}`:undefined,
     enableVerticalExaggeration: false,
+    allowPicking:part!=='finishes',
   }).then(model=>{progress?.(`portal-${part}.glb 已加载`);return model})))
   const mountain = models[0]!, structures = models[1]!
   // Keep daylight fill independent of the clock-driven atmosphere's brightness.
@@ -129,10 +130,12 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
     }` })
   structures.customShader=lighting
   models[2]!.customShader=lighting
+  models[3]!.customShader=lighting
   viewer.scene.primitives.add(transition)
   viewer.scene.primitives.add(mountain)
   viewer.scene.primitives.add(structures)
   viewer.scene.primitives.add(models[2]!)
+  viewer.scene.primitives.add(models[3]!)
   const streetlights=addPortalStreetlights(viewer,frame,portalLamps,devices,(index,power)=>lighting.setUniform(`u_lamp${index}`,power))
   const excavation = new ClippingPolygon({
     // Leave an overlap with the globe outside the cut, so the edge can feather out.
@@ -158,6 +161,7 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
       streetlights.setVisible(!enabled)
       mountain.show = !enabled
       transition.show = !enabled
+      models[3]!.show = !enabled
     },
   }
 }
