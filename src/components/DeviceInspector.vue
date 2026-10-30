@@ -22,7 +22,7 @@ const reading = computed(() => deviceTelemetry(props.device, props.state, props.
       <dl class="device-facts"><div><dt>设备编号</dt><dd>{{device.code??device.id}}</dd></div><div><dt>所属洞筒</dt><dd>{{device.boreName??(device.tube===0?'上行洞':'下行洞')}}</dd></div><div><dt>沿线位置</dt><dd>{{Math.round(device.station)}} m</dd></div></dl>
       <p class="reading-note" :class="reading.severity" role="status">{{reading.note}}</p>
       <div class="inspector-actions">
-        <button class="locate-device" @click="$emit('editPosition')">编辑位置与台账</button>
+        <button class="locate-device" @click="$emit('editPosition')">调整位置</button>
         <button class="locate-device primary-locate" @click="$emit('locate', device.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>定位到设备</button>
         <button v-if="device.kind==='vms'" class="locate-device" @click="$emit('editVms')">编辑情报板内容与尺寸</button>
         <button v-if="device.kind==='camera'" class="locate-device" :disabled="reading.status==='通信离线'||reading.status==='关闭'" @click="$emit('camera',device.id)">预览三维监控视角</button>

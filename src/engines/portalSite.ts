@@ -1,12 +1,16 @@
+import { resolveAsset } from './assetPlacement'
+import { assetStation } from './projectConfig'
+import { portalGeometryUrl, portalLateral, portalAlong } from './portalGeometry'
+import { surveyFrame } from './projectSurvey'
 // @env browser
 import portalLamps from '../config/portalLamps.json'
 import { addPortalStreetlights, streetlightHead } from './portalStreetlights'
 import { modelAssetUrl } from './modelAssets'
 import {
-  Axis, Cartesian2, Cartesian3, Cartographic, ClippingPolygon, Material, MaterialAppearance,
+  Axis, Cartesian2, Cartesian3, Cartographic, ClippingPolygon, Material, MaterialAppearance, ImageMaterialProperty, Plane, Quaternion, ConstantProperty,
   CustomShader, UniformType, ComponentDatatype, Geometry, GeometryAttribute, GeometryAttributes, GeometryInstance, GeometryPipeline,
   Matrix3, Matrix4, Model, Primitive, PrimitiveType, TextureUniform,
-  BoundingSphere, sampleTerrainMostDetailed, Transforms,
+  BoundingSphere, sampleTerrainMostDetailed,
 } from 'cesium'
 import { portalImagery } from './portalImagery'
 import type { Viewer } from 'cesium'
@@ -23,11 +27,11 @@ function mountainHeight(x: number, y: number): number {
 }
 
 export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0 | 1 = 0, progress?: (resource:string)=>void) {
-  const origin = tunnelPoint(survey, 0, end === 0 ? -PORTAL_EXTENSION : survey.length + PORTAL_EXTENSION, 12)
+  const origin = survey.actualPointAt?survey.actualPointAt(0,end===0?-PORTAL_EXTENSION:survey.length+PORTAL_EXTENSION,survey.project!.bores[0]!.offset,0):tunnelPoint(survey, 0, end === 0 ? -PORTAL_EXTENSION : survey.length + PORTAL_EXTENSION, 12)
   const rotation = Matrix3.multiply(Matrix3.fromRotationY(-Math.atan(survey.grade / 100)),
     Matrix3.fromRotationZ(end * Math.PI), new Matrix3())
   const frame = Matrix4.multiply(
-    Transforms.eastNorthUpToFixedFrame(origin),
+    surveyFrame(survey,origin),
     Matrix4.fromRotationTranslation(rotation),
     new Matrix4(),
   )
@@ -86,8 +90,9 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
     asynchronous: false, compressVertices: false,
   })
   progress?.('洞口地形采样与过渡网格')
-  const models = await Promise.all(['terrain', 'structures', 'substation-new', 'finishes'].map(part => Model.fromGltfAsync({
-    url: modelAssetUrl(part==='substation-new'?part:`portal-${part}`),
+  const urls=await Promise.all(['terrain','structures','substation-new','finishes'].map(part=>part==='substation-new'?Promise.resolve(modelAssetUrl(part)):portalGeometryUrl(modelAssetUrl(part==='terrain'&&survey.project?'portal-terrain-editable':`portal-${part}`),survey.project,end)))
+  const models = await Promise.all(['terrain', 'structures', 'substation-new', 'finishes'].map((part,i) => Model.fromGltfAsync({
+    url: urls[i]!,
     modelMatrix: part==='substation-new'?Matrix4.multiplyByTranslation(frame,new Cartesian3(-50,0,.14),new Matrix4()):frame,
     // Blender exports Y-up with X along the alignment. Skip Cesium's Z-forward rotation.
     upAxis: Axis.Y, forwardAxis: Axis.X,
@@ -99,7 +104,8 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
   // Keep daylight fill independent of the clock-driven atmosphere's brightness.
   mountain.imageBasedLighting.sphericalHarmonicCoefficients = Array.from({length:9},(_,index) =>
     index===0 ? new Cartesian3(0.8,0.84,0.9) : new Cartesian3())
-  const structureFill=models.slice(1).map(model=>({model,daylight:model.imageBasedLighting.sphericalHarmonicCoefficients}))
+  const structureFill=models.slice(1).map(model=>({model,daylight:mountain.imageBasedLighting.sphericalHarmonicCoefficients}))
+  for(const {model,daylight} of structureFill)model.imageBasedLighting.sphericalHarmonicCoefficients=daylight
   mountain.customShader=new CustomShader({uniforms:{
     u_map:{type:UniformType.SAMPLER_2D,value:new TextureUniform({url:imagery.image})},
     u_inverse:{type:UniformType.MAT4,value:inverse},u_mapU:{type:UniformType.VEC3,value:imagery.u},u_mapV:{type:UniformType.VEC3,value:imagery.v},
@@ -110,18 +116,31 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
     material.diffuse*=vec3(0.98,1.0,0.97);
     material.diffuse*=1.0-edge;material.emissive+=czm_srgbToLinear(texture(u_map,uv).rgb)*edge;
   }`})
-  const devices=portalLamps.map((lamp,index):SceneDevice=>{
-    const tube=(lamp.y<0?0:1)^end
+  const lamps=portalLamps.map(l=>{const y=survey.project?portalLateral(survey.project,end,l.y):l.y,tube=survey.tubes.length===1?0:(l.y<0?0:1)^end,b=survey.project?.bores[tube];return {...l,x:l.x+(survey.project?portalAlong(survey.project,end,l.y):0),y,headY:streetlightHead(l).y+y-l.y,roadCenter:b?(end===0?-b.offset:b.offset):(l.y<0?-12:12),roadHalfWidth:b?b.lanes.length*b.laneWidth/2:4.3}})
+  const active=(id:string)=>!survey.project||survey.project.assets.some(a=>a.id===id)
+  const devices=lamps.map((lamp,index):SceneDevice=>{
+    const tube=survey.tubes.length===1?0:(portalLamps[index]!.y<0?0:1)^end
     return {id:`street-${end*portalLamps.length+index+1}`,kind:'street',tube,station:end===0?-PORTAL_EXTENSION+lamp.x:survey.length+PORTAL_EXTENSION-lamp.x,lateral:0,height:8,portalEnd:end,
       position:world(streetlightHead(lamp)),pickId:`portal-structures:${end}/${lamp.node}`}
   })
+  const originalPositions=devices.map(d=>Cartesian3.clone(d.position!))
+  const initialDeltas=devices.map((device,index)=>{
+    const record=survey.project?.assets.find(a=>a.id===device.id);if(!record)return Matrix4.clone(Matrix4.IDENTITY)
+    const a=resolveAsset(record,survey.project!),tube=survey.project!.bores.findIndex(b=>b.id===a.boreId),b=survey.project!.bores[tube]!,station=assetStation(a,b),point=survey.actualPointAt!(tube,station,-a.lateral,a.height)
+    Object.assign(device,{tube,station,lateral:-a.lateral,height:a.height,position:point})
+    return Matrix4.multiply(surveyFrame(survey,point),Matrix4.inverse(surveyFrame(survey,originalPositions[index]!),new Matrix4()),new Matrix4())
+  })
   const lampUniforms=Object.fromEntries(portalLamps.map((_,index)=>[`u_lamp${index}`,{type:UniformType.FLOAT,value:0}]))
-  const lighting = new CustomShader({ uniforms: {...lampUniforms,u_inverseSite:{type:UniformType.MAT4,value:inverse},u_street:{type:UniformType.FLOAT,value:0},u_day:{type:UniformType.FLOAT,value:1}},
+  const lampLocations=Object.fromEntries(lamps.map((l,i)=>[`u_lampLocation${i}`,{type:UniformType.VEC3,value:new Cartesian3(l.x,l.y,0)}]))
+  const lighting = new CustomShader({ uniforms: {...lampUniforms,...lampLocations,u_inverseSite:{type:UniformType.MAT4,value:inverse},u_street:{type:UniformType.FLOAT,value:0},u_day:{type:UniformType.FLOAT,value:1},u_customName:{type:UniformType.FLOAT,value:0},u_nameLeft:{type:UniformType.FLOAT,value:survey.project?portalAlong(survey.project,end,-12):0},u_nameRight:{type:UniformType.FLOAT,value:survey.project?portalAlong(survey.project,end,12):0}},
     fragmentShaderText: `void fragmentMain(FragmentInput fsInput,inout czm_modelMaterial material) {
       material.diffuse *= mix(0.6,1.0,u_day);
       vec3 local=(u_inverseSite*vec4(fsInput.attributes.positionWC,1.0)).xyz;
+      vec3 vertex=fsInput.attributes.positionMC;
+      bool lettering=(abs(vertex.x-u_nameLeft+1.54)<0.04 || abs(vertex.x-u_nameRight+1.54)<0.04) && vertex.y>8.9 && vertex.y<10.0;
+      if(u_customName>0.5 && lettering)discard;
       float power=u_street;
-      ${portalLamps.map((lamp,index)=>`if(abs(local.x-(${lamp.x.toFixed(2)}))<3.0&&abs(local.y-(${lamp.y.toFixed(2)}))<5.0)power=u_lamp${index};`).join('\n')}
+      ${portalLamps.map((_,index)=>`if(abs(local.x-u_lampLocation${index}.x)<3.0&&abs(local.y-u_lampLocation${index}.y)<5.0)power=u_lamp${index};`).join('\n')}
       if (length(material.emissive)>0.05 && material.emissive.g>material.emissive.r*0.7) {
         material.diffuse=mix(vec3(0.055,0.065,0.075),vec3(1.0,0.94,0.78),power);
         material.roughness=0.28;
@@ -136,14 +155,42 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
   viewer.scene.primitives.add(structures)
   viewer.scene.primitives.add(models[2]!)
   viewer.scene.primitives.add(models[3]!)
-  const streetlights=addPortalStreetlights(viewer,frame,portalLamps,devices,(index,power)=>lighting.setUniform(`u_lamp${index}`,power))
+  const streetlights=addPortalStreetlights(viewer,frame,lamps,devices,(index,power)=>lighting.setUniform(`u_lamp${index}`,power),active)
+  const pendingDeltas=new Map<number,Matrix4>(devices.map((_,i)=>[i,initialDeltas[i]!]))
+  const root=Matrix4.multiply(structures.modelMatrix,Matrix4.fromRotationTranslation(Matrix3.fromRotationX(Math.PI/2)),new Matrix4())
+  function applyLamp(index:number,delta:Matrix4){
+    pendingDeltas.set(index,delta)
+    streetlights.move(index,delta)
+    const local=Matrix4.multiplyByPoint(inverse,Matrix4.multiplyByPoint(delta,world(new Cartesian3(lamps[index]!.x,lamps[index]!.y,0)),new Cartesian3()),new Cartesian3())
+    lighting.setUniform(`u_lampLocation${index}`,local)
+    if(!structures.ready)return
+    const node=structures.getNode(lamps[index]!.node)
+    if(node){node.show=active(devices[index]!.id);node.matrix=Matrix4.multiply(Matrix4.multiply(Matrix4.inverse(root,new Matrix4()),Matrix4.multiply(delta,root,new Matrix4()),new Matrix4()),node.originalMatrix,new Matrix4())}
+    pendingDeltas.delete(index)
+  }
+  initialDeltas.forEach((delta,i)=>applyLamp(i,delta))
+  const removeLampTick=viewer.scene.preUpdate.addEventListener(()=>{if(structures.ready)for(const [index,delta] of pendingDeltas)applyLamp(index,delta)})
+  const substationRecord=survey.project?.assets.find(a=>a.id===`substation-${end+1}`)
+  models[2]!.show=!survey.project||!!substationRecord
+  if(substationRecord){const a=resolveAsset(substationRecord,survey.project!),tube=survey.project!.bores.findIndex(b=>b.id===a.boreId),station=assetStation(a,survey.project!.bores[tube]!),point=survey.actualPointAt!(tube,station,-a.lateral,a.height-2.26);models[2]!.modelMatrix=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(end*Math.PI)),new Matrix4())}
+  const nameMaterial=new ImageMaterialProperty({transparent:true})
+  const namePanels=survey.tubes.map((_,tube)=>{
+    const y=survey.project?(end===0?-survey.project.bores[tube]!.offset:survey.project.bores[tube]!.offset):(tube===0?-12:12)
+    return viewer.entities.add({show:false,position:world(new Cartesian3(-1.59+(survey.project?portalAlong(survey.project,end,(tube^end)===0?-12:12):0),y,9.45)),orientation:Quaternion.fromRotationMatrix(Matrix4.getMatrix3(frame,new Matrix3())),plane:{plane:new Plane(new Cartesian3(-1,0,0),0),dimensions:new Cartesian2(5,.85),material:nameMaterial}})
+  })
+  function setName(name:string){
+    const custom=name!=='青山隧道';lighting.setUniform('u_customName',Number(custom));namePanels.forEach(e=>e.show=custom)
+    if(custom){const canvas=document.createElement('canvas');canvas.width=1024;canvas.height=174;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#e8eddf';ctx.textAlign='center';ctx.textBaseline='middle';let size=140;do{ctx.font=`${size}px "PingFang SC",sans-serif`;size-=2}while(ctx.measureText(name).width>1000&&size>24);ctx.fillText(name,512,87);nameMaterial.image=new ConstantProperty(canvas.toDataURL())}
+    viewer.scene.requestRender()
+  }
+  setName(survey.project?.name??'青山隧道')
   const excavation = new ClippingPolygon({
     // Leave an overlap with the globe outside the cut, so the edge can feather out.
     positions: outerCorners.map(([x,y],i)=>world(new Cartesian3(corners[i]![0]!*.2+x!*.8,corners[i]![1]!*.2+y!*.8,0))),
   })
   return {
-    excavation,frame,structures,substation:models[2]!,dispose:streetlights.dispose,
-    devices,
+    setName,excavation,frame,structures,substation:models[2]!,dispose(){removeLampTick();streetlights.dispose();urls.filter(u=>u.startsWith('blob:')).forEach(u=>URL.revokeObjectURL(u))},
+    devices:devices.filter(d=>active(d.id)),moveLamp(id:string,delta:Matrix4){const index=devices.findIndex(d=>d.id===id);if(index>=0)applyLamp(index,Matrix4.multiply(delta,initialDeltas[index]!,new Matrix4()))},
     isReady:()=>Cartesian3.distance(viewer.camera.positionWC,origin)>500||models.every(model=>model.ready),
     setLighting(state: SystemsState) {
       // Night is an inspection view: retain sky fill so terrain and foliage remain readable.

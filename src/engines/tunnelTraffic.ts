@@ -1,6 +1,8 @@
+import { lanePositions,surveyFrame } from './projectSurvey'
+import { boreLength } from './projectConfig'
 // @env browser
 import { modelAssetUrl } from './modelAssets'
-import { Axis, Cartesian3, Matrix3, Matrix4, Model, Transforms } from 'cesium'
+import { Axis, Cartesian3, Matrix3, Matrix4, Model } from 'cesium'
 import type { Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import { equipmentShader, setEquipmentLighting } from './tunnelSystems'
@@ -14,10 +16,8 @@ const CAR_TYPES = ['car-blue', 'car-white', 'car-orange']
 export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, getState: () => SystemsState, progress?: (completed:number,total:number,resource:string)=>void) {
   const span = survey.length + 380
   let completed=0
-  const cars = await Promise.all(Array.from({ length: 24 }, async (_, index) => {
-    const tube = Math.floor(index / 12)
-    const lane = Math.floor(index / 6) % 2
-    const direction = tube === 0 ? 1 : -1
+  const slots=survey.tubes.flatMap((_,tube)=>lanePositions(survey,tube).flatMap((l,lane)=>Array.from({length:6},()=>({tube,lane,direction:l.direction,lateral:l.lateral}))))
+  const cars = await Promise.all(slots.map(async ({tube,lane,direction,lateral}, index) => {
     const shader=equipmentShader()
     const model = await Model.fromGltfAsync({
       url: modelAssetUrl(index % 12 === 0 ? 'car-audi' : [3,9].includes(index % 12) ? 'car-van' : CAR_TYPES[index % CAR_TYPES.length]!),
@@ -26,7 +26,7 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
     })
     const info=vehicleInfo(index);model.id=info.id
     progress?.(++completed,24,`车辆 ${completed}/24`)
-    return { info, station:0, position:new Cartesian3(), model, shader, tube, lane, direction, held: undefined as number | undefined, stop: undefined as number | undefined, progress: (index % 6) * span / 6 + lane * 92,
+    return { info, station:0, position:new Cartesian3(), model, shader, tube, lane, direction,lateral, held: undefined as number | undefined, stop: undefined as number | undefined, progress: (index % 6) * span / 6 + lane * 92,
       speed: lane === 0 ? 15 : 18 }
   }))
   cars.forEach(car => viewer.scene.primitives.add(car.model))
@@ -38,6 +38,7 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
     const delta = Math.min((now - previous) / 1000, 0.1)
     previous = now
     for (const car of cars) {
+      const span=(survey.project?boreLength(survey.project.bores[car.tube]!):survey.length)+380
       const state=getState()
       const oldStation=-220+(car.direction===1?car.progress:span-car.progress)
       const nextProgress=(car.progress+delta*car.speed*(trafficSpeedFactor(car.tube,state)))%span
@@ -52,13 +53,13 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
       }
       car.progress=car.direction===1?station+220:span-station-220
       setEquipmentLighting(car.model,illuminationAt(station,survey.length,state))
-      const lateral = car.lane === 0 ? -2.15 : 2.15
+      const lateral = car.lateral
       const point = tunnelPoint(survey, car.tube, station, lateral, 0.25)
       car.station=station
       Cartesian3.clone(tunnelPoint(survey,car.tube,station,lateral,2.1),car.position)
       const bearing = Matrix3.multiply(rotation,
         Matrix3.fromRotationZ(car.direction === 1 ? 0 : Math.PI), new Matrix3())
-      car.model.modelMatrix = Matrix4.multiply(Transforms.eastNorthUpToFixedFrame(point),
+      car.model.modelMatrix = Matrix4.multiply(surveyFrame(survey,point),
         Matrix4.fromRotationTranslation(bearing), new Matrix4())
       // Keep invisible traffic from consuming draw calls in distant overview views.
       car.model.show = Cartesian3.distance(viewer.camera.positionWC, point) < 650

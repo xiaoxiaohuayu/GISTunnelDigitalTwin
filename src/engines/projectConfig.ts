@@ -1,9 +1,11 @@
+import { placementErrors } from './assetPlacement.ts'
+import type { Mount, FacilityLink } from './assetPlacement.ts'
 import { deviceCatalog } from './tunnelSystemsState.ts'
 import type { DeviceKind, SceneDevice } from './tunnelSystemsState.ts'
 
 export interface BoreConfig { id:string;name:string;start:number;end:number;offset:number;laneWidth:number;lanes:{id:string;direction:1|-1}[] }
-export interface AssetRecord { id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number }
-export interface TunnelProject { version:1;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[] }
+export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number }
+export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[] }
 export function defaultProject():TunnelProject {
   return {version:1,id:'tunnel-project',name:'青山隧道',origin:{longitude:103.56,latitude:30.91,elevation:700,heading:90,grade:0},bores:[0,1].map(i=>({id:`bore-${i+1}`,name:i===0?'上行洞':'下行洞',start:0,end:1900,offset:i===0?-12:12,laneWidth:3.5,lanes:[0,1].map(j=>({id:`lane-${i+1}-${j+1}`,direction:i===0?1:-1}))})),assets:[]}
 }
@@ -25,7 +27,7 @@ export const assetMountOffset=(kind:DeviceKind):number=>({lane:5.85,vms:5.85,str
 export function projectErrors(value:unknown):string[] {
   if(!value||typeof value!=='object')return ['配置必须是 JSON 对象']
   const p=value as TunnelProject,errors:string[]=[]
-  if(p.version!==1)return ['不支持的配置版本']
+  if(p.version!==1&&p.version!==2)return ['不支持的配置版本']
   if(typeof p.id!=='string'||!p.id||typeof p.name!=='string'||!p.name.trim())errors.push('请填写隧道名称和项目 ID')
   const o=p.origin
   if(!o||![o.longitude,o.latitude,o.elevation,o.heading,o.grade].every(Number.isFinite)||Math.abs(o.longitude)>180||Math.abs(o.latitude)>85||o.elevation< -500||o.elevation>9000||o.heading<0||o.heading>360||Math.abs(o.grade)>15)errors.push('请检查入口经纬度、高程（-500～9000 m）、方位（0～360°）和纵坡')
@@ -57,7 +59,7 @@ export function projectErrors(value:unknown):string[] {
     const [a,b]=p.bores as [BoreConfig,BoreConfig]
     if(Math.abs(a.offset-b.offset)<(a.lanes.length*a.laneWidth+b.lanes.length*b.laneWidth)/2+2)errors.push('两个洞筒间距不足，请调整横向偏移')
   }
-  return errors
+  return [...errors,...placementErrors(p)]
 }
 export function sceneAsset(asset:AssetRecord,project:TunnelProject):SceneDevice {
   const tube=project.bores.findIndex(b=>b.id===asset.boreId),bore=project.bores[tube]!

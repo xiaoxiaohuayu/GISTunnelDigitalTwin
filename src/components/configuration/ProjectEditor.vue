@@ -1,23 +1,37 @@
 <script setup lang="ts">
 import { computed,ref,shallowRef } from 'vue'
+import { upgradeProject,mountBase,resolveAsset } from '../../engines/assetPlacement'
+import type { Mount } from '../../engines/assetPlacement'
 import BoreEditor from './BoreEditor.vue'
-import { defaultProject,formatChainage,parseChainage,projectErrors } from '../../engines/projectConfig'
-import type { AssetRecord,TunnelProject } from '../../engines/projectConfig'
+import { defaultProject,formatChainage,parseChainage,projectErrors,laneLateral } from '../../engines/projectConfig'
+import type { AssetRecord,BoreConfig,TunnelProject } from '../../engines/projectConfig'
 import { assetCsvTemplate,previewAssetImport } from '../../engines/assetImport'
 import { deviceCatalog } from '../../engines/tunnelSystemsState'
 const props=defineProps<{project:TunnelProject;selectedId?:string;apply:(project:TunnelProject|null,focusId?:string)=>Promise<void>}>()
 const emit=defineEmits<{close:[]}>()
-const draft=ref<TunnelProject>(structuredClone(props.project))
+const draft=ref<TunnelProject>(upgradeProject(props.project))
 const tab=shallowRef<'tunnel'|'assets'|'transfer'>(props.selectedId?'assets':'tunnel'),query=shallowRef(''),selectedId=shallowRef(props.selectedId??''),limit=shallowRef(30)
 const busy=shallowRef(false),error=shallowRef(''),csv=shallowRef(''),imported=shallowRef<ReturnType<typeof previewAssetImport>>(),pendingProject=shallowRef<TunnelProject>()
 const issues=computed(()=>projectErrors(draft.value)),selected=computed(()=>draft.value.assets.find(a=>a.id===selectedId.value))
 const matches=computed(()=>draft.value.assets.filter(a=>`${a.code} ${a.name} ${draft.value.bores.find(b=>b.id===a.boreId)?.name}`.toLowerCase().includes(query.value.toLowerCase())))
+const orphaned=computed(()=>draft.value.assets.filter(a=>a.mount?.kind==='lane'&&!draft.value.bores.find(b=>b.id===a.boreId)?.lanes.some(l=>l.id===a.mount!.laneId)))
 const rows=computed(()=>matches.value.slice(0,limit.value))
+function mount(kind:Mount['kind']):void{if(!selected.value)return;const a=selected.value,b=draft.value.bores.find(b=>b.id===a.boreId)!;const next:Mount={kind,side:a.lateral<0?-1:1,laneId:b.lanes[0]?.id,offset:0};next.offset=a.lateral-mountBase(next,b);a.mount=next}
+function lateral(event:Event):void{if(!selected.value)return;const a=selected.value,b=draft.value.bores.find(b=>b.id===a.boreId)!;a.lateral=Number((event.target as HTMLInputElement).value);if(a.mount)a.mount.offset=a.lateral-mountBase(a.mount,b)}
+function linkTarget(id:string):void{if(!selected.value)return;const b=draft.value.bores.find(b=>b.id===id);if(!b){delete selected.value.link;return}selected.value.link={targetBoreId:id,targetChainage:b.start,memberIds:[]}}
+function targetStation(event:Event):void{try{if(selected.value?.link)selected.value.link.targetChainage=parseChainage((event.target as HTMLInputElement).value);error.value=''}catch(e){error.value=String(e)}}
+function removeOrphans():void{if(confirm(`删除失去所属车道的 ${orphaned.value.length} 条设备？`)){const ids=new Set(orphaned.value.map(a=>a.id));draft.value.assets=draft.value.assets.filter(a=>!ids.has(a.id))}}
+function laneDirection(id:string,turn:number):void{for(const a of draft.value.assets)if(a.kind==='lane'&&a.mount?.laneId===id)a.heading=(a.heading+turn+360)%360}
+function laneAdded(bore:BoreConfig,ids:string[]):void{
+  const stations=new Map<number,AssetRecord>()
+  for(const a of draft.value.assets)if(a.kind==='lane'&&a.boreId===bore.id)stations.set(a.chainage,a)
+  for(const id of ids)for(const source of stations.values()){const i=bore.lanes.findIndex(l=>l.id===id),key=crypto.randomUUID();draft.value.assets.push({...source,id:key,code:`${source.code}-${key.slice(0,8)}`,heading:bore.lanes[i]!.direction===1?0:180,lateral:laneLateral(bore,i),mount:{kind:'lane',laneId:id,offset:0}})}
+}
 function addBore():void{const b=defaultProject().bores[1]!;b.id=crypto.randomUUID();b.name='第二洞筒';draft.value.bores.push(b)}
 function removeBore(index:number):void{
-  const bore=draft.value.bores[index]!,count=draft.value.assets.filter(a=>a.boreId===bore.id).length
-  if(!confirm(`删除 ${bore.name} 及其 ${count} 条台账？保存前不会影响当前场景。`))return
-  draft.value.assets=draft.value.assets.filter(a=>a.boreId!==bore.id);draft.value.bores.splice(index,1)
+  const bore=draft.value.bores[index]!,related=draft.value.assets.filter(a=>a.link&&(a.boreId===bore.id||a.link.targetBoreId===bore.id)),ids=new Set([...draft.value.assets.filter(a=>a.boreId===bore.id).map(a=>a.id),...related.flatMap(a=>[a.id,...a.link!.memberIds])])
+  if(!confirm(`删除 ${bore.name} 及 ${ids.size} 条台账？${related.length?`关联横洞也将删除：${related.map(a=>a.code).join('、')}，以及两端的关联门。`:''}保存前不会影响当前场景。`))return
+  draft.value.assets=draft.value.assets.filter(a=>!ids.has(a.id));draft.value.bores.splice(index,1)
   if(draft.value.bores.length===1)draft.value.bores[0]!.offset=0
 }
 function addAsset():void{
@@ -33,11 +47,11 @@ function changeChainage(which:'chainage'|'endChainage',event:Event):void{
 function download(text:string,name:string,type:string):void{const url=URL.createObjectURL(new Blob([text],{type})),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 async function file(event:Event,kind:'csv'|'json'):Promise<void>{
   const input=event.target as HTMLInputElement,f=input.files?.[0];if(!f)return
-  try{if(f.size>10_000_000)throw new Error('配置文件不得超过 10 MB');const text=await f.text();if(kind==='csv'){csv.value=text;imported.value=previewAssetImport(text,draft.value)}else{const parsed=JSON.parse(text);const errors=projectErrors(parsed);if(errors.length)throw new Error(errors.slice(0,8).join('\n'));pendingProject.value=parsed}error.value=''}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{input.value=''}
+  try{if(f.size>10_000_000)throw new Error('配置文件不得超过 10 MB');const text=await f.text();if(kind==='csv'){csv.value=text;imported.value=previewAssetImport(text,draft.value)}else{const parsed=JSON.parse(text);const errors=projectErrors(parsed);if(errors.length)throw new Error(errors.slice(0,8).join('\n'));pendingProject.value=upgradeProject(parsed)}error.value=''}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{input.value=''}
 }
 function acceptProject():void{if(pendingProject.value){draft.value=structuredClone(pendingProject.value);pendingProject.value=undefined;selectedId.value='';error.value=''}}
 function acceptCsv():void{const preview=previewAssetImport(csv.value,draft.value);imported.value=preview;if(preview.errors.length)return;draft.value.assets.push(...preview.assets);imported.value=undefined;csv.value='';tab.value='assets'}
-async function save():Promise<void>{if(error.value||issues.value.length)return;busy.value=true;try{await props.apply(JSON.parse(JSON.stringify(draft.value)),selectedId.value||undefined)}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{busy.value=false}}
+async function save():Promise<void>{if(error.value||issues.value.length)return;busy.value=true;try{await props.apply(JSON.parse(JSON.stringify({...draft.value,assets:draft.value.assets.map(a=>resolveAsset(a,draft.value))})),selectedId.value||undefined)}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{busy.value=false}}
 async function demo():Promise<void>{if(!confirm('返回原演示场景？已应用配置将从浏览器移除，请先导出备份。'))return;busy.value=true;try{await props.apply(null)}catch(e){error.value=String(e)}finally{busy.value=false}}
 </script>
 
@@ -47,7 +61,7 @@ async function demo():Promise<void>{if(!confirm('返回原演示场景？已应�
     <nav class="project-tabs" aria-label="配置类别"><button v-for="item in [{id:'tunnel',name:'隧道与洞筒'},{id:'assets',name:'设备与设施台账'},{id:'transfer',name:'批量录入与备份'}] as const" :key="item.id" :aria-pressed="tab===item.id" @click="tab=item.id">{{item.name}}</button></nav>
     <div class="project-body">
       <template v-if="tab==='tunnel'">
-        <div class="config-toolbar"><p>未保存的修改不会影响场景。应用时重建结构和设备。</p><button @click="draft=defaultProject();draft.assets=[];selectedId='';error=''">新建空白项目</button></div>
+        <div class="config-toolbar"><p>未保存的修改不会影响场景。保存后更新受影响的结构和设备。</p><button @click="draft=upgradeProject(defaultProject());draft.assets=[];selectedId='';error=''">新建空白项目</button></div>
         <div class="config-grid">
           <label>隧道名称<input v-model="draft.name" maxlength="40"></label>
           <label>入口中心经度<input v-model.number="draft.origin.longitude" type="number" step="0.000001"></label>
@@ -56,8 +70,9 @@ async function demo():Promise<void>{if(!confirm('返回原演示场景？已应�
           <label>线路方位角（°，北为 0，东为 90）<input v-model.number="draft.origin.heading" type="number" step="0.1"></label>
           <label>线路纵坡（%）<input v-model.number="draft.origin.grade" type="number" step="0.1"></label>
         </div>
-        <p class="config-help">当前位置按直线线路建模，高程为绝对高度。单洞双向请在同一洞筒内设置正、反向车道。应用后使用可调整断面的结构模型；精细演示场景可在备份页恢复。设备可布设至洞口前后 240 m 的引道。</p>
-        <BoreEditor v-for="(bore,i) in draft.bores" :key="bore.id" v-model="draft.bores[i]!" v-model:error="error" @remove="removeBore(i)" />
+        <p class="config-help">当前位置按直线线路建模，高程为绝对高度。单洞双向请在同一洞筒内设置正、反向车道。道路与设备共用安装参照；改变车道数量会联动调整路缘和壁挂设备。已有车道指示器时，新增车道会在相同桩号补建指示器。设备可布设至洞口前后 240 m 的引道。</p>
+        <BoreEditor v-for="(bore,i) in draft.bores" :key="bore.id" v-model="draft.bores[i]!" v-model:error="error" @remove="removeBore(i)" @direction="laneDirection" @lanes-added="laneAdded(bore,$event)" />
+        <section v-if="orphaned.length" class="import-preview" aria-label="待处理车道设备"><h3>{{orphaned.length}} 条设备失去所属车道</h3><p>重新选择每条设备的车道，或明确删除后才能保存。</p><div v-for="asset in orphaned" :key="asset.id" class="config-toolbar"><span>{{asset.code}} · {{asset.name}}</span><select aria-label="重新指定车道" :value="''" @change="asset.mount!.laneId=($event.target as HTMLSelectElement).value"><option value="" disabled>请选择车道</option><option v-for="(lane,i) in draft.bores.find(b=>b.id===asset.boreId)?.lanes" :key="lane.id" :value="lane.id">车道 {{i+1}}</option></select></div><button @click="removeOrphans">删除以上失去所属车道的设备</button></section>
         <button v-if="draft.bores.length<2" class="config-add" @click="addBore">添加洞筒</button>
       </template>
       <template v-else-if="tab==='assets'">
@@ -69,8 +84,10 @@ async function demo():Promise<void>{if(!confirm('返回原演示场景？已应�
             <label>所属物理洞筒<select v-model="selected.boreId"><option v-for="b in draft.bores" :key="b.id" :value="b.id">{{b.name}}</option></select></label>
             <label>桩号<input :key="selected.id+'start'" :value="formatChainage(selected.chainage)" @change="changeChainage('chainage',$event)"></label>
             <label>设施结束桩号，可留空<input :key="selected.id+'end'" :value="selected.endChainage===undefined?'':formatChainage(selected.endChainage)" @change="changeChainage('endChainage',$event)"></label>
-            <label>横向偏移（m，左负右正）<input v-model.number="selected.lateral" type="number" step="0.1"></label><label>安装高度（m）<input v-model.number="selected.height" type="number" step="0.1"></label>
+            <label>安装参照<select :value="selected.mount?.kind??'unresolved'" @change="mount(($event.target as HTMLSelectElement).value as Mount['kind'])"><option value="unresolved">待确认</option><option value="lane">所属车道</option><option value="wall">墙面</option><option value="edge">路缘</option><option value="ceiling">拱顶</option><option value="site">场地固定位置</option></select></label><label v-if="selected.mount?.kind==='lane'">所属车道<select v-model="selected.mount.laneId"><option v-for="(l,i) in draft.bores.find(b=>b.id===selected?.boreId)?.lanes" :key="l.id" :value="l.id">车道 {{i+1}}</option></select></label>
+            <label>横向偏移（m，左负右正）<input :value="resolveAsset(selected,draft).lateral" @input="lateral" type="number" step="0.1"></label><label>安装高度（m）<input v-model.number="selected.height" type="number" step="0.1"></label>
             <label>相对线路朝向（°）<input v-model.number="selected.heading" type="number" step="1"></label>
+            <template v-if="['pedestrian','vehicle'].includes(selected.kind)"><label>横洞另一端洞筒<select :value="selected.link?.targetBoreId??''" @change="linkTarget(($event.target as HTMLSelectElement).value)"><option value="">请选择目标洞筒</option><option v-for="b in draft.bores.filter(b=>b.id!==selected?.boreId)" :key="b.id" :value="b.id">{{b.name}}</option></select></label><label v-if="selected.link">另一端桩号<input :value="formatChainage(selected.link.targetChainage)" @change="targetStation"></label><label v-if="selected.link">关联横洞门（可多选）<select v-model="selected.link.memberIds" multiple><option v-for="a in draft.assets.filter(a=>a.kind==='shutter'&&(a.boreId===selected?.boreId||a.boreId===selected?.link?.targetBoreId))" :key="a.id" :value="a.id">{{a.code}}</option></select></label></template>
           </div><button class="config-danger" @click="draft.assets=draft.assets.filter(a=>a.id!==selectedId);selectedId=''">从草稿移除此设备</button></section>
         </div>
       </template>
@@ -82,7 +99,7 @@ async function demo():Promise<void>{if(!confirm('返回原演示场景？已应�
         <button @click="demo">返回原演示场景</button>
       </template>
     </div>
-    <footer class="project-footer"><div><p v-if="error" role="alert" class="config-errors">{{error}}</p><p v-if="issues.length" role="status" class="config-errors">{{issues.slice(0,3).join('；')}}<span v-if="issues.length>3">，另有 {{issues.length-3}} 项</span></p><p v-else class="config-help">校验通过 · {{draft.bores.length}} 个洞筒 · {{draft.assets.length}} 条台账</p></div><button class="apply-project" :disabled="busy||!!error||!!issues.length" @click="save">{{busy?'正在保存…':'保存并应用到场景'}}</button></footer>
+    <footer class="project-footer"><div><p v-if="error" role="alert" class="config-errors">{{error}}</p><p v-if="issues.length" role="status" class="config-errors">{{issues.slice(0,3).join('；')}}<details v-if="issues.length>3"><summary>查看全部 {{issues.length}} 项问题</summary><ul><li v-for="issue in issues" :key="issue">{{issue}}</li></ul></details></p><p v-else class="config-help">校验通过 · {{draft.bores.length}} 个洞筒 · {{draft.assets.length}} 条台账</p></div><button class="apply-project" :disabled="busy||!!error||!!issues.length" @click="save">{{busy?'正在保存…':'保存并应用到场景'}}</button></footer>
   </aside>
 </template>
 

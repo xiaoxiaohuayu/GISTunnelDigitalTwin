@@ -35,8 +35,10 @@ export function ledPlane(viewer: Viewer, matrix: Matrix4, x: number, z: number, 
       indices: new Uint16Array(back?[0,2,1,0,3,2]:[0,1,2,0,2,3]),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(positions),
     }) }), appearance:new MaterialAppearance({ material, materialSupport:MaterialAppearance.MaterialSupport.TEXTURED,faceForward:false,closed:true }),
   }))
-  return {material,resize(nextWidth:number,nextHeight:number) {
-    primitive.modelMatrix=Matrix4.multiply(Matrix4.multiplyByScale(center,new Cartesian3(1,nextWidth/width,nextHeight/height),new Matrix4()),inverseCenter,new Matrix4())
+  let movement=Matrix4.clone(Matrix4.IDENTITY),size=Matrix4.clone(Matrix4.IDENTITY)
+  const apply=()=>{primitive.modelMatrix=Matrix4.multiply(movement,size,new Matrix4())}
+  return {dispose(){if(viewer.scene.primitives.contains(primitive))viewer.scene.primitives.remove(primitive)},material,move(delta:Matrix4){movement=Matrix4.clone(delta);apply()},resize(nextWidth:number,nextHeight:number) {
+    size=Matrix4.multiply(Matrix4.multiplyByScale(center,new Cartesian3(1,nextWidth/width,nextHeight/height),new Matrix4()),inverseCenter,new Matrix4());apply()
   }}
 }
 

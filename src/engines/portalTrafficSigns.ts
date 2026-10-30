@@ -1,4 +1,7 @@
-import { BoundingSphere, Cartesian3, Color, ComponentDatatype, Geometry, GeometryAttribute, GeometryAttributes, GeometryInstance, GeometryPipeline, Material, MaterialAppearance, Matrix3, Matrix4, Primitive, PrimitiveType, Quaternion, Transforms } from 'cesium'
+import { portalPosition } from './portalPosition'
+import { portalLateral, portalAlong } from './portalGeometry'
+import { surveyFrame } from './projectSurvey'
+import { BoundingSphere, Cartesian3, Color, ComponentDatatype, Geometry, GeometryAttribute, GeometryAttributes, GeometryInstance, GeometryPipeline, Material, MaterialAppearance, Matrix3, Matrix4, Primitive, PrimitiveType, Quaternion } from 'cesium'
 import type { Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import type { TrafficSignsConfig } from '../types/scene'
@@ -12,10 +15,11 @@ export async function addPortalTrafficSigns(viewer:Viewer,survey:TunnelSurvey) {
   try{images=await Promise.all(config.images.map((image,index)=>trafficSignImage(index,image)))}catch{config=defaultTrafficSigns();images=await Promise.all(config.images.map((image,index)=>trafficSignImage(index,image)));warning='原交通标志图片无法读取，已显示默认图片'}
   const materials:{material:Material;index:number}[]=[]
   for(const end of [0,1]) {
-    const origin=tunnelPoint(survey,0,end===0?-PORTAL_EXTENSION:survey.length+PORTAL_EXTENSION,12)
+    const beforeEntities=new Set(viewer.entities.values),beforePrimitives=new Set(Array.from({length:viewer.scene.primitives.length},(_,i)=>viewer.scene.primitives.get(i)))
+    const origin=survey.actualPointAt?survey.actualPointAt(0,end===0?-PORTAL_EXTENSION:survey.length+PORTAL_EXTENSION,survey.project!.bores[0]!.offset,0):tunnelPoint(survey,0,end===0?-PORTAL_EXTENSION:survey.length+PORTAL_EXTENSION,12)
     const rotation=Matrix3.multiply(Matrix3.fromRotationY(-Math.atan(survey.grade/100)),Matrix3.fromRotationZ(end*Math.PI),new Matrix3())
-    const frame=Matrix4.multiply(Transforms.eastNorthUpToFixedFrame(origin),Matrix4.fromRotationTranslation(rotation),new Matrix4())
-    const world=(x:number,y:number,z:number)=>Matrix4.multiplyByPoint(frame,new Cartesian3(x,y,z),new Cartesian3())
+    const frame=Matrix4.multiply(surveyFrame(survey,origin),Matrix4.fromRotationTranslation(rotation),new Matrix4())
+    const world=(x:number,y:number,z:number)=>Matrix4.multiplyByPoint(frame,new Cartesian3(x+(survey.project?portalAlong(survey.project,end,-12):0),y+(survey.project?portalLateral(survey.project,end,-12)+12:0),z),new Cartesian3())
     const orientation=(axis:Cartesian3,angle:number)=>Quaternion.fromRotationMatrix(Matrix3.multiply(Matrix4.getMatrix3(frame,new Matrix3()),Matrix3.fromQuaternion(Quaternion.fromAxisAngle(axis,angle)),new Matrix3()))
     viewer.entities.add({position:world(-35.82,-18.3,3.8),orientation:orientation(Cartesian3.UNIT_Z,0),cylinder:{length:7.4,topRadius:.095,bottomRadius:.095,material:Color.SILVER}})
     viewer.entities.add({position:world(-35.82,-13.85,6.95),orientation:orientation(Cartesian3.UNIT_X,Math.PI/2),cylinder:{length:8.9,topRadius:.075,bottomRadius:.075,material:Color.SILVER}})
@@ -28,6 +32,7 @@ export async function addPortalTrafficSigns(viewer:Viewer,survey:TunnelSurvey) {
       const geometry=GeometryPipeline.computeNormal(new Geometry({attributes,indices:new Uint16Array([0,1,2,0,2,3]),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(positions)}))
       viewer.scene.primitives.add(new Primitive({asynchronous:false,compressVertices:false,geometryInstances:new GeometryInstance({id,geometry}),appearance:new MaterialAppearance({material,materialSupport:MaterialAppearance.MaterialSupport.TEXTURED,faceForward:true,closed:false})}))
     }
+    await portalPosition(viewer,`traffic:${end}`,frame,viewer.entities.values.filter(e=>!beforeEntities.has(e)),Array.from({length:viewer.scene.primitives.length},(_,i)=>viewer.scene.primitives.get(i)).filter(p=>!beforePrimitives.has(p)))
   }
   return {config,warning,async update(next:TrafficSignsConfig){const images=await Promise.all(next.images.map((image,index)=>trafficSignImage(index,image)));for(const {material,index} of materials)material.uniforms.image=images[index];viewer.scene.requestRender()},setLighting(day:boolean){for(const {material} of materials)material.uniforms.level=day?1:.35}}
 }

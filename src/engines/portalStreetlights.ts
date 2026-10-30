@@ -7,17 +7,19 @@ import type { Viewer } from 'cesium'
 import { deviceEnabled } from './tunnelSystemsState.ts'
 import type { SceneDevice, SystemsState } from './tunnelSystemsState.ts'
 
+export interface LampLayout {x:number;y:number;headY?:number;roadCenter?:number;roadHalfWidth?:number}
+
 // Centre of the supplied streetlight's emissive mesh, converted from glTF Y-up.
-export function streetlightHead(lamp:{x:number;y:number}):Cartesian3 {
-  const road=lamp.y<0?-12:12
-  return new Cartesian3(lamp.x,lamp.y+Math.sign(road-lamp.y)*1.137836,7.812475)
+export function streetlightHead(lamp:LampLayout):Cartesian3 {
+  const road=lamp.roadCenter??(lamp.y<0?-12:12)
+  return new Cartesian3(lamp.x,lamp.headY??lamp.y+Math.sign(road-lamp.y)*1.137836,7.812475)
 }
 export function advanceLampPower(current:number,target:number,elapsedMs:number):number {
   const step=Math.max(0,elapsedMs)/420
   return current<target?Math.min(target,current+step):Math.max(target,current-step)
 }
 
-export function addPortalStreetlights(viewer:Viewer,frame:Matrix4,lamps:{x:number;y:number}[],devices:SceneDevice[],applyPower:(index:number,power:number)=>void) {
+export function addPortalStreetlights(viewer:Viewer,frame:Matrix4,lamps:LampLayout[],devices:SceneDevice[],applyPower:(index:number,power:number)=>void,active:(id:string)=>boolean=()=>true) {
   const image=document.createElement('canvas');image.width=64;image.height=64
   const ctx=image.getContext('2d')!,gradient=ctx.createRadialGradient(32,32,0,32,32,32)
   gradient.addColorStop(0,'rgba(255,250,230,1)');gradient.addColorStop(.12,'rgba(255,239,196,.8)');gradient.addColorStop(.4,'rgba(255,215,150,.2)');gradient.addColorStop(1,'rgba(255,215,150,0)')
@@ -27,21 +29,15 @@ export function addPortalStreetlights(viewer:Viewer,frame:Matrix4,lamps:{x:numbe
   const bulbs=lamps.map((lamp,index)=>halos.add({id:devices[index]!.id,
     position:Matrix4.multiplyByPoint(frame,streetlightHead(lamp),new Cartesian3()),image,width:1.35,height:1.35,sizeInMeters:true,
     color:new Color(1,.92,.74,0),show:false,scaleByDistance:new NearFarScalar(12,1,230,.55),distanceDisplayCondition:new DistanceDisplayCondition(0,260)}))
-  const vertices:number[]=[],uv:number[]=[],lampIds:number[]=[],indices:number[]=[]
-  lamps.forEach((lamp,index)=>{
-    const head=streetlightHead(lamp),road=lamp.y<0?-12:12,center=head.y+Math.sign(road-head.y)*2.2
-    const low=Math.max(road-5.45,center-4.2),high=Math.min(road+5.45,center+4.2),base=vertices.length/3
+  const vertices:number[]=[],uv:number[]=[]
+  lamps.forEach(lamp=>{
+    const head=streetlightHead(lamp),road=lamp.roadCenter??(lamp.y<0?-12:12),center=head.y+Math.sign(road-head.y)*2.2
+    const low=Math.max(road-(lamp.roadHalfWidth??4.3)-1.15,center-4.2),high=Math.min(road+(lamp.roadHalfWidth??4.3)+1.15,center+4.2)
     for(const [x,y]of [[lamp.x-8,low],[lamp.x+8,low],[lamp.x+8,high],[lamp.x-8,high]]){
       const point=Matrix4.multiplyByPoint(frame,new Cartesian3(x,y,.225),new Cartesian3())
-      vertices.push(point.x,point.y,point.z);uv.push((x!-lamp.x)/8,(y!-center)/4.2);lampIds.push(index)
+      vertices.push(point.x,point.y,point.z);uv.push((x!-lamp.x)/8,(y!-center)/4.2)
     }
-    indices.push(base,base+1,base+2,base,base+2,base+3)
   })
-  const attributes:GeometryAttributes & {lampIndex?:GeometryAttribute}=new GeometryAttributes()
-  attributes.position=new GeometryAttribute({componentDatatype:ComponentDatatype.DOUBLE,componentsPerAttribute:3,values:new Float64Array(vertices)})
-  attributes.st=new GeometryAttribute({componentDatatype:ComponentDatatype.FLOAT,componentsPerAttribute:2,values:new Float32Array(uv)})
-  attributes.lampIndex=new GeometryAttribute({componentDatatype:ComponentDatatype.FLOAT,componentsPerAttribute:1,values:new Float32Array(lampIds)})
-  const geometry=GeometryPipeline.computeNormal(new Geometry({attributes,indices:new Uint16Array(indices),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(vertices)}))
   const material=new Material({fabric:{type:'PortalStreetlightPools',uniforms:{u_night:0,...Object.fromEntries(lamps.map((_,i)=>[`u_power${i}`,0]))},source:`
     in float v_lampIndex;
     czm_material czm_getMaterial(czm_materialInput inputValue) {
@@ -55,12 +51,21 @@ export function addPortalStreetlights(viewer:Viewer,frame:Matrix4,lamps:{x:numbe
       if(m.alpha<0.002)discard;
       return m;
     }`},translucent:true})
-  const pools=viewer.scene.primitives.add(new Primitive({geometryInstances:new GeometryInstance({geometry}),
+  const poolParts=lamps.map((_,index)=>{
+    const partAttributes:GeometryAttributes & {lampIndex?:GeometryAttribute}=new GeometryAttributes()
+    const p=vertices.slice(index*12,index*12+12)
+    partAttributes.position=new GeometryAttribute({componentDatatype:ComponentDatatype.DOUBLE,componentsPerAttribute:3,values:new Float64Array(p)})
+    partAttributes.st=new GeometryAttribute({componentDatatype:ComponentDatatype.FLOAT,componentsPerAttribute:2,values:new Float32Array(uv.slice(index*8,index*8+8))})
+    partAttributes.lampIndex=new GeometryAttribute({componentDatatype:ComponentDatatype.FLOAT,componentsPerAttribute:1,values:new Float32Array([index,index,index,index])})
+    const partGeometry=GeometryPipeline.computeNormal(new Geometry({attributes:partAttributes,indices:new Uint16Array([0,1,2,0,2,3]),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(p)}))
+  return viewer.scene.primitives.add(new Primitive({geometryInstances:new GeometryInstance({geometry:partGeometry}),
     appearance:new MaterialAppearance({material,materialSupport:MaterialAppearance.MaterialSupport.TEXTURED,
       vertexShaderSource:MaterialAppearance.MaterialSupport.TEXTURED.vertexShaderSource
         .replace('in vec2 st;','in vec2 st;\nin float lampIndex;\nout float v_lampIndex;')
         .replace('v_st = st;','v_st = st; v_lampIndex=lampIndex;'),
       translucent:true,closed:false,faceForward:true}),asynchronous:false,compressVertices:false,allowPicking:false})) as Primitive
+  })
+  const pools={set show(value:boolean){poolParts.forEach(p=>p.show=value)}}
   let night=0,visible=true,previous=performance.now()
   function render(index:number):void {
     const power=powers[index]!
@@ -76,12 +81,14 @@ export function addPortalStreetlights(viewer:Viewer,frame:Matrix4,lamps:{x:numbe
     })
     if(moving)viewer.scene.requestRender()
   })
+  const bulbPositions=bulbs.map(b=>Cartesian3.clone(b.position))
   return {
+    move(index:number,delta:Matrix4){if(poolParts[index])poolParts[index]!.modelMatrix=delta;if(bulbs[index])bulbs[index]!.position=Matrix4.multiplyByPoint(delta,bulbPositions[index]!,new Cartesian3());viewer.scene.requestRender()},
     setLighting(state:SystemsState){
       night=state.environment==='night'?1:state.environment==='fog'?.45:0
       material.uniforms.u_night=night
       const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches
-      devices.forEach((device,index)=>{targets[index]=Number(deviceEnabled(device,state));if(reduced)powers[index]=targets[index]!;render(index)})
+      devices.forEach((device,index)=>{targets[index]=Number(active(device.id)&&deviceEnabled(device,state));if(reduced)powers[index]=targets[index]!;render(index)})
       pools.show=visible&&night>0;previous=performance.now();viewer.scene.requestRender()
     },
     setVisible(enabled:boolean){visible=enabled;halos.show=enabled;pools.show=enabled&&night>0;bulbs.forEach((bulb,index)=>{bulb.show=enabled&&powers[index]!>.001})},

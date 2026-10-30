@@ -1,3 +1,4 @@
+import { upgradeProject } from './assetPlacement'
 import { openSceneSettings } from './portalSignConfig'
 import { projectErrors } from './projectConfig'
 import type { TunnelProject } from './projectConfig'
@@ -14,7 +15,7 @@ export async function readTunnelProject():Promise<TunnelProject|null> {
   const db=await openSceneSettings()
   try{return await new Promise((resolve,reject)=>{
     const request=db.transaction('settings').objectStore('settings').get('tunnel-project-v1')
-    request.onsuccess=()=>{if(request.result===undefined){resolve(null);return}const errors=projectErrors(request.result);errors.length?reject(new Error(`已保存配置无效：${errors[0]}`)):resolve(request.result)}
+    request.onsuccess=()=>{if(request.result===undefined){resolve(null);return}const errors=projectErrors(request.result);errors.length?reject(new Error(`已保存配置无效：${errors[0]}`)):resolve(upgradeProject(request.result))}
     request.onerror=()=>reject(new Error('无法读取隧道配置，请检查浏览器存储权限'))
   })}finally{db.close()}
 }
@@ -23,7 +24,12 @@ export async function saveTunnelProject(project:TunnelProject|null):Promise<void
   const db=await openSceneSettings()
   try{await new Promise<void>((resolve,reject)=>{
     const tx=db.transaction('settings','readwrite'),store=tx.objectStore('settings')
-    if(project)store.put(project,'tunnel-project-v1');else store.delete('tunnel-project-v1')
+    if(project){const prior=store.get('tunnel-project-v1');prior.onsuccess=()=>{if(prior.result?.version===1)store.put(prior.result,'tunnel-project-v1-backup')};store.put(project,'tunnel-project-v1')}else store.delete('tunnel-project-v1')
     tx.oncomplete=()=>resolve();tx.onerror=()=>reject(new Error('隧道配置保存失败'));tx.onabort=()=>reject(new Error('配置保存已中止'))
   })}finally{db.close()}
+}
+
+export async function demoProject(value?:TunnelProject):Promise<TunnelProject|undefined>{
+  const db=await openSceneSettings()
+  try{return await new Promise((resolve,reject)=>{const tx=db.transaction('settings',value?'readwrite':'readonly'),store=tx.objectStore('settings');if(value){store.put(value,'tunnel-demo-project');tx.oncomplete=()=>resolve(value)}else{const r=store.get('tunnel-demo-project');r.onsuccess=()=>resolve(r.result)}tx.onerror=()=>reject(new Error('无法读取原场景配置'))})}finally{db.close()}
 }

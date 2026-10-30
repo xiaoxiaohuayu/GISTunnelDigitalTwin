@@ -286,7 +286,6 @@ for y in [-12,12]:
             box('Galvanised I post',(x,rail_y,.52),(.095,.08,.95),steel)
             for z in [.74,.92]:
                 rod('Guardrail bolt',(x,rail_y-.13,z),(x,rail_y+.13,z),.028,steel,vertices=6)
-            if x%12==0:box('Road delineator',(x,rail_y-side*.13,.99),(.08,.035,.15),white)
     # Traffic gantry and physical LED message board.
     for side in [-1,1]:rod('Gantry post',(-112,y+side*5.55,0),(-112,y+side*5.55,7.6),.09,steel)
     rod('Gantry crossbeam',(-112,y-5.6,7.5),(-112,y+5.6,7.5),.1,steel)
@@ -294,7 +293,6 @@ for y in [-12,12]:
     message=text('LED safety message','道路千万条  安全第一条',(-112.32 if y<0 else -111.92,y,7.06),.48,red)
     if y>0:message.rotation_euler.z+=math.pi
 # Supplied textured substation, grounded on the central median.
-box('Substation concrete apron',(-50,0,.05),(17,9,.18),trim)
 # The runtime loads substation-new.glb independently at (-50, 0, .14).
 # Station signage belongs to the independent replacement asset.
 # Keep the open crossover and reflector bands in future full site builds as well.

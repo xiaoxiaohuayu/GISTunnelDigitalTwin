@@ -19,3 +19,9 @@ test('lay-bys, portal approaches and hidden walls remain visible',()=>{
   assert.equal(liningBlocksSight(point(-95,-4,7),point(-90,0,2),geometry),false)
   assert.equal(liningBlocksSight(point(930,0),point(980,24),{...geometry,wallsVisible:false}),false)
 })
+
+test('configured bore widths and a single bore do not use the old two-lane envelope',()=>{
+  const wide={...geometry,boreCount:1,radiusAt:()=>9.8}
+  assert.equal(liningBlocksSight(point(930,6),point(980,7),wide),false)
+  assert.equal(liningBlocksSight(point(930,23),point(980,24),wide),true)
+})

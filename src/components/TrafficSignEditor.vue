@@ -3,7 +3,7 @@ import { onBeforeUnmount, shallowRef, watch } from 'vue'
 import type { TrafficSignsConfig } from '../types/scene'
 import { defaultTrafficSignImages, saveTrafficSigns, trafficSignImage, trafficSignNames } from '../engines/trafficSignConfig'
 const props=defineProps<{config:TrafficSignsConfig;activeIndex:number;warning:string;apply:(config:TrafficSignsConfig)=>Promise<void>}>()
-const emit=defineEmits<{saved:[config:TrafficSignsConfig]}>()
+const emit=defineEmits<{position:[end:number];saved:[config:TrafficSignsConfig]}>()
 const draft=shallowRef<TrafficSignsConfig>({images:[...props.config.images]}),previews=shallowRef([...defaultTrafficSignImages]),busy=shallowRef(false),message=shallowRef(props.warning)
 let generation=0
 watch(()=>props.config,config=>{draft.value={images:[...config.images]}})
@@ -15,7 +15,7 @@ async function save():Promise<void>{busy.value=true;message.value='';try{await P
 </script>
 <template>
   <section class="sign-editor traffic-sign-editor" aria-label="洞口交通标志编辑">
-    <h3>洞口交通标志</h3><p class="panel-note">点击场景中的交通牌可直接编辑。三块牌可分别换图，保存在当前浏览器，两端同步。</p>
+    <div><button @click="emit('position',0)">调整西端位置</button><button @click="emit('position',1)">调整终点位置</button></div><h3>洞口交通标志</h3><p class="panel-note">点击场景中的交通牌可直接编辑。三块牌可分别换图，保存在当前浏览器，两端同步。</p>
     <div v-for="(name,index) in trafficSignNames" :key="name" class="traffic-sign-row" :class="{active:index===activeIndex}">
       <img :src="previews[index]" :alt="`${name}当前图片`"><div><label>{{name}}<input type="file" accept="image/png,image/jpeg,image/webp" :disabled="busy" :aria-label="`替换${name}图片`" @change="upload(index,$event)"></label><button :disabled="busy" @click="replace(index,null)">恢复这块默认图片</button></div>
     </div>

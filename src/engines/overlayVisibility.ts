@@ -3,6 +3,9 @@ export interface TunnelVisibilityGeometry {
   length:number; spacing:number; wallsVisible:boolean; shuttersOpen:boolean
   passages:readonly {station:number;halfWidth:number;height:number;archRise:number}[]
   shutterOpen?:(index:number)=>boolean
+  boreCount?:number
+  radiusAt?:(tube:number)=>number
+  lengthAt?:(tube:number)=>number
   widthAt:(station:number,tube:number)=>number
 }
 // Test the segment against the same bore/lay-by/cross-passage envelope as the lining.
@@ -16,9 +19,10 @@ export function liningBlocksSight(from:TunnelViewPoint,to:TunnelViewPoint,geomet
     if(s< -60||s>geometry.length+60)continue
     const y=from.lateral+(to.lateral-from.lateral)*t,z=from.height+(to.height-from.height)*t
     let inside=false
-    for(let tube=0;tube<2;tube++) {
+    for(let tube=0;tube<(geometry.boreCount??2);tube++) {
+      if(s> (geometry.lengthAt?.(tube)??geometry.length)+60)continue
       const width=geometry.widthAt(s,tube),outer=tube===0?-1:1
-      const center=tube*geometry.spacing+outer*width/2,radius=5.5+width/2
+      const center=tube*geometry.spacing+outer*width/2,radius=(geometry.radiusAt?.(tube)??5.5)+width/2
       const lateral=(y-center)/radius
       if(z>=-.15&&Math.abs(lateral)<=1.025&&z<=2.5+5.5*Math.sqrt(Math.max(0,1-lateral*lateral))+.15){inside=true;break}
     }

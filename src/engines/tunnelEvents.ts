@@ -73,5 +73,5 @@ export function addTunnelEvents(viewer:Viewer,survey:TunnelSurvey) {
     if(label.polyline)label.polyline.positions=new ConstantProperty([target,anchor])
     viewer.scene.requestRender()
   }
-  return {update}
+  return {update,dispose(){props.splice(0).forEach(e=>viewer.entities.remove(e));viewer.entities.remove(label)}}
 }

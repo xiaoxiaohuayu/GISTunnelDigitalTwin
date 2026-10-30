@@ -40,5 +40,7 @@ export function addDeviceInteraction(viewer:Viewer,survey:TunnelSurvey,devices:S
     if(device)selection.position=new ConstantPositionProperty(position(device))
     viewer.scene.requestRender()
   }
-  return {select,get selected(){return selected},update(state:SystemsState){for(const alert of alerts)alert.entity.show=deviceTelemetry(alert.device,state,survey.length).severity!=='normal';viewer.scene.requestRender()},dispose(){handler.destroy()}}
+  const owned=viewer.entities.values.filter(e=>e===selection||e.id.startsWith('device-target:')||e.id.startsWith('device-alarm:'))
+  function refresh():void{for(const d of devices){for(const prefix of ['device-target:','device-alarm:']){const e=viewer.entities.getById(prefix+d.id);if(e)e.position=new ConstantPositionProperty(position(d))}}if(selected)select(selected)}
+  return {select,refresh,get selected(){return selected},update(state:SystemsState){for(const alert of alerts)alert.entity.show=deviceTelemetry(alert.device,state,survey.length).severity!=='normal';viewer.scene.requestRender()},dispose(){handler.destroy();owned.forEach(e=>viewer.entities.remove(e))}}
 }

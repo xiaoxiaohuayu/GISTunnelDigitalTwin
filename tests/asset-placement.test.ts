@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict'
+import test from 'node:test'
+import { defaultProject,projectErrors } from '../src/engines/projectConfig.ts'
+import { inferMount,resolveAsset,moveAsset,upgradeProject,facilityProject } from '../src/engines/assetPlacement.ts'
+import type { AssetRecord } from '../src/engines/projectConfig.ts'
+const asset=(kind:AssetRecord['kind']='camera'):AssetRecord=>({id:`${kind}-1`,code:`${kind}-1`,name:'设备',kind,boreId:'bore-1',chainage:300,lateral:4.5,height:4.5,heading:0})
+test('wall-mounted device follows widening while preserving manual offset and ID',()=>{const p=defaultProject(),a=asset();a.mount=inferMount(a,p.bores[0]!,true);p.assets=[a];const moved=moveAsset(a,{lateral:4.8},p);p.bores[0]!.lanes.push({id:'third',direction:1});const result=resolveAsset(moved,p);assert.equal(result.id,a.id);assert.ok(Math.abs(result.lateral-6.55)<1e-9)})
+test('removing a lane reports the affected device rather than reassigning it',()=>{const p=defaultProject(),a=asset('lane');a.lateral=1.75;a.mount=inferMount(a,p.bores[0]!,true);p.assets=[a];p.bores[0]!.lanes.pop();assert.match(projectErrors(p).join(','),/所属车道已删除/);assert.equal(p.assets.length,1)})
+test('migration preserves coordinates, stable IDs and unknown records needing confirmation',()=>{const p=defaultProject(),a=asset();p.assets=[a,{...a,id:'external-camera',code:'CAM-100'}];const next=upgradeProject(p);assert.equal(next.version,2);assert.deepEqual(resolveAsset(next.assets[0]!,next),{...a,mount:next.assets[0]!.mount});assert.equal(next.assets[1]!.mount?.kind,'unresolved');assert.equal(p.version,1)})
+test('cross-passage movement updates both ends and linked doors, including decreasing chainages',()=>{const p=defaultProject();p.bores[1]!.start=5000;p.bores[1]!.end=3100;const a=asset('pedestrian');a.link={targetBoreId:'bore-2',targetChainage:4700,memberIds:['door']};p.assets=[a,{...asset('shutter'),id:'door',boreId:'bore-2',chainage:4700}];const next=facilityProject(p,{...a,chainage:320});assert.equal(next.assets[0]!.link!.targetChainage,4680);assert.equal(next.assets[1]!.chainage,4680);assert.equal(p.assets[1]!.chainage,4700)})

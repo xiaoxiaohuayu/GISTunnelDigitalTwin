@@ -1,3 +1,5 @@
+import { layoutPassages,projectLayByWidth,projectStations } from './facilityLayout'
+import { boreIndices } from './projectSurvey'
 // @env browser
 import {
   BoundingSphere, ComponentDatatype, Geometry, GeometryAttribute, GeometryAttributes,
@@ -6,8 +8,7 @@ import {
 import type { Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import { tunnelPoint } from './tunnelDetails'
-import { interiorStations, layByWidth } from './tunnelLayout'
-import { crossPassages, initialSystems, illuminationAt } from './tunnelSystemsState'
+import {  initialSystems, illuminationAt } from './tunnelSystemsState'
 import type { SystemsState } from './tunnelSystemsState'
 
 const lightingShader = `
@@ -110,10 +111,10 @@ function surface(viewer: Viewer, positions: number[], uv: number[], indices: num
 export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLighting: (state: SystemsState) => void; setWallsVisible: (visible: boolean) => void } {
   const materials: { material: Material; primitive: Primitive; tube:number }[] = []
   const walls: Primitive[] = []
-  const passages = crossPassages(survey.length)
-  for (let tube = 0; tube < 2; tube++) {
+  for (const tube of boreIndices(survey)) {
+    const passages=layoutPassages(survey,tube)
     const outer = tube === 0 ? -1 : 1
-    const stations = interiorStations(survey.length, tube)
+    const stations = projectStations(survey,tube)
     const positions: number[] = [], uv: number[] = [], indices: number[] = []
     const cutPositions: number[] = [], cutUv: number[] = []
     // Traverse from right springer, across the crown, down to the left curb.
@@ -125,7 +126,7 @@ export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLi
     section.push([-5.5, 0])
     const baseCount = stations.length * section.length
     stations.forEach((station, row) => {
-      const width = layByWidth(station, survey.length, tube)
+      const width = projectLayByWidth(station,survey,tube)
       section.forEach(([y, z], column) => {
         const lateral = y! + outer * width * (1 + outer * y! / 5.5) / 2
         const point = tunnelPoint(survey, tube, station, lateral, z!)
@@ -171,7 +172,7 @@ export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLi
     const roadPositions: number[] = [], roadUv: number[] = [], roadIndices: number[] = []
     const roadStations = [-240, ...stations, survey.length + 240]
     roadStations.forEach((station, row) => {
-      const width = layByWidth(station, survey.length, tube)
+      const width = projectLayByWidth(station,survey,tube)
       for (const side of [-1, 1]) {
         const lateral = side * (5.5 + (side === outer ? width : 0))
         const point = tunnelPoint(survey, tube, station, lateral, 0.2)
@@ -186,7 +187,7 @@ export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLi
     for (const side of [-1, 1]) {
       const curbPositions: number[] = [], curbUv: number[] = [], curbIndices: number[] = []
       stations.forEach((station, row) => {
-        const width = side === outer ? layByWidth(station, survey.length, tube) : 0
+        const width = side === outer ? projectLayByWidth(station,survey,tube) : 0
         for (const z of [0.22, 0.49]) {
           const point = tunnelPoint(survey, tube, station, side * (4.5 + width), z)
           curbPositions.push(point.x, point.y, point.z); curbUv.push(station, z)

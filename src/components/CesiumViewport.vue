@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, shallowRef, useTemplateRef,watch } from 'vue'
+import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
 import { useEngine } from '../composables/useEngine'
 import { createCesiumMap } from '../engines/cesiumMap'
 import type { IntroPhase } from '../engines/cesiumMap'
@@ -21,13 +21,15 @@ import EventConsole from './EventConsole.vue'
 import SceneRoaming from './SceneRoaming.vue'
 import type { RoamingState } from '../types/tunnel'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
+import PositionEditor from './configuration/PositionEditor.vue'
+import type { AssetRecord } from '../engines/projectConfig'
 import ProjectEditor from './configuration/ProjectEditor.vue'
 import { defaultProject } from '../engines/projectConfig'
 import type { TunnelProject } from '../engines/projectConfig'
-import { saveTunnelProject,saveControlOverrides } from '../engines/projectStorage'
-const props=defineProps<{initialFocusId?:string}>()
-const emit=defineEmits<{rebuild:[focusId?:string]}>()
+
+
 const project=shallowRef<TunnelProject>(defaultProject()),configured=shallowRef(false),projectOpen=shallowRef(false),editAssetId=shallowRef<string>()
+const positionDraft=shallowRef<AssetRecord>()
 const storageWarning=shallowRef('')
 const container=useTemplateRef<HTMLDivElement>('container')
 const overlayLayer=useTemplateRef<InstanceType<typeof SceneOverlayLayer>>('overlayLayer')
@@ -46,6 +48,7 @@ const activeEvent=computed(()=>state.value.incident!=='none'||deviceAlarmIds(sta
 const trafficSignsConfig=shallowRef<TrafficSignsConfig>(defaultTrafficSigns()),trafficSignIndex=shallowRef(-1),trafficSignWarning=shallowRef('')
 let panelTrigger:HTMLElement|undefined
 const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiumMap(element,{
+  onPositionEdit:value=>{positionDraft.value=value},
   onProject:(value,active)=>{project.value=value;configured.value=active},
   onWarning:message=>{storageWarning.value=message},
   onSystems:value=>{state.value=value},
@@ -66,9 +69,9 @@ const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiu
   },
   onDevices:list=>{devices.value=list},onIntro:phase=>{intro.value=phase},shouldSkipIntro:()=>skipRequested.value,
 }))
-watch(ready,async value=>{if(value&&props.initialFocusId){await nextTick();focusDevice(props.initialFocusId)}})
-function openProject(id?:string):void{editAssetId.value=id;projectOpen.value=true;closeDevice();panel.value=null;stopRoaming()}
-async function applyProject(value:TunnelProject|null,focusId?:string):Promise<void>{if(value&&value.id===project.value.id)await saveControlOverrides(value.id,state.value.devices);await saveTunnelProject(value);emit('rebuild',focusId)}
+function openProject(id?:string):void{if(positionDraft.value){storageWarning.value="请先保存或取消位置调整";return}editAssetId.value=id;projectOpen.value=true;closeDevice();panel.value=null;stopRoaming()}
+async function applyProject(value:TunnelProject|null,focusId?:string):Promise<void>{await getHandle()!.applyProject(value);projectOpen.value=false;if(focusId){const d=devices.value.find(d=>d.id===focusId);if(d)selectedDevice.value=d}}
+
 const phases:Record<IntroPhase,string>={earth:'地球视角',region:'区域定位',overview:'线路全览',portal:'抵达洞口',complete:''}
 function change(patch:Partial<SystemsState>):void{const next=getHandle()?.setSystems(patch);if(next)state.value=next}
 function changeDevice(id:string,patch:DeviceSettings):void{change({devices:updateDevice(state.value,id,patch).devices})}
@@ -94,7 +97,7 @@ async function togglePanel(next:'devices'|'systems'|'events',event:Event):Promis
   panelTrigger=event.currentTarget as HTMLElement;closeDevice();panel.value=next
   await nextTick();document.querySelector<HTMLElement>('.scene-panel:not([style*="display: none"]) header button')?.focus()
 }
-function dismiss():void{closePanel();closeDevice();monitor.value=undefined}
+function dismiss():void{if(positionDraft.value){getHandle()?.cancelPositionEdit();return}closePanel();closeDevice();monitor.value=undefined}
 async function applyTrafficSigns(config:TrafficSignsConfig):Promise<void>{await getHandle()?.updateTrafficSigns(config)}
 async function applySign(config:PortalSignConfig):Promise<void>{await getHandle()?.updatePortalSign(config)}
 const alerts=computed(()=>activeDeviceAlerts(devices.value,state.value,roamingState.value.length))
@@ -132,10 +135,11 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
     <aside v-show="panel&&panel!=='events'" class="scene-panel" :aria-label="panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'">
       <header><h2>{{panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'}}</h2><button aria-label="关闭面板" @click="closePanel">×</button></header>
       <div v-show="panel==='devices'"><DeviceExplorer :bore-names="configured?project.bores.map(b=>b.name):undefined" :devices="devices" :state="state" :length="roamingState.length" @focus="focusDevice" /></div>
-      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="configured?project.bores.map(b=>b.name):undefined" v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="!configured&&panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="!configured&&(panel==='traffic'||panel==='systems')" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @saved="trafficSignsConfig=$event" /></template>
+      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="configured?project.bores.map(b=>b.name):undefined" v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" @position="getHandle()?.editPortalPosition('board',$event)" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="(panel==='traffic'||panel==='systems')" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @position="getHandle()?.editPortalPosition('traffic',$event)" @saved="trafficSignsConfig=$event" /></template>
     </aside>
     <DeviceAlerts v-if="ready" :alerts="alerts" @focus="focusDevice" />
-    <DeviceInspector v-if="selectedDevice" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" @edit-position="openProject(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
+    <DeviceInspector v-if="selectedDevice&&!positionDraft" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" @edit-position="getHandle()?.startPositionEdit(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
+    <PositionEditor v-if="positionDraft" :asset="positionDraft" :save="()=>getHandle()!.savePositionEdit()" @preview="getHandle()?.previewPosition($event)" @cancel="getHandle()?.cancelPositionEdit()" />
     <ProjectEditor v-if="projectOpen" :project="project" :selected-id="editAssetId" :apply="applyProject" @close="projectOpen=false" />
     <EventConsole :bore-names="configured?project.bores.map(b=>b.name):undefined" :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
     <SceneOverlayLayer ref="overlayLayer" :items="overlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
