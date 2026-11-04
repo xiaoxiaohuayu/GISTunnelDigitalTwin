@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { onBeforeUnmount, shallowRef, watch } from 'vue'
+import type { UploadFile } from 'element-plus'
 import type { TrafficSignsConfig } from '../types/scene'
 import { defaultTrafficSignImages, saveTrafficSigns, trafficSignImage, trafficSignNames } from '../engines/trafficSignConfig'
 const props=defineProps<{config:TrafficSignsConfig;activeIndex:number;warning:string;apply:(config:TrafficSignsConfig)=>Promise<void>}>()
@@ -10,16 +11,17 @@ watch(()=>props.config,config=>{draft.value={images:[...config.images]}})
 watch(draft,async config=>{const version=++generation;try{const images=await Promise.all(config.images.map((image,index)=>trafficSignImage(index,image)));if(version===generation)previews.value=images}catch{if(version===generation)message.value='图片无法解码，请重新选择 PNG、JPEG 或 WebP 图片'}},{immediate:true})
 onBeforeUnmount(()=>{generation++})
 function replace(index:number,image:Blob|null):void{const images:TrafficSignsConfig['images']=[...draft.value.images];images[index]=image;draft.value={images};message.value=''}
-async function upload(index:number,event:Event):Promise<void>{const file=(event.target as HTMLInputElement).files?.[0];if(!file)return;try{await trafficSignImage(index,file);replace(index,file)}catch{message.value='图片无法解码，已保留原标志'}}
+async function upload(index:number,file:UploadFile):Promise<void>{const raw=file.raw;if(!raw)return;try{await trafficSignImage(index,raw);replace(index,raw)}catch{message.value='图片无法解码，已保留原标志'}}
+function onUpload(index:number):(file:UploadFile)=>void{return file=>void upload(index,file)}
 async function save():Promise<void>{busy.value=true;message.value='';try{await Promise.all(draft.value.images.map((image,index)=>trafficSignImage(index,image)));await saveTrafficSigns(draft.value);await props.apply(draft.value);emit('saved',draft.value);message.value='已保存，两端入口的交通标志已同步更新'}catch(error){message.value=String(error)}finally{busy.value=false}}
 </script>
 <template>
   <section class="sign-editor traffic-sign-editor" aria-label="洞口交通标志编辑">
-    <div><button @click="emit('position',0)">调整西端位置</button><button @click="emit('position',1)">调整终点位置</button></div><h3>洞口交通标志</h3><p class="panel-note">点击场景中的交通牌可直接编辑。三块牌可分别换图，保存在当前浏览器，两端同步。</p>
+    <div class="sign-actions"><el-button @click="emit('position',0)">调整西端位置</el-button><el-button @click="emit('position',1)">调整终点位置</el-button></div><h3>洞口交通标志</h3><p class="panel-note">点击场景中的交通牌可直接编辑。三块牌可分别换图，保存在当前浏览器，两端同步。</p>
     <div v-for="(name,index) in trafficSignNames" :key="name" class="traffic-sign-row" :class="{active:index===activeIndex}">
-      <img :src="previews[index]" :alt="`${name}当前图片`"><div><label>{{name}}<input type="file" accept="image/png,image/jpeg,image/webp" :disabled="busy" :aria-label="`替换${name}图片`" @change="upload(index,$event)"></label><button :disabled="busy" @click="replace(index,null)">恢复这块默认图片</button></div>
+      <img :src="previews[index]" :alt="`${name}当前图片`"><div><span>{{name}}</span><el-upload :auto-upload="false" :show-file-list="false" accept="image/png,image/jpeg,image/webp" :disabled="busy" :on-change="onUpload(index)"><el-button size="small" :disabled="busy" :aria-label="`替换${name}图片`">替换图片</el-button></el-upload><el-button size="small" :disabled="busy" @click="replace(index,null)">恢复这块默认图片</el-button></div>
     </div>
-    <button class="save-traffic-signs" :disabled="busy" @click="save">{{busy?'正在保存…':'保存交通标志'}}</button><p v-if="message" role="status" class="panel-note">{{message}}</p>
+    <el-button type="primary" class="save-traffic-signs" :disabled="busy" @click="save">{{busy?'正在保存…':'保存交通标志'}}</el-button><p v-if="message" role="status" class="panel-note">{{message}}</p>
   </section>
 </template>
 <style scoped>

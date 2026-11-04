@@ -1,4 +1,5 @@
-import type { TunnelProject } from './projectConfig'
+import type { TunnelProject } from './projectConfig.ts'
+import { PROFILE_HALF, profileLateral } from './sectionProfile.ts'
 
 export function portalAlong(project:TunnelProject,end:number,y:number):number {
   if(end===0||project.bores.length===1)return 0
@@ -7,15 +8,21 @@ export function portalAlong(project:TunnelProject,end:number,y:number):number {
   return (longest-lengths[1]!)*(1-t)+(longest-lengths[0]!)*t
 }
 
+/** Site-frame lateral of one bore's lintel. The baked model is not moved until a project exists, and the far portal is rotated, so the two bores swap plaques at that end. */
+export function portalNameLateral(project:TunnelProject|undefined,end:0|1,tube:number):number {
+  if(project)return end===0?-project.bores[tube]!.offset:project.bores[tube]!.offset
+  return (tube^end)===0?-12:12
+}
+
 /** Deform only baked civil geometry. Instanced lamps/vegetation retain their size. */
 export function portalLateral(project:TunnelProject,end:number,y:number):number {
   const source=y<0?0:1,tube=project.bores.length===1?0:source^end,b=project.bores[tube]!
   const center=(source===0?-12:12),local=y-center,half=b.lanes.length*b.laneWidth/2
-  const mapped=Math.abs(local)<=4.3?local*half/4.3:local+Math.sign(local)*(half-4.3)
+  const mapped=profileLateral(local,half,project.section?.templateHalf??PROFILE_HALF)
   return (end===0?-b.offset:b.offset)+mapped
 }
 export async function portalGeometryUrl(url:string,project:TunnelProject|undefined,end:number):Promise<string>{
-  if(!project||!url.includes('portal-structures')&&project.bores.length===2&&project.bores.every((b,i)=>b.offset===(i===0?12:-12)&&b.lanes.length*b.laneWidth===8.6)&&Math.abs(project.bores[0]!.end-project.bores[0]!.start)===Math.abs(project.bores[1]!.end-project.bores[1]!.start))return url
+  if(!project||!url.includes('portal-structures')&&project.bores.length===2&&project.bores.every((b,i)=>b.offset===(i===0?12:-12)&&b.lanes.length*b.laneWidth===PROFILE_HALF*2)&&Math.abs(project.bores[0]!.end-project.bores[0]!.start)===Math.abs(project.bores[1]!.end-project.bores[1]!.start))return url
   const bytes=await (await fetch(url)).arrayBuffer(),view=new DataView(bytes),jsonLength=view.getUint32(12,true)
   const gltf=JSON.parse(new TextDecoder().decode(new Uint8Array(bytes,20,jsonLength))),binaryOffset=28+jsonLength
   const extra:Uint8Array[]=[]

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
+import { boreTravelLabel, portalEndName } from '../engines/sceneFrame'
 import { useEngine } from '../composables/useEngine'
 import { createCesiumMap } from '../engines/cesiumMap'
 import type { IntroPhase } from '../engines/cesiumMap'
@@ -8,9 +9,9 @@ import type { SceneDevice, SystemsState, DeviceSettings } from '../engines/tunne
 import SceneLoading from './SceneLoading.vue'
 import SceneOverlayLayer from './SceneOverlayLayer.vue'
 import TrafficSignEditor from './TrafficSignEditor.vue'
-import { defaultTrafficSigns } from '../engines/trafficSignConfig'
+import { defaultTrafficSigns, saveTrafficSigns } from '../engines/trafficSignConfig'
 import PortalSignEditor from './PortalSignEditor.vue'
-import { defaultPortalSign } from '../engines/portalSignConfig'
+import { defaultPortalSign, savePortalSign } from '../engines/portalSignConfig'
 import type { LoadProgress, PortalSignConfig, SceneOverlay, TrafficSignsConfig } from '../types/scene'
 import SystemsControls from './SystemsControls.vue'
 import DeviceExplorer from './DeviceExplorer.vue'
@@ -25,10 +26,16 @@ import PositionEditor from './configuration/PositionEditor.vue'
 import type { AssetRecord } from '../engines/projectConfig'
 import ProjectEditor from './configuration/ProjectEditor.vue'
 import { defaultProject } from '../engines/projectConfig'
+import type { TunnelPackageExtras } from '../engines/projectPackage'
+import { saveControlOverrides } from '../engines/projectStorage'
 import type { TunnelProject } from '../engines/projectConfig'
 
 
-const project=shallowRef<TunnelProject>(defaultProject()),configured=shallowRef(false),projectOpen=shallowRef(false),editAssetId=shallowRef<string>()
+const project=shallowRef<TunnelProject>(defaultProject()),projectOpen=shallowRef(false),editAssetId=shallowRef<string>()
+const boreNames=computed(()=>project.value.bores.map(bore=>bore.name))
+const travelNames=computed(()=>project.value.bores.map(bore=>boreTravelLabel(bore.name,project.value.origin.heading,bore.lanes[0]?.direction===-1?-1:1)))
+const incidentNames=computed(()=>project.value.bores.map(bore=>boreTravelLabel(bore.name,project.value.origin.heading,bore.lanes[0]?.direction===-1?-1:1,'行驶')))
+const portalNames=computed(()=>[portalEndName(project.value.origin.heading,0),portalEndName(project.value.origin.heading,1)])
 const positionDraft=shallowRef<AssetRecord>()
 const storageWarning=shallowRef('')
 const container=useTemplateRef<HTMLDivElement>('container')
@@ -49,7 +56,7 @@ const trafficSignsConfig=shallowRef<TrafficSignsConfig>(defaultTrafficSigns()),t
 let panelTrigger:HTMLElement|undefined
 const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiumMap(element,{
   onPositionEdit:value=>{positionDraft.value=value},
-  onProject:(value,active)=>{project.value=value;configured.value=active},
+  onProject:value=>{project.value=value},
   onWarning:message=>{storageWarning.value=message},
   onSystems:value=>{state.value=value},
   onOverlayPositions:positions=>overlayLayer.value?.updatePositions(positions),
@@ -70,7 +77,15 @@ const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiu
   onDevices:list=>{devices.value=list},onIntro:phase=>{intro.value=phase},shouldSkipIntro:()=>skipRequested.value,
 }))
 function openProject(id?:string):void{if(positionDraft.value){storageWarning.value="请先保存或取消位置调整";return}editAssetId.value=id;projectOpen.value=true;closeDevice();panel.value=null;stopRoaming()}
-async function applyProject(value:TunnelProject|null,focusId?:string):Promise<void>{await getHandle()!.applyProject(value);projectOpen.value=false;if(focusId){const d=devices.value.find(d=>d.id===focusId);if(d)selectedDevice.value=d}}
+async function applyProject(value:TunnelProject|null,focusId?:string,extras?:TunnelPackageExtras):Promise<void>{
+  if(extras?.portalSign){await savePortalSign(extras.portalSign);signConfig.value=extras.portalSign}
+  if(extras?.trafficSigns){await saveTrafficSigns(extras.trafficSigns);trafficSignsConfig.value=extras.trafficSigns}
+  await getHandle()!.applyProject(value)
+  if(extras?.portalSign)await getHandle()?.updatePortalSign(extras.portalSign)
+  if(extras?.trafficSigns)await getHandle()?.updateTrafficSigns(extras.trafficSigns)
+  if(value&&extras){await saveControlOverrides(value.id,extras.controls);change({devices:extras.controls})}
+  projectOpen.value=false;if(focusId){const d=devices.value.find(d=>d.id===focusId);if(d)selectedDevice.value=d}
+}
 
 const phases:Record<IntroPhase,string>={earth:'地球视角',region:'区域定位',overview:'线路全览',portal:'抵达洞口',complete:''}
 function change(patch:Partial<SystemsState>):void{const next=getHandle()?.setSystems(patch);if(next)state.value=next}
@@ -123,43 +138,43 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
     <div ref="container" class="engine-container" />
     <SceneLoading v-if="!ready" :progress="progress" :error="error" />
     <p v-if="storageWarning" class="viewport-message" role="alert">{{storageWarning}}</p>
-    <div v-else-if="intro!=='complete'" class="arrival" aria-live="polite"><span class="arrival-step">{{phases[intro]}}</span><span>{{ready?'镜头正在抵达隧道':'正在加载地形与设备模型'}}</span><button @click="skip">{{skipRequested?'将在加载后直接抵达':'跳过入场'}}</button></div>
-    <div class="scene-context"><span class="scene-live-dot" />{{project.name}}<span>{{configured?`${project.bores.length} 个洞筒`:'双洞场景'}}</span></div>
+    <div v-else-if="intro!=='complete'" class="arrival" aria-live="polite"><span class="arrival-step">{{phases[intro]}}</span><span>{{ready?'镜头正在抵达隧道':'正在加载地形与设备模型'}}</span><el-button @click="skip">{{skipRequested?'将在加载后直接抵达':'跳过入场'}}</el-button></div>
+    <div class="scene-context"><span class="scene-live-dot" />{{project.name}}<span>{{project.bores.length}} 个洞筒</span></div>
     <div class="scene-actions">
-      <button :disabled="!ready" :aria-expanded="panel==='devices'" @click="togglePanel('devices',$event)">设备与设施</button>
-      <button :disabled="!ready" :aria-expanded="panel==='systems'" @click="togglePanel('systems',$event)">系统控制</button>
-      <button :disabled="!ready" :aria-expanded="panel==='events'" @click="togglePanel('events',$event)">事件演练<span v-if="activeEvent" class="event-indicator">进行中</span></button>
-      <button v-if="!configured" :disabled="!ready" @click="replay">重播入场</button>
-      <button :aria-expanded="projectOpen" @click="openProject()">配置与台账</button>
+      <el-button :disabled="!ready" :type="panel==='devices'?'primary':'default'" :aria-expanded="panel==='devices'" @click="togglePanel('devices',$event)">设备与设施</el-button>
+      <el-button :disabled="!ready" :type="panel==='systems'?'primary':'default'" :aria-expanded="panel==='systems'" @click="togglePanel('systems',$event)">系统控制</el-button>
+      <el-button :disabled="!ready" :type="panel==='events'?'primary':'default'" :aria-expanded="panel==='events'" @click="togglePanel('events',$event)">事件演练<span v-if="activeEvent" class="event-indicator">进行中</span></el-button>
+      <el-button :disabled="!ready" @click="replay">重播入场</el-button>
+      <el-button :type="projectOpen?'primary':'default'" :aria-expanded="projectOpen" @click="openProject()">配置与台账</el-button>
     </div>
     <aside v-show="panel&&panel!=='events'" class="scene-panel" :aria-label="panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'">
-      <header><h2>{{panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'}}</h2><button aria-label="关闭面板" @click="closePanel">×</button></header>
-      <div v-show="panel==='devices'"><DeviceExplorer :bore-names="configured?project.bores.map(b=>b.name):undefined" :devices="devices" :state="state" :length="roamingState.length" @focus="focusDevice" /></div>
-      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="configured?project.bores.map(b=>b.name):undefined" v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" @position="getHandle()?.editPortalPosition('board',$event)" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="(panel==='traffic'||panel==='systems')" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @position="getHandle()?.editPortalPosition('traffic',$event)" @saved="trafficSignsConfig=$event" /></template>
+      <header><h2>{{panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'}}</h2><el-button text aria-label="关闭面板" @click="closePanel">×</el-button></header>
+      <div v-show="panel==='devices'"><DeviceExplorer :bore-names="boreNames" :devices="devices" :state="state" :length="roamingState.length" @focus="focusDevice" /></div>
+      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="incidentNames" v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" @position="getHandle()?.editPortalPosition('board',$event)" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="(panel==='traffic'||panel==='systems')" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @position="getHandle()?.editPortalPosition('traffic',$event)" @saved="trafficSignsConfig=$event" /></template>
     </aside>
     <DeviceAlerts v-if="ready" :alerts="alerts" @focus="focusDevice" />
     <DeviceInspector v-if="selectedDevice&&!positionDraft" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" @edit-position="getHandle()?.startPositionEdit(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
     <PositionEditor v-if="positionDraft" :asset="positionDraft" :save="()=>getHandle()!.savePositionEdit()" @preview="getHandle()?.previewPosition($event)" @cancel="getHandle()?.cancelPositionEdit()" />
     <ProjectEditor v-if="projectOpen" :project="project" :selected-id="editAssetId" :apply="applyProject" @close="projectOpen=false" />
-    <EventConsole :bore-names="configured?project.bores.map(b=>b.name):undefined" :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
+    <EventConsole :bore-names="boreNames" :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
     <SceneOverlayLayer ref="overlayLayer" :items="overlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
-    <SceneRoaming :bore-names="configured?project.bores.map(b=>b.name):undefined" v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
-    <div v-if="monitor" class="monitor-view" role="status"><div><strong>{{monitor.tube===0?'上行':'下行'}}监控点 · {{monitor.id}}</strong><span>三维模拟视角 · 未接入视频流</span></div><button @click="monitor=undefined;view(()=>getHandle()?.focusPortal())">退出预览</button></div>
+    <SceneRoaming :bore-names="travelNames" v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
+    <div v-if="monitor" class="monitor-view" role="status"><div><strong>{{monitor.tube===0?'上行':'下行'}}监控点 · {{monitor.id}}</strong><span>三维模拟视角 · 未接入视频流</span></div><el-button @click="monitor=undefined;view(()=>getHandle()?.focusPortal())">退出预览</el-button></div>
     <div v-if="devices.some(d=>d.kind==='speaker'&&deviceEnabled(d,state))" class="broadcast-state" role="status">应急广播中 · {{['fire','smoke','collision'].includes(state.incident)?'请按指示前往就近横洞':'广播状态本地演示'}}（静音演示）</div>
     <div class="viewport-tools">
       <span>场景导航</span>
-      <button :disabled="!ready" :aria-pressed="underground" @click="underground=!underground;getHandle()?.setUnderground(underground)">{{underground?'恢复山体':'地下结构'}}</button>
-      <button :disabled="!ready" :aria-pressed="canopyVisible" @click="canopyVisible=!canopyVisible;getHandle()?.setCanopyVisible(canopyVisible)">遮雨棚：{{canopyVisible?'开':'关'}}</button>
-      <button :disabled="!ready" :aria-pressed="wallsVisible" @click="wallsVisible=!wallsVisible;getHandle()?.setWallsVisible(wallsVisible)">隧道墙体：{{wallsVisible?'开':'关'}}</button>
-      <button :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(0))">西洞口</button>
-      <button :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(1))">{{configured?'终点洞口':'东洞口'}}</button>
-      <button :disabled="!ready" @click="view(()=>getHandle()?.focusSubstation())">变电所</button>
-      <button :disabled="!ready" @click="view(()=>getHandle()?.focusInterior())">洞内</button>
-      <button :disabled="!ready" @click="view(()=>getHandle()?.focusInterior(true))">横洞</button>
-      <button :disabled="!ready" @click="view(()=>getHandle()?.focusLayBy())">停车带</button>
-      <button :disabled="!ready" :aria-pressed="detectionVisible" @click="detectionVisible=!detectionVisible;getHandle()?.setDetectionVisible(detectionVisible)">检测范围：{{detectionVisible?'开':'关'}}</button>
-      <button :disabled="!ready" :aria-pressed="roamingOpen" @click="openRoaming">巡检漫游</button>
-      <button :disabled="!ready" @click="view(resetView)">全览</button>
+      <el-button size="small" :disabled="!ready" :type="underground?'primary':'default'" :aria-pressed="underground" @click="underground=!underground;getHandle()?.setUnderground(underground)">{{underground?'恢复山体':'地下结构'}}</el-button>
+      <el-button size="small" :disabled="!ready" :type="canopyVisible?'primary':'default'" :aria-pressed="canopyVisible" @click="canopyVisible=!canopyVisible;getHandle()?.setCanopyVisible(canopyVisible)">遮雨棚：{{canopyVisible?'开':'关'}}</el-button>
+      <el-button size="small" :disabled="!ready" :type="wallsVisible?'primary':'default'" :aria-pressed="wallsVisible" @click="wallsVisible=!wallsVisible;getHandle()?.setWallsVisible(wallsVisible)">隧道墙体：{{wallsVisible?'开':'关'}}</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(0))">{{portalNames[0]}}</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(1))">{{portalNames[1]}}</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusSubstation())">变电所</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior())">洞内</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior(true))">横洞</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusLayBy())">停车带</el-button>
+      <el-button size="small" :disabled="!ready" :type="detectionVisible?'primary':'default'" :aria-pressed="detectionVisible" @click="detectionVisible=!detectionVisible;getHandle()?.setDetectionVisible(detectionVisible)">检测范围：{{detectionVisible?'开':'关'}}</el-button>
+      <el-button size="small" :disabled="!ready" :type="roamingOpen?'primary':'default'" :aria-pressed="roamingOpen" @click="openRoaming">巡检漫游</el-button>
+      <el-button size="small" :disabled="!ready" @click="view(resetView)">全览</el-button>
     </div>
     <div class="scene-help">点选设备查看详情 · 左键平移 · 滚轮缩放 · 中键倾斜</div>
   </section>

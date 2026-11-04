@@ -2,13 +2,14 @@
 import { Cartesian3, Cartographic, Matrix4, sampleTerrainMostDetailed, Transforms } from 'cesium'
 import type { TerrainProvider } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
+import { DEMO_LATITUDE, DEMO_LONGITUDE } from './sceneFrame'
 
 const STEP = 50
 const COUNT = 65
 const ROWS = 9
 
 export async function surveyTunnel(terrain: TerrainProvider): Promise<TunnelSurvey> {
-  const frame = Transforms.eastNorthUpToFixedFrame(Cartesian3.fromDegrees(103.56, 30.91))
+  const frame = Transforms.eastNorthUpToFixedFrame(Cartesian3.fromDegrees(DEMO_LONGITUDE, DEMO_LATITUDE))
   function location(x: number, y: number): Cartographic {
     return Cartographic.fromCartesian(Matrix4.multiplyByPoint(frame, new Cartesian3(x, y, 0), new Cartesian3()))
   }

@@ -28,12 +28,15 @@ import { addTunnelSystems, setEquipmentLighting } from './tunnelSystems'
 import { initialSystems, deviceAlarm, deviceEnabled, changeSystems, illuminationAt, incidentStation, incidentDefinition } from './tunnelSystemsState'
 import type { SceneDevice, SystemsState } from './tunnelSystemsState'
 import { readTunnelProject } from './projectStorage'
-import { defaultProject,seedAssets } from './projectConfig'
+import { seedAssets } from './projectConfig'
 import type { TunnelProject } from './projectConfig'
-import { projectSurvey,surveyFrame } from './projectSurvey'
+import { centerlineProject } from './centerlineProject'
+import { lanePositions, projectSurvey, surveyFrame } from './projectSurvey'
+import { DEMO_LATITUDE, DEMO_LONGITUDE, travelHeadingRadians, travelModelYaw, travelPitchRadians } from './sceneFrame'
 import { upgradeProject,resolveAsset } from './assetPlacement'
 import { sceneResources } from './sceneResources'
 import { assetMountOffset as importMount,assetStation,formatChainage,projectErrors } from './projectConfig'
+import { applyTunnelProject } from './projectApply'
 import { demoProject,readControlOverrides,saveControlOverrides,saveTunnelProject } from './projectStorage'
 
 export type IntroPhase = 'earth' | 'region' | 'overview' | 'portal' | 'complete'
@@ -41,7 +44,7 @@ export interface MapOptions {
   onPositionEdit?:(asset:AssetRecord|undefined)=>void
   onWarning?: (message:string) => void
   onSystems?: (state:SystemsState) => void
-  onProject?: (project:TunnelProject,configured:boolean) => void
+  onProject?: (project:TunnelProject) => void
   onProgress?: (progress:LoadProgress) => void
   onOverlayPositions?: (positions:OverlayPosition[]) => void
   onOverlays?: (items:SceneOverlay[]) => void
@@ -56,8 +59,8 @@ export interface MapOptions {
   shouldSkipIntro?: () => boolean
 }
 export async function createCesiumMap(container: HTMLDivElement, options: MapOptions = {}): Promise<TunnelMapHandle> {
-  const configured=await readTunnelProject()
-  let project=configured
+  const saved=await readTunnelProject()
+  let project=saved
   let originalProject:TunnelProject|undefined=await demoProject()
   const report=createLoadReporter(progress=>options.onProgress?.(progress))
   report(2,'渲染引擎','Cesium 初始化')
@@ -75,9 +78,13 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     infoBox:false,selectionIndicator:false,shouldAnimate:true,requestRenderMode:true,maximumRenderTimeChange:Infinity,
   })
   viewer.creditDisplay.addStaticCredit(new Credit(`<a href="${import.meta.env.BASE_URL}model-credits.html" target="_blank" rel="noopener">模型署名</a>`,true))
-  viewer.camera.setView({destination:Cartesian3.fromDegrees(103.56,30.91,22000000)})
+  function globeCamera():Cartesian3 {
+    const origin=project?.origin
+    return Cartesian3.fromDegrees(origin?.longitude??DEMO_LONGITUDE,origin?.latitude??DEMO_LATITUDE,22000000)
+  }
+  viewer.camera.setView({destination:globeCamera()})
   options.onIntro?.('earth')
-  let state={...initialSystems,devices:configured?await readControlOverrides(configured.id):{}}
+  let state={...initialSystems,devices:saved?await readControlOverrides(saved.id):{}}
   let resources=sceneResources(viewer)
   let survey: Awaited<ReturnType<typeof surveyTunnel>>
   let model: Awaited<ReturnType<typeof addTunnelModel>>
@@ -88,7 +95,9 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   let boards: Awaited<ReturnType<typeof addPortalBoards>>
   try {
     report(12,'地形测绘','隧道高程与埋深校核')
-    survey=configured?projectSurvey(configured):await surveyTunnel(terrainProvider)
+    // A saved project draws its tangent frame. The terrain demo keeps the sampled
+    // centerline; the ledger below records that same alignment.
+    survey=saved?projectSurvey(saved):await surveyTunnel(terrainProvider)
     report(25,'洞口与隧道','衬砌、道路、洞口影像与地形')
     let siteCompleted=0
     model=await addTunnelModel(viewer,survey,resource=>report(25+Math.min(25,++siteCompleted*2.5),'洞口与隧道',resource))
@@ -104,16 +113,16 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     traffic=await addTunnelTraffic(viewer,survey,()=>state,(done,total,resource)=>report(80+done/total*10,'车辆模型',resource))
     options.onDevices?.(systems.devices)
     if(!project){
-    const seeded=defaultProject(),start=Cartesian3.midpoint(survey.tubes[0]![0]!,survey.tubes[1]![0]!,new Cartesian3()),geo=Cartographic.fromCartesian(start)
-    seeded.name=boards.config.name
-    seeded.origin={longitude:CesiumMath.toDegrees(geo.longitude),latitude:CesiumMath.toDegrees(geo.latitude),elevation:geo.height,heading:90,grade:survey.grade}
-    seeded.bores.forEach((b,i)=>{b.end=survey.length;b.laneWidth=4.3;b.offset=i===0?12:-12})
+    const seeded=centerlineProject(survey,boards.config.name)
     seeded.assets=seedAssets(systems.devices,seeded).map(a=>({...a,lateral:-a.lateral}))
+    const start=Cartesian3.fromDegrees(seeded.origin.longitude,seeded.origin.latitude,seeded.origin.elevation)
     const projectInverse=Matrix4.inverse(Transforms.eastNorthUpToFixedFrame(start),new Matrix4())
     for(const asset of seeded.assets){const device=systems.devices.find(d=>d.id===asset.id);if(device?.position){const local=Matrix4.multiplyByPoint(projectInverse,device.position,new Cartesian3());asset.lateral=-local.y-seeded.bores[device.tube]!.offset}}
     project=upgradeProject(seeded);originalProject=structuredClone(project);await demoProject(originalProject)
     }
-    options.onProject?.(project!,!!configured)
+    survey.heading=project!.origin.heading
+    survey.boreNames=project!.bores.map(bore=>bore.name)
+    options.onProject?.(project!)
     bindLights()
     model.setLighting(state);systems.update(state)
     resources.capture()
@@ -139,16 +148,28 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     for(const car of incidentCars)viewer.scene.primitives.add(car)
   } catch(error){traffic?.dispose();systems.dispose();viewer.destroy();throw error}
   let roaming=false,roamDistance=-220,roamTube:0|1=0,roamSpeed=60,previousFrame=0,introGeneration=0,disposed=false,lastReport=0
+  function travelOf(tube:number):1|-1 {return lanePositions(survey,tube)[0]?.direction===-1?-1:1}
+  function rightLane(tube:number):number {
+    const direction=travelOf(tube),lanes=lanePositions(survey,tube)
+    return lanes.reduce((best,lane)=>lane.lateral*direction<best.lateral*direction?lane:best).lateral
+  }
+  function vehicleMatrix(tube:number,station:number,lateral:number,extraYaw=0):Matrix4 {
+    const point=tunnelPoint(survey,tube,station,lateral,.25)
+    const yaw=Matrix3.fromRotationZ(travelModelYaw(survey.heading,travelOf(tube))+extraYaw)
+    const bearing=Matrix3.multiply(Matrix3.fromRotationY(-Math.atan(survey.grade/100)),yaw,new Matrix3())
+    return Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(bearing),new Matrix4())
+  }
   function reportRoaming():void {options.onRoaming?.({playing:roaming,tube:roamTube,speed:roamSpeed,distance:roamDistance,length:survey.length})}
   function moveRoaming():void {
-    viewer.camera.setView({destination:tunnelPoint(survey,roamTube,roamDistance,roamTube===0?-2.15:2.15,1.8),
-      orientation:{heading:roamTube===0?Math.PI/2:Math.PI*1.5,pitch:(roamTube===0?1:-1)*Math.atan(survey.grade/100),roll:0}})
+    const direction=travelOf(roamTube)
+    viewer.camera.setView({destination:tunnelPoint(survey,roamTube,roamDistance,rightLane(roamTube),1.8),
+      orientation:{heading:travelHeadingRadians(survey.heading,direction),pitch:travelPitchRadians(survey.grade,direction),roll:0}})
     viewer.scene.requestRender()
   }
   const stopRoamingTick=viewer.scene.preUpdate.addEventListener(()=>{
     if(!roaming)return
     const now=performance.now(),delta=Math.min((now-previousFrame)/1000,.1);previousFrame=now
-    roamDistance+=delta*(roamSpeed/3.6)*(roamTube===0?1:-1)
+    roamDistance+=delta*(roamSpeed/3.6)*travelOf(roamTube)
     if(roamDistance>survey.length+220)roamDistance=-220
     if(roamDistance<-220)roamDistance=survey.length+220
     moveRoaming()
@@ -159,10 +180,10 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     const now=performance.now(),delta=Math.min((now-vehiclePrevious)/1000,.1);vehiclePrevious=now
     if(state.incident!=='vehicle'){vehicleTravel=0;return}
     vehicleTravel=(vehicleTravel+delta*8)%90
+    const direction=travelOf(state.incidentTube)
     for(const [index,car] of incidentCars.entries()){
-      const station=incidentStation(survey.length,state)+(state.incidentTube===0?1:-1)*(vehicleTravel-index*10)
-      const frame=Transforms.eastNorthUpToFixedFrame(tunnelPoint(survey,state.incidentTube,station,index%2?2.15:-2.15,.25))
-      car.modelMatrix=Matrix4.multiply(frame,Matrix4.fromRotationTranslation(Matrix3.multiply(Matrix3.fromRotationY(-Math.atan(survey.grade/100)),Matrix3.fromRotationZ(state.incidentTube===0?0:Math.PI),new Matrix3())),new Matrix4())
+      const station=incidentStation(survey.length,state,direction)+direction*(vehicleTravel-index*10)
+      car.modelMatrix=vehicleMatrix(state.incidentTube,station,index%2?2.15:-2.15)
     }
     viewer.scene.requestRender()
   })
@@ -179,7 +200,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     stopCamera()
     if(window.matchMedia('(prefers-reduced-motion: reduce)').matches || options.shouldSkipIntro?.()) {focusPortal();return}
     const generation=++introGeneration
-    viewer.camera.setView({destination:Cartesian3.fromDegrees(103.56,30.91,22000000)})
+    viewer.camera.setView({destination:globeCamera()})
     options.onIntro?.('earth')
     const stages: {phase:IntroPhase;point:Cartesian3;range:number;heading:number;pitch:number;duration:number}[]=[
       {phase:'region',point:survey.center,range:50000,heading:15,pitch:-70,duration:3.2},
@@ -207,7 +228,8 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       const h=deviceHeight(d)
       const target=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,h)
       const yard=d.kind==='tank'||d.kind==='pump'
-      const position=d.position?Matrix4.multiplyByPoint(Transforms.eastNorthUpToFixedFrame(target),new Cartesian3(d.tube===0?-12:12,0,-.65),new Cartesian3()):tunnelPoint(survey,d.tube,d.station-(d.tube===0?1:-1)*(overhead?12:4),yard?8:0,yard?h+2.5:Math.max(1.6,h-.65))
+      const approach=travelOf(d.tube)*(overhead?12:4)
+      const position=d.position?Matrix4.multiplyByPoint(surveyFrame(survey,target),new Cartesian3(-travelOf(d.tube)*12,0,-.65),new Cartesian3()):tunnelPoint(survey,d.tube,d.station-approach,yard?8:0,yard?h+2.5:Math.max(1.6,h-.65))
       const up=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(target),Cartesian3.UNIT_Z,new Cartesian3())
       const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:.9
       if(d.kind==='street'||d.kind==='substation') {
@@ -287,54 +309,58 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     for(const a of next.assets){const old=project!.assets.find(d=>d.id===a.id);if(!a.link||!old?.link||old.chainage===a.chainage||a.link.targetChainage!==old.link.targetChainage)continue;const linked=facilityProject(project!,{...a});a.link=linked.assets.find(d=>d.id===a.id)!.link;for(const id of a.link!.memberIds){const member=next.assets.find(d=>d.id===id),prior=project!.assets.find(d=>d.id===id),moved=linked.assets.find(d=>d.id===id);if(member&&prior&&moved&&member.chainage===prior.chainage)member.chainage=moved.chainage}}
     const errors=projectErrors(next)
     if(errors.length)throw new Error(errors.join('\n'))
-    const previous=project!,sameStructure=JSON.stringify([previous.origin,previous.bores])===JSON.stringify([next.origin,next.bores])&&JSON.stringify(previous.assets.map(a=>[a.id,a.kind]))===JSON.stringify(next.assets.map(a=>[a.id,a.kind]))
+    const previous=project!
     stopCamera()
-    if(sameStructure&&!recovering){
-      const changes=next.assets.filter(a=>JSON.stringify(a)!==JSON.stringify(previous.assets.find(x=>x.id===a.id)))
-      const structural=changes.filter(a=>['pedestrian','vehicle','layby'].includes(a.kind))
-      const indices=next.bores.flatMap((b,i)=>structural.some(a=>a.boreId===b.id||a.link?.targetBoreId===b.id)?[i]:[])
-      const updateInterior=(config:TunnelProject)=>{if(indices.length){model.updateInterior(projectSurvey(config),indices);bindLights();model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)}}
-      try{updateInterior(next);for(const a of changes)moveRecord(a);await saveTunnelProject(next)}catch(error){updateInterior(previous);for(const a of changes){const old=previous.assets.find(x=>x.id===a.id);if(old)moveRecord(old)}throw error}
-      if(next.name!==previous.name){await boards.update({...boards.config,name:next.name});model.setName(next.name)}project=next;options.onProject?.(next,true);roamTube=Math.min(roamTube,next.bores.length-1) as 0|1;reportRoaming();return
+    const publish=(config:TunnelProject)=>{project=config;options.onProject?.(config);roamTube=Math.min(roamTube,config.bores.length-1) as 0|1;reportRoaming()}
+    async function rebuildScene(target:TunnelProject):Promise<void>{
+      const destination=Cartesian3.clone(viewer.camera.positionWC),direction=Cartesian3.clone(viewer.camera.directionWC),up=Cartesian3.clone(viewer.camera.upWC)
+      stopOverlays();interaction.dispose();events.dispose();detection.dispose();effects.dispose();traffic?.dispose();systems.dispose();model.dispose();resources.dispose()
+      project=target;referenceHeadings.clear();target.assets.forEach(a=>referenceHeadings.set(a.id,a.heading));survey=projectSurvey(target);resources=sceneResources(viewer)
+      try{
+        model=await addTunnelModel(viewer,survey)
+        signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
+        systems=await addTunnelSystems(viewer,survey,undefined,model.sites)
+        traffic=await addTunnelTraffic(viewer,survey,()=>state)
+        bindLights()
+        resources.capture()
+        interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i))
+        detection=addDetectionCoverage(viewer,survey,systems.devices);detection.bind(systems.instances);events=addTunnelEvents(viewer,survey);effects=addIncidentEffects(viewer,survey)
+        stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
+        model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state);interaction.update(state)
+        await saveTunnelProject(target);publish(target);options.onDevices?.(systems.devices)
+      }catch(error){resources.capture();throw error}finally{viewer.camera.setView({destination,orientation:{direction,up}});viewer.scene.requestRender()}
     }
-    const sameInventory=JSON.stringify(previous.assets.map(a=>[a.id,a.kind]))===JSON.stringify(next.assets.map(a=>[a.id,a.kind]))
-    const inventoryChanges=[...previous.assets.filter(a=>!next.assets.some(b=>b.id===a.id&&b.kind===a.kind)),...next.assets.filter(a=>!previous.assets.some(b=>b.id===a.id&&b.kind===a.kind))]
-    const incrementalInventory=inventoryChanges.every(a=>!['street','substation','signal','vms','pedestrian','vehicle','shutter','layby'].includes(a.kind))
-    if(!recovering&&(sameInventory||incrementalInventory)&&JSON.stringify(previous.origin)===JSON.stringify(next.origin)&&JSON.stringify(previous.bores.map(b=>b.id))===JSON.stringify(next.bores.map(b=>b.id))){
-      const changed=next.bores.flatMap((b,i)=>JSON.stringify(b)===JSON.stringify(previous.bores[i])?[]:[i])
-      if(changed.length||!sameInventory){
-        const oldSurvey=survey;project=next;survey=projectSurvey(next)
-        try{
-          if(changed.length){await model.updateStructure(survey,changed);systems.replaceSites(model.sites,survey)}
-          else{const interiors=next.bores.flatMap((b,i)=>inventoryChanges.some(a=>a.boreId===b.id&&['basic','enhanced'].includes(a.kind))?[i]:[]);if(interiors.length)model.updateInterior(survey,interiors)}
-          if(!sameInventory){await systems.reconcileAssets(survey);for(const a of next.assets)if(!referenceHeadings.has(a.id)||inventoryChanges.some(c=>c.id===a.id))referenceHeadings.set(a.id,a.heading)}
-          bindLights()
-          signResources.dispose();signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
-          for(const a of next.assets)moveRecord(resolveAsset(a,next),false)
-          model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state)
-          traffic?.dispose();traffic=await addTunnelTraffic(viewer,survey,()=>state)
-          stopOverlays();stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
-          const selectedId=interaction.selected?.id;interaction.dispose();interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i));if(selectedId)interaction.select(systems.devices.find(d=>d.id===selectedId));interaction.update(state)
-          detection.refresh(survey,systems.instances);await saveTunnelProject(next);options.onProject?.(next,true);roamTube=Math.min(roamTube,next.bores.length-1) as 0|1;reportRoaming();options.onDevices?.([...systems.devices]);return
-        }catch(error){project=previous;survey=oldSurvey;await applyProject(previous,true);throw error}
-      }
-    }
-    const destination=Cartesian3.clone(viewer.camera.positionWC),direction=Cartesian3.clone(viewer.camera.directionWC),up=Cartesian3.clone(viewer.camera.upWC)
-    stopOverlays();interaction.dispose();events.dispose();detection.dispose();effects.dispose();traffic?.dispose();systems.dispose();model.dispose();resources.dispose()
-    project=next;referenceHeadings.clear();next.assets.forEach(a=>referenceHeadings.set(a.id,a.heading));survey=projectSurvey(next);resources=sceneResources(viewer)
-    try{
-      model=await addTunnelModel(viewer,survey)
-      signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
-      systems=await addTunnelSystems(viewer,survey,undefined,model.sites)
-      traffic=await addTunnelTraffic(viewer,survey,()=>state)
-      bindLights()
-      resources.capture()
-      interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i))
-      detection=addDetectionCoverage(viewer,survey,systems.devices);detection.bind(systems.instances);events=addTunnelEvents(viewer,survey);effects=addIncidentEffects(viewer,survey)
-      stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
-      model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state);interaction.update(state)
-      await saveTunnelProject(next);options.onProject?.(next,true);roamTube=Math.min(roamTube,next.bores.length-1) as 0|1;reportRoaming();options.onDevices?.(systems.devices)
-    }catch(error){if(!recovering){resources.capture();project=next;await applyProject(previous,true)}throw error}finally{viewer.camera.setView({destination,orientation:{direction,up}});viewer.scene.requestRender()}
+    await applyTunnelProject({
+      async moveRecords(config){
+        const changes=config.assets.filter(a=>JSON.stringify(a)!==JSON.stringify(previous.assets.find(x=>x.id===a.id)))
+        const structural=changes.filter(a=>['pedestrian','vehicle','layby'].includes(a.kind))
+        const indices=config.bores.flatMap((b,i)=>structural.some(a=>a.boreId===b.id||a.link?.targetBoreId===b.id)?[i]:[])
+        const updateInterior=(target:TunnelProject)=>{if(indices.length){model.updateInterior(projectSurvey(target),indices);bindLights();model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)}}
+        updateInterior(config);for(const a of changes)moveRecord(a);await saveTunnelProject(config)
+        if(config.name!==previous.name)await boards.update({...boards.config,name:config.name})
+        if(config.name!==previous.name||JSON.stringify(config.mouths??null)!==JSON.stringify(previous.mouths??null))model.applyPortalNames(config)
+        publish(config)
+      },
+      async updateInventory(config){
+        const sameInventory=JSON.stringify(previous.assets.map(a=>[a.id,a.kind]))===JSON.stringify(config.assets.map(a=>[a.id,a.kind]))
+        const inventoryChanges=[...previous.assets.filter(a=>!config.assets.some(b=>b.id===a.id&&b.kind===a.kind)),...config.assets.filter(a=>!previous.assets.some(b=>b.id===a.id&&b.kind===a.kind))]
+        const changed=config.bores.flatMap((b,i)=>JSON.stringify(b)===JSON.stringify(previous.bores[i])?[]:[i])
+        project=config;survey=projectSurvey(config)
+        if(changed.length){await model.updateStructure(survey,changed);systems.replaceSites(model.sites,survey)}
+        else{const interiors=config.bores.flatMap((b,i)=>inventoryChanges.some(a=>a.boreId===b.id&&['basic','enhanced'].includes(a.kind))?[i]:[]);if(interiors.length)model.updateInterior(survey,interiors)}
+        if(!sameInventory){await systems.reconcileAssets(survey);for(const a of config.assets)if(!referenceHeadings.has(a.id)||inventoryChanges.some(c=>c.id===a.id))referenceHeadings.set(a.id,a.heading)}
+        bindLights()
+        signResources.dispose();signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
+        for(const a of config.assets)moveRecord(resolveAsset(a,config),false)
+        model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state)
+        traffic?.dispose();traffic=await addTunnelTraffic(viewer,survey,()=>state)
+        stopOverlays();stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
+        const selectedId=interaction.selected?.id;interaction.dispose();interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i));if(selectedId)interaction.select(systems.devices.find(d=>d.id===selectedId));interaction.update(state)
+        detection.refresh(survey,systems.instances);model.applyPortalNames(config);await saveTunnelProject(config);publish(config);options.onDevices?.([...systems.devices])
+      },
+      rebuild:rebuildScene,
+      restore:rebuildScene,
+    },previous,next,recovering)
   }
   options.onSystems?.(state)
   return {
@@ -346,11 +372,11 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       const d=systems.devices.find(d=>d.id===id&&d.kind==='camera');if(!d||!deviceEnabled(d,state)||deviceAlarm(id,state)==='camera')return
       stopCamera()
       viewer.camera.setView({destination:tunnelPoint(survey,d.tube,d.station,d.lateral*.92,d.height-.15),
-        orientation:{heading:d.tube===0?Math.PI/2:Math.PI*1.5,pitch:-.13,roll:0}})
+        orientation:{heading:travelHeadingRadians(survey.heading,travelOf(d.tube)),pitch:-.13,roll:0}})
       viewer.scene.requestRender()
     },
     setRoamingOptions(patch) {
-      if(patch.tube!==undefined && patch.tube!==roamTube){roamTube=patch.tube;roamDistance=roamTube===0?-220:survey.length+220}
+      if(patch.tube!==undefined && patch.tube!==roamTube){roamTube=patch.tube;roamDistance=travelOf(roamTube)===1?-220:survey.length+220}
       if(patch.speed!==undefined)roamSpeed=Math.max(10,Math.min(100,patch.speed))
       moveRoaming();reportRoaming()
     },
@@ -360,14 +386,13 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     setSystems(patch:Partial<SystemsState>) {
       state=changeSystems(state,patch);if(project&&patch.devices)void saveControlOverrides(project.id,state.devices).catch(e=>options.onWarning?.(String(e)));trafficSigns.setLighting(state.environment==='day');model.setLighting(state);systems.update(state);interaction.update(state);events.update(state)
       effects.update(state)
-      const station=incidentStation(survey.length,state)
-      const lateral=state.incident==='emergency'?(state.incidentTube===0?-6.1:6.1):state.incident==='line'?0:-2.15
+      const direction=travelOf(state.incidentTube)
+      const station=incidentStation(survey.length,state,direction)
+      const lateral=state.incident==='emergency'?(direction===1?-6.1:6.1):state.incident==='line'?0:-2.15
       for(const [index,car] of incidentCars.entries()) {
         car.show=index===0?!!incidentDefinition(state.incident)?.car:['congestion','vehicle'].includes(state.incident)
-        const offset=index===0?0:(state.incidentTube===0?-1:1)*index*8
-        const frame=Transforms.eastNorthUpToFixedFrame(tunnelPoint(survey,state.incidentTube,station+offset,index%2===1?2.15:lateral,.25))
-        car.modelMatrix=Matrix4.multiply(frame,Matrix4.fromRotationTranslation(Matrix3.multiply(
-          Matrix3.fromRotationY(-Math.atan(survey.grade/100)),Matrix3.fromRotationZ((state.incidentTube===0?0:Math.PI)+(state.incident==='collision'?.12:0)),new Matrix3())),new Matrix4())
+        const offset=index===0?0:-direction*index*8
+        car.modelMatrix=vehicleMatrix(state.incidentTube,station+offset,index%2===1?2.15:lateral,state.incident==='collision'?.12:0)
         setEquipmentLighting(car,illuminationAt(station,survey.length,state))
       }
       viewer.scene.light.intensity=state.environment==='day'?2.4:.25
@@ -376,9 +401,9 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     },
     focusIncident() {
       stopCamera()
-      const s=incidentStation(survey.length,state)
-      const target=tunnelPoint(survey,state.incidentTube,s,state.incident==='emergency'?(state.incidentTube===0?-6.1:6.1):-2.15,1.7)
-      const direction=state.incidentTube===0?1:-1
+      const direction=travelOf(state.incidentTube)
+      const s=incidentStation(survey.length,state,direction)
+      const target=tunnelPoint(survey,state.incidentTube,s,state.incident==='emergency'?(direction===1?-6.1:6.1):-2.15,1.7)
       const offset=state.incident==='fire'?16:-32
       const position=tunnelPoint(survey,state.incidentTube,s+direction*offset,1.4,2.5)
       const up=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(target),Cartesian3.UNIT_Z,new Cartesian3())

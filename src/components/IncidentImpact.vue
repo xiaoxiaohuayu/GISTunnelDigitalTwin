@@ -19,7 +19,7 @@ const groups=computed(()=>[0,1].flatMap(tube=>deviceCatalog.flatMap(([,kind,name
     <details v-for="group in groups" :key="group.key" class="impact-group">
       <summary>{{group.name}}<span>{{group.items.length}} 处</span></summary>
       <div v-for="item in group.items" :key="item.device.id" class="impact-item">
-        <button class="impact-locate" @click="$emit('locate',item.device.id)">{{item.name}} · 定位</button>
+        <el-button class="impact-locate" text @click="$emit('locate',item.device.id)">{{item.name}} · 定位</el-button>
         <span class="impact-active">当前：{{item.active.status}} · {{item.active.value}}</span>
         <span>解除后：{{item.restored.status}} · {{item.restored.value}}</span>
       </div>

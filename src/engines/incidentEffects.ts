@@ -1,10 +1,11 @@
 // @env browser
-import { BoxEmitter, Cartesian2, Cartesian3, Color, ConeEmitter, Matrix4, ParticleSystem, Transforms } from 'cesium'
+import { BoxEmitter, Cartesian2, Cartesian3, Color, ConeEmitter, Matrix4, ParticleSystem } from 'cesium'
 import type { Particle, Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import type { SystemsState } from './tunnelSystemsState'
 import { incidentStation } from './tunnelSystemsState'
 import { tunnelPoint } from './tunnelDetails'
+import { lanePositions, surveyFrame } from './projectSurvey'
 
 // Soft, irregular sprites keep the plume from looking like a stack of circles.
 function sprite(flame=false):HTMLCanvasElement {
@@ -33,9 +34,10 @@ export function addIncidentEffects(viewer:Viewer,survey:TunnelSurvey) {
     if(next===key)return
     key=next;removeSystems();started=performance.now()
     if(!['fire','smoke','rock'].includes(state.incident))return
-    const station=incidentStation(survey.length,state),direction=state.incidentTube===0?1:-1
+    const direction=lanePositions(survey,state.incidentTube)[0]?.direction===-1?-1:1
+    const station=incidentStation(survey.length,state,direction)
     const fire=state.incident==='fire',rock=state.incident==='rock'
-    const frame=Transforms.eastNorthUpToFixedFrame(tunnelPoint(survey,state.incidentTube,station+(fire?direction*1.5:0),-2.15,rock?.35:1.6))
+    const frame=surveyFrame(survey,tunnelPoint(survey,state.incidentTube,station+(fire?direction*1.5:0),-2.15,rock?.35:1.6))
     const inverse=Matrix4.inverse(frame,new Matrix4()),up=Matrix4.multiplyByPointAsVector(frame,Cartesian3.UNIT_Z,new Cartesian3())
     const along=Matrix4.multiplyByPointAsVector(frame,new Cartesian3(direction,0,0),new Cartesian3())
     const local=new Cartesian3()

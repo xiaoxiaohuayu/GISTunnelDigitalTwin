@@ -63,6 +63,7 @@ test('congestion slows one bore, rock is at the entrance, emergency occupancy is
   assert.equal(incidentStation(1900,{...state,incident:'rock',incidentTube:0}),-40)
   assert.equal(incidentStation(1900,{...state,incident:'rock'}),1940)
   assert.equal(incidentStation(1900,{...state,incident:'emergency'}),1900*.68)
+  assert.equal(incidentStation(1900,{...state,incident:'rock',incidentTube:1},1),-40)
 })
 
 

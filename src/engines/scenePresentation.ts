@@ -15,18 +15,25 @@ export function layoutOverlays(items:SceneOverlay[],width:number,height:number,b
   const placed:PlacedOverlay[]=[], occupied=[...blocked]
   const previousById=new Map(previous.map((item,index)=>[item.id,{item,index}]))
   const intersects=(a:OverlayRect,b:OverlayRect)=>a.x<b.x+b.width+8&&a.x+a.width+8>b.x&&a.y<b.y+b.height+8&&a.y+a.height+8>b.y
+  const rank=(a:SceneOverlay,b:SceneOverlay)=>Number(b.selected)-Number(a.selected)||Number(b.severity!=='normal')-Number(a.severity!=='normal')||(previousById.get(a.id)?.index??Infinity)-(previousById.get(b.id)?.index??Infinity)||a.distance-b.distance
   const candidates=items.filter(item=>item.distance<=150&&item.x>=0&&item.x<=width&&item.y>=0&&item.y<=height)
-    .sort((a,b)=>Number(b.selected)-Number(a.selected)||Number(b.severity!=='normal')-Number(a.severity!=='normal')||Number(!!a.plateColor)-Number(!!b.plateColor)||(previousById.get(a.id)?.index??Infinity)-(previousById.get(b.id)?.index??Infinity)||a.distance-b.distance)
-  for(const item of candidates) {
-    if(placed.length===4)break
+  const place=(item:SceneOverlay,force:boolean)=>{
     const old=previousById.get(item.id)?.item
     const offsets=item.selected?[[-110,-185],[20,-185],[-240,-185],[-110,-105],[-110,25]]:[[-110,-105],[20,-105],[-240,-105],[-110,-185],[-110,25]]
+    if(force)for(let row=2;row<=8;row++)for(const dx of [-110,20,-240,130])offsets.push([dx,-105-row*90])
     if(old&&old.selected===item.selected)offsets.unshift([old.left-old.x,old.top-old.y])
     for(const [dx,dy] of offsets) {
       const rect={x:Math.max(8,Math.min(width-228,item.x+dx!)),y:item.y+dy!,width:220,height:82}
       if(rect.y<65||rect.y+rect.height>height-130||occupied.some(other=>intersects(rect,other)))continue
-      placed.push({...item,left:rect.x,top:rect.y});occupied.push(rect);break
+      placed.push({...item,left:rect.x,top:rect.y});occupied.push(rect);return
     }
+    if(!force)return
+    const [dx,dy]=offsets[0]!
+    const rect={x:Math.max(8,Math.min(width-228,item.x+dx!)),y:Math.max(65,Math.min(height-212,item.y+dy!)),width:220,height:82}
+    placed.push({...item,left:rect.x,top:rect.y});occupied.push(rect)
   }
+  const readings=candidates.filter(item=>!item.plateColor).sort(rank)
+  for(const item of readings){if(placed.length===4)break;place(item,false)}
+  for(const item of candidates.filter(item=>item.plateColor).sort(rank))place(item,true)
   return placed
 }

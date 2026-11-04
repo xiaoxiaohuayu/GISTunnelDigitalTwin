@@ -1,6 +1,5 @@
 // Bounded, deterministic motion so incident props settle and reset on relocation.
-export function workZoneLayout(tube:number) {
-  const direction=tube===0?1:-1
+export function workZoneLayout(tube:number, direction:1|-1=tube===0?1:-1) {
   return {barrier:-17*direction,cones:[-18,-12,-6,0,6,12].map(s=>s*direction),workers:[3,9].map(s=>s*direction)}
 }
 

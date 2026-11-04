@@ -1,4 +1,4 @@
-import { crossPassages } from './tunnelSystemsState'
+import { crossPassages } from './tunnelSystemsState.ts'
 // Demonstration geometry, in metres. Both bores retain two through lanes.
 export function layBy(length: number, tube: number) {
   const center = length * (tube === 0 ? 0.32 : 0.68)

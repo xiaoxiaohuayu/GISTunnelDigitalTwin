@@ -1,13 +1,21 @@
+import { DEMO_HEADING, DEMO_LATITUDE, DEMO_LONGITUDE } from './sceneFrame.ts'
 import { placementErrors } from './assetPlacement.ts'
 import type { Mount, FacilityLink } from './assetPlacement.ts'
 import { deviceCatalog } from './tunnelSystemsState.ts'
 import type { DeviceKind, SceneDevice } from './tunnelSystemsState.ts'
+import { sectionErrors } from './sectionProfile.ts'
+import type { SectionProfile } from './sectionProfile.ts'
 
 export interface BoreConfig { id:string;name:string;start:number;end:number;offset:number;laneWidth:number;lanes:{id:string;direction:1|-1}[] }
 export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number }
-export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[] }
+export interface PassageRecord { station:number;vehicle:boolean }
+export interface MouthName { boreId:string;end:0|1;name:string }
+export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[];section?:SectionProfile;passages?:PassageRecord[];mouths?:MouthName[] }
+export function mouthName(project:TunnelProject,boreId:string,end:0|1):string {
+  return project.mouths?.find(mouth=>mouth.boreId===boreId&&mouth.end===end)?.name.trim()||project.name
+}
 export function defaultProject():TunnelProject {
-  return {version:1,id:'tunnel-project',name:'青山隧道',origin:{longitude:103.56,latitude:30.91,elevation:700,heading:90,grade:0},bores:[0,1].map(i=>({id:`bore-${i+1}`,name:i===0?'上行洞':'下行洞',start:0,end:1900,offset:i===0?-12:12,laneWidth:3.5,lanes:[0,1].map(j=>({id:`lane-${i+1}-${j+1}`,direction:i===0?1:-1}))})),assets:[]}
+  return {version:1,id:'tunnel-project',name:'青山隧道',origin:{longitude:DEMO_LONGITUDE,latitude:DEMO_LATITUDE,elevation:700,heading:DEMO_HEADING,grade:0},bores:[0,1].map(i=>({id:`bore-${i+1}`,name:i===0?'上行洞':'下行洞',start:0,end:1900,offset:i===0?-12:12,laneWidth:3.5,lanes:[0,1].map(j=>({id:`lane-${i+1}-${j+1}`,direction:i===0?1:-1}))})),assets:[]}
 }
 export function parseChainage(text:string):number {
   const match=text.trim().match(/^(?:[A-Za-z]*K)?(-?\d+)(?:\+(\d{1,3}(?:\.\d+)?))?$/i)
@@ -55,11 +63,28 @@ export function projectErrors(value:unknown):string[] {
     if(assetStation(a,b)<-240||assetStation(a,b)>boreLength(b)+240)errors.push(`${a.code}：桩号超出 ${b.name} 的起止范围`)
     if(a.endChainage!==undefined&&(!Number.isFinite(a.endChainage)||a.endChainage<Math.min(b.start,b.end)||a.endChainage>Math.max(b.start,b.end)))errors.push(`${a.code}：设施结束桩号超出洞筒范围`)
   }
+  if(p.passages!==undefined){
+    const limit=Math.max(0,...p.bores.filter(b=>b&&[b.start,b.end].every(Number.isFinite)).map(b=>boreLength(b)))+240
+    if(!Array.isArray(p.passages)||p.passages.length>12)errors.push('横洞记录最多 12 处')
+    else if(p.passages.some(passage=>!passage||typeof passage.vehicle!=='boolean'||!Number.isFinite(passage.station)||passage.station<-240||passage.station>limit))errors.push('横洞桩号须落在洞口前后 240 m 内，并标明人行或车行')
+  }
+  if(p.mouths!==undefined){
+    if(!Array.isArray(p.mouths)||p.mouths.length>4)errors.push('洞口名称最多 4 条')
+    else {
+      const seen=new Set<string>()
+      for(const mouth of p.mouths){
+        const key=`${mouth?.boreId}:${mouth?.end}`
+        if(!mouth||(mouth.end!==0&&mouth.end!==1)||typeof mouth.boreId!=='string'||!boreIds.has(mouth.boreId)||seen.has(key))errors.push('洞口名称须对应已有洞筒的某一端，且不能重复')
+        else if(typeof mouth.name!=='string'||!mouth.name.trim()||mouth.name.trim().length>16)errors.push('每个洞口名称须为 1～16 个字')
+        else seen.add(key)
+      }
+    }
+  }
   if(p.bores.length===2&&p.bores.every(b=>Number.isFinite(b.offset)&&Array.isArray(b.lanes))){
     const [a,b]=p.bores as [BoreConfig,BoreConfig]
     if(Math.abs(a.offset-b.offset)<(a.lanes.length*a.laneWidth+b.lanes.length*b.laneWidth)/2+2)errors.push('两个洞筒间距不足，请调整横向偏移')
   }
-  return [...errors,...placementErrors(p)]
+  return [...errors,...placementErrors(p),...sectionErrors(p.section)]
 }
 export function sceneAsset(asset:AssetRecord,project:TunnelProject):SceneDevice {
   const tube=project.bores.findIndex(b=>b.id===asset.boreId),bore=project.bores[tube]!

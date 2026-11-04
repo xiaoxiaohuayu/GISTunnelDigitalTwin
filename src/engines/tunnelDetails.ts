@@ -12,6 +12,7 @@ import type { Entity, Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import portalAccess from '../config/portalAccess.json'
 import { roadArrow } from './roadMarkings'
+import { basicSpacing, enhancedSpacing } from './sectionProfile'
 import { deviceEnabled, lightDeviceId,  illuminationAt, initialSystems } from './tunnelSystemsState'
 import type { SystemsState } from './tunnelSystemsState'
 
@@ -127,7 +128,7 @@ export function addTunnelDetails(viewer: Viewer, survey: TunnelSurvey) {
           strip(`curb-cap-${tube}-${side}-${start}`,tube,side,outer,start,end,4.57,.50,.16,.055,'#d0d0bc')
         }
       }
-      for (let station = -50; station < survey.length + 60; station += 8) {
+      for (let station = -50; station < survey.length + 60; station += basicSpacing(survey.project?.section)) {
         const width = outer ? projectLayByWidth(station,survey,tube) : 0
         const y = side*(4.55+width)
         if(!survey.project){
@@ -139,7 +140,7 @@ export function addTunnelDetails(viewer: Viewer, survey: TunnelSurvey) {
         box(`cable-support-${tube}-${side}-${station}`,tube,station,side*(overVehicle?4.52:5.12+width),overVehicle?5.12:3.65,.1,.6,.07,'#84908a')
       }
       for (const from of [-58, survey.length+12]) {
-        for (let station = from; station <= from+46; station += 4) {
+        for (let station = from; station <= from+46; station += enhancedSpacing(survey.project?.section)) {
           if(!survey.project){
           box(`boost-housing-${tube}-${side}-${station}`,tube,station,side*3.85,5.6,1.8,.48,.18,'#394449')
           box(`boost-diffuser-${tube}-${side}-${station}`,tube,station,side*3.85,5.49,1.65,.40,.05,'#fff2d2')

@@ -9,6 +9,6 @@ function retry():void{window.location.reload()}
     <div role="progressbar" aria-label="场景初始化进度" :aria-valuenow="progress.percent" aria-valuemin="0" aria-valuemax="100" class="scene-progress"><span :style="{width:`${progress.percent}%`}"/></div>
     <div class="load-caption"><span>{{progress.resource}}</span><b>{{progress.percent}}%</b></div>
     <p v-if="error">{{error}}</p><p v-else>场景初始化进度 · 包含地形、模型与材质准备</p>
-    <button v-if="error" @click="retry">重新加载</button>
+    <el-button v-if="error" type="primary" @click="retry">重新加载</el-button>
   </div>
 </template>

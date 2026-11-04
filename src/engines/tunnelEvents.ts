@@ -6,6 +6,7 @@ import type { TunnelSurvey } from '../types/tunnel'
 import { incidentDefinition, incidentStation } from './tunnelSystemsState'
 import type { SystemsState } from './tunnelSystemsState'
 import { tunnelPoint } from './tunnelDetails'
+import { lanePositions } from './projectSurvey'
 import { fallingRock, workZoneLayout } from './incidentMotion'
 
 export function addTunnelEvents(viewer:Viewer,survey:TunnelSurvey) {
@@ -25,7 +26,8 @@ export function addTunnelEvents(viewer:Viewer,survey:TunnelSurvey) {
     label.show=state.incident!=='none'
     if(state.incident==='none')return
     const started=performance.now(),elapsed=()=>Math.max(0,(performance.now()-started)/1000)
-    const s=incidentStation(survey.length,state),tube=state.incidentTube
+    const tube=state.incidentTube,direction=lanePositions(survey,tube)[0]?.direction===-1?-1:1
+    const s=incidentStation(survey.length,state,direction)
     const point=(along:number,lateral:number,z:number)=>tunnelPoint(survey,tube,s+along,lateral,z)
     const orientation=Transforms.headingPitchRollQuaternion(point(0,0,0),new HeadingPitchRoll(0,Math.atan(survey.grade/100),0))
     const solid=(along:number,lateral:number,z:number,x:number,y:number,h:number,color:string)=>{
@@ -42,7 +44,7 @@ export function addTunnelEvents(viewer:Viewer,survey:TunnelSurvey) {
       props.push(entity);return entity
     }
     if(state.incident==='construction') {
-      const layout=workZoneLayout(tube)
+      const layout=workZoneLayout(tube,direction)
       for(const along of layout.cones) model('work-cone',along,0)
       model('work-barrier',layout.barrier,-2.15)
       for(const lateral of [-3.4,-.9]) {

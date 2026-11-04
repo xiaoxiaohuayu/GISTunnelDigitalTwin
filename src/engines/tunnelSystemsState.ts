@@ -1,3 +1,4 @@
+import { BASIC_SPACING, ENHANCED_SPACING } from './sectionProfile.ts'
 import type { Cartesian3 } from 'cesium'
 import { defaultVmsDisplay } from './vmsDisplay.ts'
 import type { VmsDisplay } from './vmsDisplay.ts'
@@ -19,10 +20,10 @@ export type IncidentKind = typeof incidentCatalog[number]['kind']
 export function incidentDefinition(kind: SystemsState['incident']) {
   return incidentCatalog.find(item=>item.kind===kind)
 }
-export function incidentStation(length:number,state:SystemsState):number {
-  if(state.incident==='rock')return state.incidentTube===0?-40:length+40
-  if(state.incident==='emergency')return length*(state.incidentTube===0?.32:.68)
-  return length*.5+(state.incidentTube===0?80:-80)
+export function incidentStation(length:number,state:SystemsState,direction:1|-1=state.incidentTube===0?1:-1):number {
+  if(state.incident==='rock')return direction===1?-40:length+40
+  if(state.incident==='emergency')return length*(direction===1?.32:.68)
+  return length*.5+direction*80
 }
 export function entranceSignal(tube:number,state:SystemsState):SystemsState['entrance'] {
   if(state.incident!=='none' && tube===state.incidentTube) {
@@ -57,14 +58,14 @@ export function incidentTelemetry(device:SceneDevice,state:SystemsState,length:n
   }
   return undefined
 }
-export function trafficStopStations(tube:number,lane:number,length:number,state:SystemsState):number[] {
-  const stops:number[]=[],direction=tube===0?1:-1
+export function trafficStopStations(tube:number,lane:number,length:number,state:SystemsState,direction:1|-1=tube===0?1:-1):number[] {
+  const stops:number[]=[]
   if(tube===state.incidentTube) {
-    if(incidentDefinition(state.incident)?.closed)stops.push(incidentStation(length,state)-direction*40)
-    else if(state.incident==='congestion')stops.push(incidentStation(length,state)-direction*50)
-    else if(state.incident==='line'||(state.incident==='parking'&&lane===0))stops.push(incidentStation(length,state)-direction*18)
+    if(incidentDefinition(state.incident)?.closed)stops.push(incidentStation(length,state,direction)-direction*40)
+    else if(state.incident==='congestion')stops.push(incidentStation(length,state,direction)-direction*50)
+    else if(state.incident==='line'||(state.incident==='parking'&&lane===0))stops.push(incidentStation(length,state,direction)-direction*18)
   }
-  if(entranceSignal(tube,state)==='red')stops.push(tube===0?-86:length+86)
+  if(entranceSignal(tube,state)==='red')stops.push(direction===1?-86:length+86)
   return stops
 }
 export function informationMessage(tube:number,state:SystemsState):string {
@@ -122,26 +123,35 @@ export function changeSystems(current: SystemsState, patch: Partial<SystemsState
   }
   return next
 }
-export function basicLampOn(station: number, state: SystemsState): boolean {
-  return state.basic === 'all' || (state.basic === 'alternating' && Math.round((station + 50) / 8) % 2 === 0)
+export function basicLampOn(station: number, state: SystemsState, spacing = BASIC_SPACING): boolean {
+  return state.basic === 'all' || (state.basic === 'alternating' && Math.round((station + 50) / spacing) % 2 === 0)
 }
 export function enhancedZone(station: number, length: number): boolean {
   return (station >= -60 && station <= -10) || (station >= length + 10 && station <= length + 60)
 }
-export function illuminationAt(station: number, length: number, state: SystemsState, tube=0): number {
+export interface LampSample { id:string;kind:'basic'|'enhanced';tube:number;station:number }
+export function illuminationAt(station: number, length: number, state: SystemsState, tube=0, lamps?: LampSample[]): number {
   if(station < -60 || station > length+60)return state.environment==='day'?.82:state.street?.3:.025
   const spill = Math.exp(-Math.max(0, Math.min(station + 60, length + 60 - station)) / 19)
   let basic = state.basic === 'off' ? 0 : state.basic === 'all' ? .64 : .43
   let enhanced = state.enhanced && enhancedZone(station, length) ? .35 : 0
-  for(const side of [-1,1]) {
-    const nearest=-50+Math.round((station+50)/8)*8
-    for(const offset of [-8,0,8]) {
+  if(lamps){
+    for(const lamp of lamps){
+      if(lamp.tube!==tube)continue
+      const setting=state.devices[lamp.id]?.enabled
+      if(setting===undefined)continue
+      if(lamp.kind==='basic')basic+=(Number(setting)-Number(basicLampOn(lamp.station,state)))*.2*Math.exp(-((station-lamp.station)**2)/32)
+      else enhanced+=(Number(setting)-Number(state.enhanced))*.175*Math.exp(-((station-lamp.station)**2)/18)
+    }
+  }else for(const side of [-1,1]) {
+    const nearest=-50+Math.round((station+50)/BASIC_SPACING)*BASIC_SPACING
+    for(const offset of [-BASIC_SPACING,0,BASIC_SPACING]) {
       const s=nearest+offset;if(s< -50||s>=length+60)continue
       const setting=state.devices[lightDeviceId('basic',tube,s,side,length)]?.enabled
       if(setting!==undefined)basic+=(Number(setting)-Number(basicLampOn(s,state)))*.2*Math.exp(-((station-s)**2)/32)
     }
     for(const start of [-58,length+12]) {
-      const s=start+Math.round((station-start)/4)*4;if(s<start||s>start+46)continue
+      const s=start+Math.round((station-start)/ENHANCED_SPACING)*ENHANCED_SPACING;if(s<start||s>start+46)continue
       const setting=state.devices[lightDeviceId('enhanced',tube,s,side,length)]?.enabled
       if(setting!==undefined)enhanced+=(Number(setting)-Number(state.enhanced))*.175*Math.exp(-((station-s)**2)/18)
     }
@@ -149,19 +159,25 @@ export function illuminationAt(station: number, length: number, state: SystemsSt
   basic=Math.max(0,basic);enhanced=Math.max(0,enhanced)
   return Math.min(1, .012 + basic + enhanced + spill * (state.environment === 'day' ? .7 : .06))
 }
-export function crossPassages(length: number) {
-  return [0.25, 0.5, 0.75].map((ratio, index) => ({ station: length * ratio,
+export interface PassageLayout { station:number;archRise:number;vehicle:boolean;halfWidth:number;height:number }
+export function crossPassages(length: number, placed?: {station:number;vehicle:boolean}[]): PassageLayout[] {
+  const templates: PassageLayout[] = [0.25, 0.5, 0.75].map((ratio, index) => ({ station: length * ratio,
     archRise: index === 1 ? 1.2 : .8, vehicle: index === 1, halfWidth: index === 1 ? 3.5 : 2, height: index === 1 ? 4.8 : 2.85 }))
+  if(!placed)return templates
+  return placed.map(passage=>{
+    const template=templates.find(item=>item.vehicle===passage.vehicle)??templates[0]!
+    return {...template,station:passage.station,vehicle:passage.vehicle}
+  })
 }
 export function radarHeading(tube:number):number { return (tube===0?0:Math.PI)-Math.PI/2 }
-export function escapeSignDirection(station:number,tube:number,length:number):'left'|'right' {
-  const nearest=crossPassages(length).reduce((a,b)=>Math.abs(a.station-station)<=Math.abs(b.station-station)?a:b)
+export function escapeSignDirection(station:number,tube:number,length:number,passages:PassageLayout[]=crossPassages(length)):'left'|'right' {
+  const nearest=passages.reduce((a,b)=>Math.abs(a.station-station)<=Math.abs(b.station-station)?a:b)
   return (nearest.station-station)*(tube===0?1:-1)>=0?'left':'right'
 }
-export function laneSignal(station: number, tube: number, length: number, state: SystemsState, reverse = false): 'down' | 'left' | 'cross' {
+export function laneSignal(station: number, tube: number, length: number, state: SystemsState, reverse = false, passages:PassageLayout[]=crossPassages(length)): 'down' | 'left' | 'cross' {
   if (reverse) return 'cross'
   if (!incidentDefinition(state.incident)?.closed || tube !== state.incidentTube) return 'down'
-  return ['fire','smoke','collision'].includes(state.incident) && crossPassages(length).some(p => Math.abs(p.station - station) <= 80) ? 'left' : 'cross'
+  return ['fire','smoke','collision'].includes(state.incident) && passages.some(p => Math.abs(p.station - station) <= 80) ? 'left' : 'cross'
 }
 export const deviceCatalog = [
   ['traffic','camera','监控摄像机'], ['fire','cabinet','消火栓箱'],
@@ -182,7 +198,7 @@ export function changeDevice(state:SystemsState,id:string,patch:DeviceSettings):
   const previous=state.devices[id]??{}
   return {...state,devices:{...state.devices,[id]:{...previous,...patch,...(patch.vms?{vms:{...previous.vms,...patch.vms}}:{})}}}
 }
-export function deviceEnabled(device:SceneDevice,state:SystemsState):boolean {
+export function deviceEnabled(device:SceneDevice,state:SystemsState,spacing=BASIC_SPACING):boolean {
   const explicit=state.devices[device.id]?.enabled
   if(explicit!==undefined)return explicit
   const affected=state.incident!=='none'&&device.tube===state.incidentTube
@@ -191,7 +207,7 @@ export function deviceEnabled(device:SceneDevice,state:SystemsState):boolean {
     case 'speaker':return state.incident==='none'?state.broadcast:affected&&['fire','smoke','collision'].includes(state.incident)
     case 'pump':return state.pumps
     case 'shutter':return state.shuttersOpen
-    case 'basic':return basicLampOn(device.station,state)
+    case 'basic':return basicLampOn(device.station,state,spacing)
     case 'enhanced':return state.enhanced
     case 'street':return state.street
     case 'vms':return state.devices[device.id]?.vms?.enabled??state.vms.enabled
@@ -209,15 +225,15 @@ export function deviceEntrance(device:SceneDevice,state:SystemsState):SystemsSta
   if(state.incident==='none'||device.tube!==state.incidentTube)return state.devices[device.id]?.entrance??entranceSignal(device.tube,state)
   return entranceSignal(device.tube,state)
 }
-export function deviceLane(device:SceneDevice,length:number,state:SystemsState):'down'|'left'|'cross' {
-  if(state.incident!=='none'&&device.tube===state.incidentTube)return laneSignal(device.station,device.tube,length,state)
-  return state.devices[device.id]?.lane??laneSignal(device.station,device.tube,length,state)
+export function deviceLane(device:SceneDevice,length:number,state:SystemsState,passages:PassageLayout[]=crossPassages(length)):'down'|'left'|'cross' {
+  if(state.incident!=='none'&&device.tube===state.incidentTube)return laneSignal(device.station,device.tube,length,state,false,passages)
+  return state.devices[device.id]?.lane??laneSignal(device.station,device.tube,length,state,false,passages)
 }
 export function lightDeviceId(kind:'basic'|'enhanced',tube:number,station:number,lateral:number,length:number):string {
   const side=lateral>0?2:1
-  if(kind==='basic')return `basic-${tube*Math.ceil((length+110)/8)*2+Math.round((station+50)/8)*2+side}`
+  if(kind==='basic')return `basic-${tube*Math.ceil((length+110)/BASIC_SPACING)*2+Math.round((station+50)/BASIC_SPACING)*2+side}`
   const far=station>=length+10
-  return `enhanced-${tube*48+(far?24:0)+Math.round((station-(far?length+12:-58))/4)*2+side}`
+  return `enhanced-${tube*48+(far?24:0)+Math.round((station-(far?length+12:-58))/ENHANCED_SPACING)*2+side}`
 }
 
 export function passageShuttersOpen(index:number,state:SystemsState):boolean {

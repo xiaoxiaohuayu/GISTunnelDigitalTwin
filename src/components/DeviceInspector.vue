@@ -10,10 +10,10 @@ const reading = computed(() => deviceTelemetry(props.device, props.state, props.
 </script>
 <template>
   <aside class="device-inspector" :class="reading.severity" aria-label="设备详情">
-    <header class="inspector-header"><h2>设备详情</h2><button class="inspector-close" aria-label="关闭设备详情" @click="$emit('close')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></button></header>
+    <header class="inspector-header"><h2>设备详情</h2><el-button class="inspector-close" text aria-label="关闭设备详情" @click="$emit('close')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m6 6 12 12M6 18 18 6"/></svg></el-button></header>
     <div class="inspector-content">
-      <button v-if="returnLabel" class="inspector-back" @click="$emit('back')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>{{returnLabel}}</button>
-      <div class="device-stepper"><button :disabled="total<2" @click="$emit('next',-1)">上一个</button><span>{{index+1}} / {{total}}</span><button :disabled="total<2" @click="$emit('next',1)">下一个</button></div>
+      <el-button v-if="returnLabel" class="inspector-back" text @click="$emit('back')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>{{returnLabel}}</el-button>
+      <div class="device-stepper"><el-button size="small" :disabled="total<2" @click="$emit('next',-1)">上一个</el-button><span>{{index+1}} / {{total}}</span><el-button size="small" :disabled="total<2" @click="$emit('next',1)">下一个</el-button></div>
       <div :key="device.id" class="device-body">
       <h3 class="device-title">{{ deviceName(device) }}</h3>
       <p class="device-address">{{device.boreName??(device.portalEnd===undefined?(device.tube===0?'上行洞':'下行洞'):(device.portalEnd===0?'西洞口':'东洞口'))}} · {{device.chainage??`距基点 ${Math.round(device.station)} m`}}</p>
@@ -22,10 +22,10 @@ const reading = computed(() => deviceTelemetry(props.device, props.state, props.
       <dl class="device-facts"><div><dt>设备编号</dt><dd>{{device.code??device.id}}</dd></div><div><dt>所属洞筒</dt><dd>{{device.boreName??(device.tube===0?'上行洞':'下行洞')}}</dd></div><div><dt>沿线位置</dt><dd>{{Math.round(device.station)}} m</dd></div></dl>
       <p class="reading-note" :class="reading.severity" role="status">{{reading.note}}</p>
       <div class="inspector-actions">
-        <button class="locate-device" @click="$emit('editPosition')">调整位置</button>
-        <button class="locate-device primary-locate" @click="$emit('locate', device.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>定位到设备</button>
-        <button v-if="device.kind==='vms'" class="locate-device" @click="$emit('editVms')">编辑情报板内容与尺寸</button>
-        <button v-if="device.kind==='camera'" class="locate-device" :disabled="reading.status==='通信离线'||reading.status==='关闭'" @click="$emit('camera',device.id)">预览三维监控视角</button>
+        <el-button class="locate-device" @click="$emit('editPosition')">调整位置</el-button>
+        <el-button class="locate-device" type="primary" @click="$emit('locate', device.id)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/><path d="M12 2v4m0 12v4M2 12h4m12 0h4"/></svg>定位到设备</el-button>
+        <el-button v-if="device.kind==='vms'" class="locate-device" @click="$emit('editVms')">编辑情报板内容与尺寸</el-button>
+        <el-button v-if="device.kind==='camera'" class="locate-device" :disabled="reading.status==='通信离线'||reading.status==='关闭'" @click="$emit('camera',device.id)">预览三维监控视角</el-button>
         <DeviceControls :device="device" :state="state" :length="length" @change="$emit('change',$event)" />
       </div>
       </div>
@@ -38,7 +38,7 @@ const reading = computed(() => deviceTelemetry(props.device, props.state, props.
 .device-inspector.alarm{--device-accent:#ffb7a1}.device-inspector.warning{--device-accent:#ffda9a}.device-inspector::before{z-index:2;content:'';position:absolute;top:0;left:22px;right:22px;height:1px;background:linear-gradient(90deg,transparent,var(--device-accent),transparent);box-shadow:0 1px 10px #8acaff33;pointer-events:none}
 .inspector-header{padding:14px 20px;background:#14243b;border-bottom:1px solid #c7e0ff12}.inspector-header h2{font-size:13px;font-weight:500;letter-spacing:0;color:#c2d5ec}.inspector-close{display:grid;place-items:center;border:0;width:30px;height:30px;color:#b6cce4}.inspector-close svg{width:19px;height:19px}
 .device-body{animation:device-switch .32s cubic-bezier(.16,1,.3,1)}
-.inspector-content{padding:18px 22px 22px}.device-stepper{margin-bottom:23px}.device-stepper button{padding:7px 9px;font-size:11px;background:transparent;border-color:#a5c9ff26}.device-stepper span{color:#b2c6e0}.device-title{margin:0 0 8px;font-size:22px;line-height:1.45;font-weight:600;letter-spacing:.02em;color:#f1f7ff;overflow-wrap:anywhere}.device-address{margin:0 0 24px;font-size:12px;line-height:1.6;color:#b1c7e0}
+.inspector-content{padding:18px 22px 22px}.device-stepper{display:flex;align-items:center;gap:8px;margin-bottom:23px}.device-stepper button{padding:7px 9px;font-size:11px;background:transparent;border-color:#a5c9ff26}.device-stepper span{color:#b2c6e0}.device-title{margin:0 0 8px;font-size:22px;line-height:1.45;font-weight:600;letter-spacing:.02em;color:#f1f7ff;overflow-wrap:anywhere}.device-address{margin:0 0 24px;font-size:12px;line-height:1.6;color:#b1c7e0}
 .device-state{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:22px}.state-caption,.reading-caption{font-size:12px;color:#b1c7e0}.state-badge{display:inline-flex;align-items:center;gap:7px;border-radius:20px;padding:5px 10px;background:#6dceac0f;font-size:12px;line-height:1.5;color:#a3e2ca}.state-badge i{width:5px;height:5px;background:currentColor;border-radius:50%}.state-badge.alarm{background:#ff9b8812;color:#ffb7a1}.state-badge.warning{background:#ffc98212;color:#ffda9a}
 .device-reading{padding:21px 0;border-block:1px solid #c7e0ff18}.reading-value{display:block;margin:12px 0;font-weight:500;font-size:clamp(24px,2vw,30px);line-height:1.35;font-variant-numeric:tabular-nums;color:#f1f7ff;overflow-wrap:anywhere;animation:reading-update .55s ease-out}.reading-source{display:flex;align-items:center;gap:6px;font-size:10px;color:#b1c7e0}.reading-source::before{content:'';width:4px;height:4px;border:1px solid #92d1ff;border-radius:50%}
 .device-facts{margin:20px 0 0}.device-facts>div{display:flex;justify-content:space-between;gap:16px;margin:12px 0;font-size:12px;line-height:1.5}.device-facts dt{color:#b1c7e0}.device-facts dd{margin:0;color:#e1edfc;font-variant-numeric:tabular-nums;overflow-wrap:anywhere;text-align:right}.reading-note{margin:20px 0;font-size:11px;line-height:1.7;color:#b1c7e0}.reading-note.alarm{color:#ffb7a1}.reading-note.warning{color:#ffda9a}

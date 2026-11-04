@@ -1,0 +1,159 @@
+html.dark {
+  --el-color-primary: #3c8fd6;
+  --el-color-primary-light-3: #6cbaff;
+  --el-color-primary-light-5: #2c649c;
+  --el-color-primary-light-7: #1c426c;
+  --el-color-primary-light-8: #173552;
+  --el-color-primary-light-9: #122844;
+  --el-color-primary-dark-2: #8acaff;
+  --el-color-danger: #e07a68;
+  --el-color-warning: #e0a45a;
+  --el-bg-color: #111b3b;
+  --el-bg-color-overlay: #101c38;
+  --el-bg-color-page: #070d20;
+  --el-text-color-primary: #edf4ff;
+  --el-text-color-regular: #d5e4f8;
+  --el-text-color-secondary: #abbfdc;
+  --el-text-color-placeholder: #7e96b8;
+  --el-border-color: #3c5178;
+  --el-border-color-light: #344c78;
+  --el-border-color-lighter: #2c4268;
+  --el-fill-color: #162844;
+  --el-fill-color-light: #1a3054;
+  --el-fill-color-blank: #111f3c;
+  --el-mask-color: rgba(7, 13, 32, .72);
+  --el-border-radius-base: 4px;
+  --el-font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+button.el-button {
+  font-family: inherit;
+}
+
+.scene-actions button.el-button,
+.viewport-tools button.el-button,
+.scene-panel button.el-button,
+.project-editor button.el-button,
+.event-drawer button.el-button,
+.device-inspector button.el-button,
+.roaming-controls button.el-button,
+.sign-editor button.el-button,
+.arrival button.el-button,
+.monitor-view button.el-button,
+.scene-loading button.el-button,
+.position-editor button.el-button {
+  width: auto;
+  height: auto;
+  min-height: 32px;
+  padding: 8px 14px;
+  background-color: var(--el-button-bg-color);
+  border: 1px solid var(--el-button-border-color);
+  color: var(--el-button-text-color);
+  box-shadow: none;
+  line-height: 1.2;
+}
+
+.scene-actions button.el-button:hover:not(:disabled),
+.viewport-tools button.el-button:hover:not(:disabled),
+.scene-panel button.el-button:hover:not(:disabled),
+.project-editor button.el-button:hover:not(:disabled),
+.event-drawer button.el-button:hover:not(:disabled),
+.device-inspector button.el-button:hover:not(:disabled),
+.roaming-controls button.el-button:hover:not(:disabled),
+.sign-editor button.el-button:hover:not(:disabled),
+.arrival button.el-button:hover:not(:disabled),
+.monitor-view button.el-button:hover:not(:disabled),
+.scene-loading button.el-button:hover:not(:disabled),
+.position-editor button.el-button:hover:not(:disabled) {
+  background-color: var(--el-button-hover-bg-color);
+  border-color: var(--el-button-hover-border-color);
+  color: var(--el-button-hover-text-color);
+}
+
+.scene-panel > header button.el-button,
+.device-inspector header button.el-button,
+.roaming-controls header button.el-button {
+  width: 32px;
+  min-height: 32px;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+  font-size: 18px;
+}
+
+.viewport-tools button.el-button,
+.event-grid button.el-button,
+.event-tabs button.el-button,
+.alarm-options button.el-button {
+  min-height: 32px;
+  padding: 7px 10px;
+}
+
+.project-editor .el-input,
+.project-editor .el-select,
+.project-editor .el-input-number,
+.systems-form .el-select,
+.sign-editor .el-input,
+.sign-editor .el-select,
+.position-editor .el-input,
+.position-editor .el-input-number,
+.device-filters .el-select,
+.search-label .el-input,
+.roaming-settings .el-select,
+.individual-controls .el-select,
+.vms-editor .el-input,
+.vms-editor .el-select,
+.vms-editor .el-input-number {
+  width: 100%;
+}
+
+.project-editor input.el-input__inner,
+.systems-form input.el-input__inner,
+.sign-editor input.el-input__inner,
+.search-label input.el-input__inner,
+.position-editor input.el-input__inner,
+.vms-editor textarea.el-textarea__inner,
+input.el-input__inner,
+textarea.el-textarea__inner,
+input.el-select__input {
+  min-height: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  border-radius: 0;
+}
+
+.scene-panel button.el-button.device-result,
+.scene-panel button.el-button.device-kind,
+.scene-panel button.el-button.more-results,
+.device-inspector .inspector-actions button.el-button {
+  width: 100%;
+  height: auto;
+  margin-left: 0;
+  white-space: normal;
+  justify-content: flex-start;
+}
+
+.device-inspector .inspector-actions button.el-button {
+  justify-content: center;
+  margin-top: 8px;
+}
+
+.event-grid .el-button,
+.alarm-options .el-button {
+  width: 100%;
+  margin: 0;
+}
+
+.event-tube .el-select,
+.roaming-settings .el-select {
+  width: min(220px, 100%);
+}
+
+.device-filters .el-select {
+  width: 160px;
+}
+
+.el-popper {
+  z-index: 4000 !important;
+}

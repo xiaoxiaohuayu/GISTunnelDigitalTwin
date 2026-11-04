@@ -57,9 +57,10 @@ test('persistent alerts reserve space even when the camera points elsewhere',()=
   for(const p of placed)assert.ok(p.left+220<=620||p.top>=225)
 })
 
-test('normal monitoring readings take the limited slots ahead of passing traffic',()=>{
+test('monitoring readings stay within four slots while every visible plate stays up',()=>{
   const vehicles=Array.from({length:8},(_,i)=>({...item(`car-${i}`,250+i%4*300,300+Math.floor(i/4)*200),plateColor:'蓝牌' as const}))
   const placed=layoutOverlays([...vehicles,item('CO',700,600)],1600,1000,[])
   assert.equal(placed[0]?.id,'CO')
-  assert.ok(placed.length<=4)
+  assert.equal(placed.filter(card=>!card.plateColor).length,1)
+  assert.equal(placed.filter(card=>card.plateColor).length,vehicles.length)
 })

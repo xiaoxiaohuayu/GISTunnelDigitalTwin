@@ -5,8 +5,9 @@ import type { TunnelSurvey } from '../types/tunnel'
 import type { SceneDevice, SystemsState } from './tunnelSystemsState'
 import { crossPassages, passageShuttersOpen } from './tunnelSystemsState'
 import { projectLayByWidth, layoutPassages } from './facilityLayout'
-import { surveyFrame } from './projectSurvey'
 import { boreLength } from './projectConfig'
+import { PROFILE_HALF } from './sectionProfile'
+import { surveyFrame } from './projectSurvey'
 import { deviceName, deviceTelemetry } from './deviceTelemetry'
 import { deviceHeight } from './deviceInteraction'
 import { tunnelPoint } from './tunnelDetails'
@@ -40,7 +41,7 @@ export function addSceneOverlays(viewer:Viewer,survey:TunnelSurvey,devices:Scene
       const camera=Matrix4.multiplyByPoint(inverse,viewer.camera.positionWC,new Cartesian3()),station=camera.x/end.x*survey.length
       const floor=Matrix4.multiplyByPoint(inverse,tunnelPoint(survey,0,station),pixelScratch)
       const from={station,lateral:camera.y,height:camera.z-floor.z}
-      const geometry={length:survey.length,spacing,wallsVisible:walls,shuttersOpen:state.shuttersOpen,shutterOpen:(index:number)=>passageShuttersOpen(index,state),passages,boreCount:survey.tubes.length,radiusAt:(tube:number)=>{const b=survey.project?.bores[tube];return b?5.5+b.lanes.length*b.laneWidth/2-4.3:5.5},lengthAt:(tube:number)=>survey.project?boreLength(survey.project.bores[tube]!):survey.length,widthAt:(s:number,tube:number)=>projectLayByWidth(s,survey,tube)}
+      const geometry={length:survey.length,spacing,wallsVisible:walls,shuttersOpen:state.shuttersOpen,shutterOpen:(index:number)=>passageShuttersOpen(index,state),passages,boreCount:survey.tubes.length,radiusAt:(tube:number)=>{const b=survey.project?.bores[tube];return b?5.5+b.lanes.length*b.laneWidth/2-PROFILE_HALF:5.5},lengthAt:(tube:number)=>survey.project?boreLength(survey.project.bores[tube]!):survey.length,widthAt:(s:number,tube:number)=>projectLayByWidth(s,survey,tube)}
       const visible=(position:Cartesian3,local:TunnelViewPoint,distance:number)=>{
         if(liningBlocksSight(from,local,geometry))return false
         if(!underground){

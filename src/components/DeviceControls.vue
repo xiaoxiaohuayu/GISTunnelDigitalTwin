@@ -12,16 +12,15 @@ const incident=computed(()=>props.state.incident!=='none'&&props.device.tube===p
 <template>
   <div class="individual-controls">
     <p class="field-help">仅控制 {{device.code??device.id}}</p>
-    <button v-if="controllable" class="locate-device" :aria-pressed="enabled" @click="emit('change',{enabled:!enabled})">{{verb}}</button>
-    <label v-if="device.kind==='signal'">当前信号<select :value="deviceEntrance(device,state)" :disabled="incident" @change="emit('change',{entrance:($event.target as HTMLSelectElement).value as DeviceSettings['entrance']})"><option value="green">绿灯 · 通行</option><option value="yellow">黄灯 · 注意</option><option value="red">红灯 · 停止</option></select></label>
-    <label v-if="device.kind==='lane'">当前车道指示<select :value="deviceLane(device,length,state)" :disabled="incident" @change="emit('change',{lane:($event.target as HTMLSelectElement).value as DeviceSettings['lane']})"><option value="down">向下 · 通行</option><option value="left">向左 · 疏散</option><option value="cross">红叉 · 禁止通行</option></select></label>
-    <label v-if="['fan','camera','covi'].includes(device.kind)">本设备异常演示<select :value="deviceAlarm(device.id,state)" @change="emit('change',{alarm:($event.target as HTMLSelectElement).value as DeviceSettings['alarm']})"><option value="none">正常</option><option :value="device.kind==='covi'?'environment':device.kind">{{device.kind==='fan'?'风机故障':device.kind==='camera'?'通信离线':'CO 浓度超限'}}</option></select></label>
+    <el-button v-if="controllable" :type="enabled?'primary':'default'" @click="emit('change',{enabled:!enabled})">{{verb}}</el-button>
+    <label v-if="device.kind==='signal'">当前信号<el-select :model-value="deviceEntrance(device,state)" :disabled="incident" @change="emit('change',{entrance:$event})"><el-option value="green" label="绿灯 · 通行" /><el-option value="yellow" label="黄灯 · 注意" /><el-option value="red" label="红灯 · 停止" /></el-select></label>
+    <label v-if="device.kind==='lane'">当前车道指示<el-select :model-value="deviceLane(device,length,state)" :disabled="incident" @change="emit('change',{lane:$event})"><el-option value="down" label="向下 · 通行" /><el-option value="left" label="向左 · 疏散" /><el-option value="cross" label="红叉 · 禁止通行" /></el-select></label>
+    <label v-if="['fan','camera','covi'].includes(device.kind)">本设备异常演示<el-select :model-value="deviceAlarm(device.id,state)" @change="emit('change',{alarm:$event})"><el-option value="none" label="正常" /><el-option :value="device.kind==='covi'?'environment':device.kind" :label="device.kind==='fan'?'风机故障':device.kind==='camera'?'通信离线':'CO 浓度超限'" /></el-select></label>
     <p v-if="incident&&['lane','signal'].includes(device.kind)" class="field-help">演练临时接管此设备指示，解除后恢复该设备设置。</p>
   </div>
 </template>
 <style scoped>
-.individual-controls {margin-top:12px}
+.individual-controls {margin-top:12px;display:flex;flex-direction:column;gap:12px}
 .individual-controls label {display:flex;flex-direction:column;gap:8px;color:#c4d5ef;font-size:12px}
-.individual-controls select {min-height:36px;width:100%;padding:7px;background:#111f3c;color:#edf4ff;border:1px solid #3c5178;border-radius:4px}
-.individual-controls button {width:100%;min-height:38px;padding:8px}
+.individual-controls .el-button {width:100%}
 </style>

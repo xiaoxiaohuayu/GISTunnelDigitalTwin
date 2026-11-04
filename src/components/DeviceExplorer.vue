@@ -19,33 +19,33 @@ function next():void {index.value=(index.value+1)%Math.max(1,matching.value.leng
 const status=computed(()=>current.value?`${deviceTelemetry(current.value,props.state,props.length).status} · ${deviceTelemetry(current.value,props.state,props.length).value}`:'未选择设备')
 </script>
 <template>
-  <label class="search-label">查找设备或设施<input v-model="search" type="search" placeholder="编号、名称、桩号，如 fan-1 / K1+000" @input="limit=30"></label>
+  <label class="search-label">查找设备或设施<el-input v-model="search" clearable placeholder="编号、名称、桩号，如 fan-1 / K1+000" @input="limit=30" /></label>
   <div class="device-filters">
-    <label>洞筒<select v-model="tube" @change="limit=30"><option value="all">全部洞筒</option><option v-for="(name,i) in boreNames??['上行洞','下行洞']" :key="i" :value="String(i)">{{name}}</option></select></label>
-    <label class="abnormal-filter"><input v-model="abnormalOnly" type="checkbox" @change="limit=30">仅异常</label>
+    <label>洞筒<el-select v-model="tube" @change="limit=30"><el-option value="all" label="全部洞筒" /><el-option v-for="(name,i) in boreNames??['上行洞','下行洞']" :key="i" :label="name" :value="String(i)" /></el-select></label>
+    <el-checkbox v-model="abnormalOnly" @change="limit=30">仅异常</el-checkbox>
   </div>
   <div v-if="filtering" class="device-results">
     <p class="result-count" role="status">找到 {{results.length}} 处 · 点击定位</p>
-    <button v-for="item in visibleResults" :key="item.device.id" :data-device-id="item.device.id" class="device-result" @click="emit('focus',item.device.id)">
+    <el-button v-for="item in visibleResults" :key="item.device.id" :data-device-id="item.device.id" class="device-result" @click="emit('focus',item.device.id)">
       <span>{{item.name}}<small>{{item.device.code??item.device.id}}</small></span>
       <span class="result-address">{{item.address}}</span>
       <span class="result-reading" :class="item.reading.severity">{{item.reading.status}} · {{item.reading.value}}</span>
-    </button>
+    </el-button>
     <p v-if="!results.length" class="panel-note">没有匹配的设备，请调整关键词或筛选条件</p>
-    <button v-if="results.length>limit" class="more-results" @click="limit+=30">显示更多 · 剩余 {{results.length-limit}} 处</button>
+    <el-button v-if="results.length>limit" class="more-results" @click="limit+=30">显示更多 · 剩余 {{results.length-limit}} 处</el-button>
   </div>
   <div v-else class="device-groups">
     <section v-for="group in groups" :key="group.name" class="device-group"><h3>{{group.name}}</h3>
-      <button v-for="[,kind,name] in group.items" :key="kind" :aria-pressed="selected===kind" @click="select(kind)"><span>{{name}}</span><span class="device-count">{{devices.filter(d=>d.kind===kind).length}}</span></button>
+      <el-button v-for="[,kind,name] in group.items" :key="kind" class="device-kind" :type="selected===kind?'primary':'default'" :plain="selected!==kind" @click="select(kind)"><span>{{name}}</span><span class="device-count">{{devices.filter(d=>d.kind===kind).length}}</span></el-button>
     </section>
     <p v-if="!groups.length" class="panel-note">没有匹配的设备</p>
   </div>
   <div v-if="current&&!filtering" class="device-detail">
     <strong>{{deviceCatalog.find(d=>d[1]===selected)?.[2]}}</strong><span>{{current.tube===0?'上行洞':'下行洞'}} · {{Math.round(current.station)}} m · {{index+1}} / {{matching.length}}</span>
-    <p>{{status}}</p><button @click="next">定位下一处 →</button>
+    <p>{{status}}</p><el-button type="primary" plain @click="next">定位下一处 →</el-button>
   </div>
 </template>
 
 <style scoped>
-.device-filters{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 17px 14px;font-size:11px;color:#bdcee7}.device-filters label{display:flex;align-items:center;gap:8px}.device-filters select{padding:6px;background:#132540;color:#edf4ff;border:1px solid #405776;border-radius:4px}.abnormal-filter input{accent-color:#8acaff}.device-results{padding:0 17px 18px}.result-count{margin:0 0 10px;font-size:11px;color:#adc3df}.device-result{display:flex;flex-direction:column;gap:7px;width:100%;padding:12px;text-align:left;margin-bottom:7px;background:#101f38}.device-result>span:first-child{display:flex;justify-content:space-between;gap:8px;font-size:12px}.device-result small{font-size:10px;color:#a9c4e4}.result-address,.result-reading{font-size:11px;color:#afc6df}.result-reading.alarm{color:#ff9b88}.result-reading.warning{color:#ffd294}.more-results{width:100%;padding:10px;font-size:11px}
+.device-filters{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 17px 14px;font-size:11px;color:#bdcee7}.device-filters label{display:flex;align-items:center;gap:8px;min-width:0;flex:1}.device-results{padding:0 17px 18px}.result-count{margin:0 0 10px;font-size:11px;color:#adc3df}.device-result{margin-bottom:7px}.device-result :deep(> span){display:flex;flex-direction:column;align-items:flex-start;gap:7px;width:100%}.device-result :deep(> span > span:first-child){display:flex;flex-direction:row;justify-content:space-between;width:100%;font-size:12px}.device-result small{font-size:10px;color:#a9c4e4}.result-address,.result-reading{font-size:11px;color:#afc6df}.result-reading.alarm{color:#ff9b88}.result-reading.warning{color:#ffd294}.search-label{display:block;padding:0 17px 12px;font-size:12px;color:#c4d5ef}.device-groups{padding:0 17px 12px}.device-group h3{margin:14px 0 8px;font-size:12px;color:#c4d5ef;font-weight:500}.device-kind{width:100%;margin:0 0 6px;justify-content:space-between}.device-detail{padding:14px 17px 18px;border-top:1px solid #2d4168;font-size:12px;color:#c4d5ef}.device-detail p{margin:8px 0}
 </style>

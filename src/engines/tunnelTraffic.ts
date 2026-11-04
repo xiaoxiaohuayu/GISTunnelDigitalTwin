@@ -43,7 +43,7 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
       const oldStation=-220+(car.direction===1?car.progress:span-car.progress)
       const nextProgress=(car.progress+delta*car.speed*(trafficSpeedFactor(car.tube,state)))%span
       let station=-220+(car.direction===1?nextProgress:span-nextProgress)
-      const stops=trafficStopStations(car.tube,car.lane,survey.length,state)
+      const stops=trafficStopStations(car.tube,car.lane,survey.length,state,car.direction===-1?-1:1)
       if(car.stop!==undefined&&!stops.includes(car.stop)){car.held=undefined;car.stop=undefined}
       if(car.held!==undefined)station=car.held
       else for(const stop of stops){

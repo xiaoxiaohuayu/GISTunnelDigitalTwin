@@ -1,15 +1,19 @@
 import type { TunnelSurvey } from '../types/tunnel'
-import { crossPassages } from './tunnelSystemsState'
-import { layBy } from './tunnelLayout'
-import { assetStation } from './projectConfig'
+import { crossPassages } from './tunnelSystemsState.ts'
+import { layBy } from './tunnelLayout.ts'
+import { assetStation, boreLength } from './projectConfig.ts'
 
 export function layoutPassages(s:TunnelSurvey,tube=0){
-  if(!s.project)return s.tubes.length>1?crossPassages(s.length).map(p=>({...p,assetId:undefined as string|undefined})):[]
-  const bore=s.project.bores[tube]!
-  return s.project.assets.filter(a=>['pedestrian','vehicle'].includes(a.kind)&&a.link&&(a.boreId===bore.id||a.link.targetBoreId===bore.id)).map(a=>{
+  const recorded=(passages:ReturnType<typeof crossPassages>)=>passages.map(p=>({...p,assetId:undefined as string|undefined}))
+  if(!s.project)return s.tubes.length>1?recorded(crossPassages(s.length)):[]
+  const bore=s.project.bores[tube]
+  if(!bore)return []
+  const linked=s.project.assets.filter(a=>['pedestrian','vehicle'].includes(a.kind)&&a.link&&(a.boreId===bore.id||a.link.targetBoreId===bore.id))
+  if(linked.length)return linked.map(a=>{
     const template=crossPassages(s.length).find(p=>p.vehicle===(a.kind==='vehicle'))!
     return {...template,station:a.boreId===bore.id?assetStation(a,bore):assetStation({...a,chainage:a.link!.targetChainage},bore),assetId:a.id}
   })
+  return s.project.passages?.length?recorded(crossPassages(boreLength(bore),s.project.passages)):[]
 }
 export function projectLayBy(s:TunnelSurvey,tube:number){
   const base=layBy(s.length,tube),b=s.project?.bores[tube],a=b&&s.project?.assets.find(a=>a.kind==='layby'&&a.boreId===b.id)

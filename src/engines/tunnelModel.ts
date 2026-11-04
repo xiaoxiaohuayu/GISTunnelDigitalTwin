@@ -1,5 +1,7 @@
 import { sceneResources } from './sceneResources'
-import { boreLength } from './projectConfig'
+import { boreLength, mouthName } from './projectConfig'
+import type { TunnelProject } from './projectConfig'
+import { PROFILE_HALF } from './sectionProfile'
 import { boreIndices } from './projectSurvey'
 // @env browser
 import {
@@ -18,7 +20,7 @@ function createBore(viewer:Viewer,survey:TunnelSurvey) {
   const canopyRadius=5.53,springHeight=2.5
   for(const end of [0,1]) for(const tube of boreIndices(survey)) {
     const stationAt=(station:number)=>end===0?station:survey.length-station
-    const radius=canopyRadius+((survey.project?.bores[tube]?.lanes.length??2)*(survey.project?.bores[tube]?.laneWidth??4.3)/2-4.3)
+    const radius=canopyRadius+((survey.project?.bores[tube]?.lanes.length??2)*(survey.project?.bores[tube]?.laneWidth??PROFILE_HALF)/2-PROFILE_HALF)
     const roof:Cartesian2[]=[]
     for(const [r,reverse] of [[canopyRadius,false],[canopyRadius-.08,true]] as const)for(let i=0;i<=40;i++) {
       const a=Math.PI*(.1+.8*(reverse?1-i/40:i/40));roof.push(new Cartesian2(r*Math.cos(a)*radius/canopyRadius,springHeight+r*Math.sin(a)))
@@ -53,7 +55,7 @@ export async function addTunnelModel(viewer:Viewer,survey:TunnelSurvey,progress?
   siteScope.capture()
   const clip=()=>{viewer.scene.globe.clippingPolygons=new ClippingPolygonCollection({polygons:sites.map(site=>site.excavation)})};clip()
   return {
-    setName(name:string){sites.forEach(site=>site.setName(name))},get sites(){return sites},get lightFrames(){return new Map([...bores.values()].flatMap(b=>[...b.lightFrames]))},get lightPrimitives(){return new Map([...bores.values()].flatMap(b=>[...b.lightPrimitives]))},
+    applyPortalNames(project?:TunnelProject){sites.forEach((site,index)=>{const end=(index===0?0:1) as 0|1;site.setNames(project?project.bores.map(bore=>mouthName(project,bore.id,end)):survey.tubes.map(()=>'青山隧道'))})},get sites(){return sites},get lightFrames(){return new Map([...bores.values()].flatMap(b=>[...b.lightFrames]))},get lightPrimitives(){return new Map([...bores.values()].flatMap(b=>[...b.lightPrimitives]))},
     updateInterior(next:TunnelSurvey,indices:number[]){survey=next;for(const i of indices){bores.get(i)?.dispose();bores.delete(i);if(survey.tubes[i])bores.set(i,createBore(viewer,boreSurvey(i)))}},
     async updateStructure(next:TunnelSurvey,indices:number[]){survey=next;for(const i of indices){bores.get(i)?.dispose();bores.delete(i);if(survey.tubes[i])bores.set(i,createBore(viewer,boreSurvey(i)))}sites.forEach(s=>s.dispose());siteScope.dispose();siteScope=sceneResources(viewer);sites=await Promise.all(([0,1] as const).map(end=>addPortalSite(viewer,survey,end)));siteScope.capture();clip();await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>{remove();reject(new Error("洞口模型更新超时"))},30000);const remove=viewer.scene.postRender.addEventListener(()=>{if(sites.every(s=>s.structures.ready&&s.substation.ready)){clearTimeout(timer);remove();resolve()}});viewer.scene.requestRender()})},
     dispose(){bores.forEach(b=>b.dispose());sites.forEach(s=>s.dispose());siteScope.dispose()},

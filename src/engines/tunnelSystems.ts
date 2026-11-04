@@ -1,4 +1,5 @@
 import { layoutPassages,projectLayBy,projectLayByWidth } from './facilityLayout'
+import { basicSpacing, enhancedSpacing } from './sectionProfile'
 import { DeviceInstance } from './deviceInstance'
 import { resolveAsset } from './assetPlacement'
 import { assetStation, assetMountOffset, formatChainage } from './projectConfig'
@@ -68,6 +69,7 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     const resolved=record&&resolveAsset(record,survey.project!)
     if(survey.project&&listed&&!record)return {id,kind,tube,station,lateral,height}
     if(resolved){const bore=survey.project!.bores.find(b=>b.id===resolved.boreId)!;tube=survey.project!.bores.indexOf(bore);station=assetStation(resolved,bore);lateral=-resolved.lateral;height=resolved.height-assetMountOffset(kind);angle=resolved.heading*Math.PI/180}
+    if(resolved&&kind==='escape')asset=`escape-sign-${escapeSignDirection(station,tube,survey.length,layoutPassages(survey,tube))}`
     const device:SceneDevice = { id,kind,tube,station,lateral,height,...(resolved?{name:resolved.name,code:resolved.code,boreName:survey.project!.bores[tube]!.name,chainage:formatChainage(resolved.chainage)}:{}) }
     if(resolved)device.position=survey.actualPointAt!(tube,station,lateral,resolved.height)
     if(listed)devices.push(device)
@@ -103,7 +105,7 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
       placement('speaker','speaker',tube,s+12,wall(s+12),3.15,wallAngle)
       placement('telephone','emergency-telephone',tube,s+8,wall(s+8),1.45,wallAngle)
       placement('distribution','distribution',tube,s+22,wall(s+22),1.2,wallAngle)
-      placement('escape',`escape-sign-${escapeSignDirection(s+40,tube,survey.length)}`,tube,s+40,wall(s+40),2,wallAngle)
+      placement('escape',`escape-sign-${escapeSignDirection(s+40,tube,survey.length,layoutPassages(survey,tube))}`,tube,s+40,wall(s+40),2,wallAngle)
       // Existing detailed fire cabinet and camera are retained alongside the new systems.
       placement('cabinet','fire-cabinet',tube,s,outer*(5.05+projectLayByWidth(s,survey,tube)),.45,wallAngle)
       placement('camera','camera',tube,s+15,outer*4.5,4.5,wallAngle)
@@ -116,8 +118,8 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
       }
     }
     for (let s=150;s<survey.length;s+=300) for (const y of [-1.6,1.6]) placement('fan','fan',tube,s,y,6.25,angle)
-    for (let s=-50;s<survey.length+60;s+=8) for (const y of [-4.55,4.55]) placement('basic',null,tube,s,y,4.65)
-    for (const start of [-58,survey.length+12]) for (let s=start;s<=start+46;s+=4) for (const y of [-3.85,3.85]) placement('enhanced',null,tube,s,y,5.49)
+    for (let s=-50;s<survey.length+60;s+=basicSpacing(survey.project?.section)) for (const y of [-4.55,4.55]) placement('basic',null,tube,s,y,4.65)
+    for (const start of [-58,survey.length+12]) for (let s=start;s<=start+46;s+=enhancedSpacing(survey.project?.section)) for (const y of [-3.85,3.85]) placement('enhanced',null,tube,s,y,5.49)
     const bay=projectLayBy(survey,tube)
     const bayDevice=placement('layby','layby-sign',tube,tube===0?bay.start-4:bay.end+4,outer*4.95,-1.05,angle)
     if(!survey.project||survey.project.assets.some(a=>a.id===bayDevice.id))placement('layby','layby-marking',tube,bay.center,outer*6.1,.23,angle,false,bayDevice.id)
@@ -228,9 +230,9 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     state=next
     alarmedModels=models.filter(entry=>deviceTelemetry(entry.device,state,survey.length).severity!=='normal')
     for (const {model,device,shader} of models) {
-      shader.setUniform('u_power',Number(deviceEnabled(device,state)))
+      shader.setUniform('u_power',Number(deviceEnabled(device,state,basicSpacing(survey.project?.section))))
       shader.setUniform('u_alarm',Number(deviceTelemetry(device,state,survey.length).severity!=='normal'))
-      setEquipmentLighting(model,illuminationAt(device.station,survey.length,state,device.tube))
+      setEquipmentLighting(model,illuminationAt(device.station,survey.length,state,device.tube,devices.flatMap(d=>d.kind==='basic'||d.kind==='enhanced'?[{id:d.id,kind:d.kind,tube:d.tube,station:d.station}]:[])))
       const display=deviceVms(device,state)
       if(device.kind==='vms' && model.ready)for(const name of ['Weatherproof VMS housing','Recessed screen']) {
         const node=model.getNode(name)
@@ -238,7 +240,7 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
       }
 
     }
-    for(const screen of screens)if(screen.type==='lane')screen.surface.material.uniforms.image=screenImage(screen.reverse?'cross':deviceLane(screen.device,survey.length,state))
+    for(const screen of screens)if(screen.type==='lane')screen.surface.material.uniforms.image=screenImage(screen.reverse?'cross':deviceLane(screen.device,survey.length,state,layoutPassages(survey,screen.device.tube)))
     const textures=new Map<string,{image:string;width:number;height:number}>()
     for(const screen of screens)if(screen.type==='vms') {
       const display=deviceVms(screen.device,state),message=deviceMessage(screen.device,state)
