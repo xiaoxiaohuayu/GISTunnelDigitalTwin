@@ -78,6 +78,8 @@ export function informationMessage(tube:number,state:SystemsState):string {
 export interface DeviceSettings {
   alarm?: 'none' | 'environment' | 'fan' | 'camera'
   enabled?: boolean
+  /** 0–100. Used by an individual tunnel lamp while it is switched on. */
+  level?: number
   message?: string
   vms?: Partial<VmsDisplay>
   entrance?: 'green' | 'yellow' | 'red'
@@ -138,22 +140,22 @@ export function illuminationAt(station: number, length: number, state: SystemsSt
   if(lamps){
     for(const lamp of lamps){
       if(lamp.tube!==tube)continue
-      const setting=state.devices[lamp.id]?.enabled
-      if(setting===undefined)continue
-      if(lamp.kind==='basic')basic+=(Number(setting)-Number(basicLampOn(lamp.station,state)))*.2*Math.exp(-((station-lamp.station)**2)/32)
-      else enhanced+=(Number(setting)-Number(state.enhanced))*.175*Math.exp(-((station-lamp.station)**2)/18)
+      const share=lampShare(lamp.id,lamp.kind==='basic'?basicLampOn(lamp.station,state):state.enhanced,state)
+      if(share===undefined)continue
+      if(lamp.kind==='basic')basic+=(share-Number(basicLampOn(lamp.station,state)))*.2*Math.exp(-((station-lamp.station)**2)/32)
+      else enhanced+=(share-Number(state.enhanced))*.175*Math.exp(-((station-lamp.station)**2)/18)
     }
   }else for(const side of [-1,1]) {
     const nearest=-50+Math.round((station+50)/BASIC_SPACING)*BASIC_SPACING
     for(const offset of [-BASIC_SPACING,0,BASIC_SPACING]) {
       const s=nearest+offset;if(s< -50||s>=length+60)continue
-      const setting=state.devices[lightDeviceId('basic',tube,s,side,length)]?.enabled
-      if(setting!==undefined)basic+=(Number(setting)-Number(basicLampOn(s,state)))*.2*Math.exp(-((station-s)**2)/32)
+      const share=lampShare(lightDeviceId('basic',tube,s,side,length),basicLampOn(s,state),state)
+      if(share!==undefined)basic+=(share-Number(basicLampOn(s,state)))*.2*Math.exp(-((station-s)**2)/32)
     }
     for(const start of [-58,length+12]) {
       const s=start+Math.round((station-start)/ENHANCED_SPACING)*ENHANCED_SPACING;if(s<start||s>start+46)continue
-      const setting=state.devices[lightDeviceId('enhanced',tube,s,side,length)]?.enabled
-      if(setting!==undefined)enhanced+=(Number(setting)-Number(state.enhanced))*.175*Math.exp(-((station-s)**2)/18)
+      const share=lampShare(lightDeviceId('enhanced',tube,s,side,length),state.enhanced,state)
+      if(share!==undefined)enhanced+=(share-Number(state.enhanced))*.175*Math.exp(-((station-s)**2)/18)
     }
   }
   basic=Math.max(0,basic);enhanced=Math.max(0,enhanced)
@@ -197,6 +199,16 @@ export const categoryNames: Record<string,string> = { traffic: '交通', lightin
 export function changeDevice(state:SystemsState,id:string,patch:DeviceSettings):SystemsState {
   const previous=state.devices[id]??{}
   return {...state,devices:{...state.devices,[id]:{...previous,...patch,...(patch.vms?{vms:{...previous.vms,...patch.vms}}:{})}}}
+}
+function lampShare(id:string,baseline:boolean,state:SystemsState):number|undefined {
+  const record=state.devices[id]
+  if(!record||(record.enabled===undefined&&record.level===undefined))return
+  if(!(record.enabled??baseline))return 0
+  return Math.max(0,Math.min(100,record.level??100))/100
+}
+export function deviceLevel(device:SceneDevice,state:SystemsState,spacing=BASIC_SPACING):number {
+  if(!deviceEnabled(device,state,spacing))return 0
+  return Math.max(0,Math.min(100,state.devices[device.id]?.level??100))/100
 }
 export function deviceEnabled(device:SceneDevice,state:SystemsState,spacing=BASIC_SPACING):boolean {
   const explicit=state.devices[device.id]?.enabled

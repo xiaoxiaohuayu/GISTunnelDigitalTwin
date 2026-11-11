@@ -8,7 +8,7 @@ import type { TunnelSurvey } from '../types/tunnel'
 import { equipmentShader, setEquipmentLighting } from './tunnelSystems'
 import { illuminationAt, trafficSpeedFactor, trafficStopStations } from './tunnelSystemsState'
 import type { SystemsState } from './tunnelSystemsState'
-import { vehicleInfo } from './scenePresentation'
+import { trafficShowDistance, vehicleInfo } from './scenePresentation'
 import { tunnelPoint } from './tunnelDetails'
 
 const CAR_TYPES = ['car-blue', 'car-white', 'car-orange']
@@ -62,7 +62,7 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
       car.model.modelMatrix = Matrix4.multiply(surveyFrame(survey,point),
         Matrix4.fromRotationTranslation(bearing), new Matrix4())
       // Keep invisible traffic from consuming draw calls in distant overview views.
-      car.model.show = Cartesian3.distance(viewer.camera.positionWC, point) < 650
+      car.model.show = Cartesian3.distance(viewer.camera.positionWC, point) < trafficShowDistance
     }
     viewer.scene.requestRender()
   }

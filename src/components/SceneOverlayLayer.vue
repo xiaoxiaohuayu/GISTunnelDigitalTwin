@@ -16,8 +16,9 @@ function updatePositions(next:OverlayPosition[]):void {
   for(const item of placed.value) {
     const point=positions.get(item.id),card=cards.get(item.id),line=lines.get(item.id),dot=dots.get(item.id)
     if(!card||!line||!dot)continue
-    const left=point?point.x+item.left-item.x:0,top=point?point.y+item.top-item.y:0
-    const visible=!!point&&left>=0&&left+220<=width&&top>=65&&top+82<=height-130
+    let left=point?point.x+item.left-item.x:0,top=point?point.y+item.top-item.y:0
+    if(point&&item.plateColor){left=Math.max(8,Math.min(width-228,left));top=Math.max(65,Math.min(height-212,top))}
+    const visible=!!point&&(!!item.plateColor||(left>=0&&left+220<=width&&top>=65&&top+82<=height-130))
     const visibility=visible?'visible':'hidden'
     card.style.visibility=visibility;line.style.visibility=visibility;dot.style.visibility=visibility
     if(!point||!visible)continue

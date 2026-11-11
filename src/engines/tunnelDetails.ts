@@ -11,9 +11,9 @@ import {
 import type { Entity, Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import portalAccess from '../config/portalAccess.json'
-import { roadArrow } from './roadMarkings'
+import { isRoadMarking, roadArrow, roadPaint } from './roadMarkings'
 import { basicSpacing, enhancedSpacing } from './sectionProfile'
-import { deviceEnabled, lightDeviceId,  illuminationAt, initialSystems } from './tunnelSystemsState'
+import { deviceLevel, lightDeviceId,  illuminationAt, initialSystems } from './tunnelSystemsState'
 import type { SystemsState } from './tunnelSystemsState'
 
 export const PORTAL_EXTENSION = 60
@@ -92,12 +92,12 @@ export function addTunnelDetails(viewer: Viewer, survey: TunnelSurvey) {
       attributes.position=new GeometryAttribute({componentDatatype:ComponentDatatype.DOUBLE,componentsPerAttribute:3,values:new Float64Array(positions)})
       const geometry=GeometryPipeline.computeNormal(new Geometry({attributes,
         indices:new Uint16Array([0,1,2,0,2,3,4,5,6]),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(positions)}))
-      const color=Color.fromCssColorString('#f3eee0')
+      const color=Color.fromCssColorString(roadPaint)
       surfaces.push({id,station,tube,lateral:lane,color})
       boxes.push(new GeometryInstance({id,geometry,attributes:{color:ColorGeometryInstanceAttribute.fromColor(color)}}))
     }
     for (let station = -240; station < survey.length + 240; station += 12) {
-      for(let i=1;i<(survey.project?.bores[tube]?.lanes.length??2);i++)box(`lane-${tube}-${station}-${i}`, tube, station + 2, -4.3+i*8.6/(survey.project?.bores[tube]?.lanes.length??2), 0.235, 4, 0.15, 0.025, '#f3eee0')
+        for(let i=1;i<(survey.project?.bores[tube]?.lanes.length??2);i++)box(`lane-${tube}-${station}-${i}`, tube, station + 2, -4.3+i*8.6/(survey.project?.bores[tube]?.lanes.length??2), 0.235, 4, 0.15, 0.025, roadPaint)
     }
     for (const side of [-1, 1]) {
       const outer = side === -innerSide
@@ -106,15 +106,15 @@ export function addTunnelDetails(viewer: Viewer, survey: TunnelSurvey) {
       for (const [a, b] of lineIntervals) {
         for (let s = a!; s < b!; s += 12) {
           const extent = Math.min(12,b!-s)
-          box(`edge-${tube}-${side}-${s}`,tube,s+extent/2,side*4.35,.25,extent,.14,.025,'#f3eee0')
+          box(`edge-${tube}-${side}-${s}`,tube,s+extent/2,side*4.35,.25,extent,.14,.025,roadPaint)
         }
       }
       if (outer) {
         for (let station = bay.start; station < bay.end; station += 6) {
-          box(`bay-dash-${tube}-${station}`, tube, station + 1.5, side*4.35, .245, 3, .14, .025, '#ececdd')
+          box(`bay-dash-${tube}-${station}`, tube, station + 1.5, side*4.35, .245, 3, .14, .025, roadPaint)
         }
         for (let station = bay.flatStart+2; station < bay.flatEnd; station += 4) {
-          box(`bay-edge-${tube}-${station}`,tube,station,side*7.25,.245,3.8,.14,.025,'#ececdd')
+          box(`bay-edge-${tube}-${station}`,tube,station,side*7.25,.245,3.8,.14,.025,roadPaint)
         }
       }
       const stations = projectStations(survey,tube)
@@ -221,15 +221,20 @@ export function addTunnelDetails(viewer: Viewer, survey: TunnelSurvey) {
       const basic = id.startsWith('light-diffuser')
       const enhanced = id.startsWith('boost-diffuser')
       const safety = id.startsWith('cross-light')
+      const owner=instancePrimitives.get(id)??primitive
+      if(!owner.ready)continue
+      if(isRoadMarking(id)){
+        owner.getGeometryInstanceAttributes(id).color=ColorGeometryInstanceAttribute.toValue(Color.WHITE)
+        continue
+      }
       let brightness = illuminationAt(station,survey.length,state,tube)
       if (basic||enhanced) {
         const kind=basic?'basic':'enhanced'
-        brightness=deviceEnabled({id:surface.deviceId??lightDeviceId(kind,tube,station,lateral,survey.length),kind,tube,station,lateral,height:0},state)?1:.025
+        const lamp={id:surface.deviceId??lightDeviceId(kind,tube,station,lateral,survey.length),kind,tube,station,lateral,height:0} as const
+        brightness=.025+deviceLevel(lamp,state)*.975
       }
       if (safety) brightness = .8
       if (station < -60 || station > survey.length+60) brightness = state.environment === 'day' ? 1 : state.street ? .48 : .025
-      const owner=instancePrimitives.get(id)??primitive
-      if(!owner.ready)continue
       owner.getGeometryInstanceAttributes(id).color = ColorGeometryInstanceAttribute.toValue(
         new Color(color.red*brightness,color.green*brightness,color.blue*brightness,1))
     }

@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { initialSystems, changeDevice, changeSystems, deviceEnabled, deviceVms, deviceMessage, deviceLane, deviceEntrance, lightDeviceId } from '../src/engines/tunnelSystemsState.ts'
+import { initialSystems, changeDevice, changeSystems, deviceEnabled, deviceLevel, deviceVms, deviceMessage, deviceLane, deviceEntrance, lightDeviceId } from '../src/engines/tunnelSystemsState.ts'
 import { deviceTelemetry } from '../src/engines/deviceTelemetry.ts'
 import type { SceneDevice } from '../src/engines/tunnelSystemsState.ts'
 const device=(kind:SceneDevice['kind'],index=1,tube=0):SceneDevice=>({id:`${kind}-${index}`,kind,tube,station:100,lateral:-4.55,height:2})
@@ -54,6 +54,13 @@ test('individual lights change local lighting only and unrelated wind sensors st
   const {illuminationAt}=await import('../src/engines/tunnelSystemsState.ts')
   const off=changeDevice(initialSystems,'basic-41',{enabled:false})
   assert.ok(illuminationAt(110,1900,off,0)<illuminationAt(110,1900,initialSystems,0))
+  const dim=changeDevice(initialSystems,'basic-41',{level:40})
+  const lamp={...device('basic'),id:'basic-41',station:110}
+  assert.equal(deviceLevel(lamp,dim),0.4)
+  assert.equal(deviceTelemetry(lamp,dim,1900).value,'40 %')
+  assert.ok(illuminationAt(110,1900,dim,0)<illuminationAt(110,1900,initialSystems,0))
+  assert.equal(illuminationAt(110,1900,dim,1),illuminationAt(110,1900,initialSystems,1))
+  assert.equal(deviceTelemetry(lamp,changeDevice(dim,'basic-41',{enabled:false}),1900).value,'0 %')
   assert.equal(illuminationAt(110,1900,off,1),illuminationAt(110,1900,initialSystems,1))
   assert.equal(illuminationAt(500,1900,off,0),illuminationAt(500,1900,initialSystems,0))
   const wind={...device('wind'),station:150}

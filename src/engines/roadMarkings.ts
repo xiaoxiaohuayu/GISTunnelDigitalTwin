@@ -1,3 +1,8 @@
+export const roadPaint = '#ffffff'
+export function isRoadMarking(id: string): boolean {
+  return /^(direction-arrow|lane|edge|bay-dash|bay-edge)-/.test(id)
+}
+
 // Local X follows increasing station; each bore has one traffic direction.
 export function roadArrow(tube:number):number[][] {
   const direction=tube===0?1:-1

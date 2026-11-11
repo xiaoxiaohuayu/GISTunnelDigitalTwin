@@ -57,6 +57,14 @@ test('persistent alerts reserve space even when the camera points elsewhere',()=
   for(const p of placed)assert.ok(p.left+220<=620||p.top>=225)
 })
 
+test('plate cards stay up across the traffic draw distance while readings stay near the camera',()=>{
+  const near={...item('near-car',400,400,40),plateColor:'蓝牌' as const}
+  const far={...item('far-car',500,420,640),plateColor:'黄牌' as const}
+  const gone={...item('gone-car',520,440,651),plateColor:'绿牌' as const}
+  const placed=layoutOverlays([near,far,gone,item('CO',600,400,160)],1000,800,[])
+  assert.deepEqual(placed.map(card=>card.id).sort(),['far-car','near-car'])
+})
+
 test('monitoring readings stay within four slots while every visible plate stays up',()=>{
   const vehicles=Array.from({length:8},(_,i)=>({...item(`car-${i}`,250+i%4*300,300+Math.floor(i/4)*200),plateColor:'蓝牌' as const}))
   const placed=layoutOverlays([...vehicles,item('CO',700,600)],1600,1000,[])

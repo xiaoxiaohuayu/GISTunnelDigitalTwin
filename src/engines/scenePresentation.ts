@@ -7,6 +7,7 @@ export function createLoadReporter(emit:(progress:LoadProgress)=>void) {
     emit({percent:Math.round(percent),stage,resource})
   }
 }
+export const trafficShowDistance=650
 export function vehicleInfo(index:number):VehicleInfo {
   const plateColor=index%5===0?'黄牌':index%3===0?'绿牌':'蓝牌'
   return {id:`traffic-${index+1}`,plate:`新${String.fromCharCode(65+index%4)}${String(12345+index*137).padStart(5,'0')}${plateColor==='绿牌'?'D':''}`,plateColor,vehicleType:'客一'}
@@ -16,7 +17,8 @@ export function layoutOverlays(items:SceneOverlay[],width:number,height:number,b
   const previousById=new Map(previous.map((item,index)=>[item.id,{item,index}]))
   const intersects=(a:OverlayRect,b:OverlayRect)=>a.x<b.x+b.width+8&&a.x+a.width+8>b.x&&a.y<b.y+b.height+8&&a.y+a.height+8>b.y
   const rank=(a:SceneOverlay,b:SceneOverlay)=>Number(b.selected)-Number(a.selected)||Number(b.severity!=='normal')-Number(a.severity!=='normal')||(previousById.get(a.id)?.index??Infinity)-(previousById.get(b.id)?.index??Infinity)||a.distance-b.distance
-  const candidates=items.filter(item=>item.distance<=150&&item.x>=0&&item.x<=width&&item.y>=0&&item.y<=height)
+  const onScreen=(item:SceneOverlay)=>item.x>=0&&item.x<=width&&item.y>=0&&item.y<=height
+  const candidates=items.filter(item=>onScreen(item)&&(item.plateColor?item.distance<=trafficShowDistance:item.distance<=150))
   const place=(item:SceneOverlay,force:boolean)=>{
     const old=previousById.get(item.id)?.item
     const offsets=item.selected?[[-110,-185],[20,-185],[-240,-185],[-110,-105],[-110,25]]:[[-110,-105],[20,-105],[-240,-105],[-110,-185],[-110,25]]

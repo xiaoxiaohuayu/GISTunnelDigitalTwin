@@ -1,4 +1,4 @@
-import { deviceAlarm, deviceEnabled, deviceVms, deviceMessage, deviceEntrance, deviceLane, deviceCatalog, incidentTelemetry, escapeSignDirection } from './tunnelSystemsState.ts'
+import { deviceAlarm, deviceEnabled, deviceLevel, deviceVms, deviceMessage, deviceEntrance, deviceLane, deviceCatalog, incidentTelemetry, escapeSignDirection } from './tunnelSystemsState.ts'
 import type { SceneDevice, SystemsState } from './tunnelSystemsState.ts'
 
 export function deviceName(device: SceneDevice): string {
@@ -31,8 +31,7 @@ export function deviceTelemetry(device: SceneDevice, state: SystemsState, length
     case 'fan': value = enabled ? '1480 r/min' : '0 r/min'; status = enabled ? '运行中' : '待机'; break
     case 'pump': value = enabled ? '0.65 MPa' : '0.00 MPa'; status = enabled ? '运行中' : '待机'; break
     case 'camera': value = '25 fps'; status = '在线'; break
-    case 'basic': value = enabled ? '100 %' : '0 %'; status = value === '0 %' ? '关闭' : '开启'; break
-    case 'enhanced': value = enabled ? '100 %' : '0 %'; status = enabled ? '开启' : '关闭'; break
+    case 'basic': case 'enhanced': value = `${Math.round(deviceLevel(device,state)*100)} %`; status = enabled ? '开启' : '关闭'; break
     case 'street': value = enabled ? '100 %' : '0 %'; status = enabled ? '开启' : '关闭'; break
     case 'shutter': value = enabled ? '100 % 开度' : '0 % 开度'; status = enabled ? '开启' : '关闭'; break
     case 'speaker': value = enabled ? '应急广播' : '静音'; status = enabled ? '广播中' : '待机'; break
