@@ -1,15 +1,18 @@
 import { layoutPassages,projectLayByWidth,projectStations } from './facilityLayout'
-import { boreIndices } from './projectSurvey'
+import { boreIndices, surveyFrame } from './projectSurvey'
+import { basicSpacing } from './sectionProfile'
+import { lightSampleRange, sampleLights, sampleLightingShader, sampleUniforms, SAMPLE_LIGHT_LIMIT } from './tunnelLightSample'
+import { addTunnelContactOcclusion } from './tunnelContactOcclusion'
 // @env browser
 import {
-  BoundingSphere, ComponentDatatype, Geometry, GeometryAttribute, GeometryAttributes,
+  BoundingSphere, Cartesian3, Cartesian4, Matrix4, ComponentDatatype, Geometry, GeometryAttribute, GeometryAttributes,
   GeometryInstance, GeometryPipeline, Material, MaterialAppearance, Primitive, PrimitiveType,
 } from 'cesium'
 import type { Viewer } from 'cesium'
 import type { TunnelSurvey } from '../types/tunnel'
 import { tunnelPoint } from './tunnelDetails'
 import {  initialSystems, illuminationAt } from './tunnelSystemsState'
-import type { SystemsState } from './tunnelSystemsState'
+import type { SceneDevice, SystemsState } from './tunnelSystemsState'
 
 const lightingShader = `
 float tunnelLight(float s) {
@@ -28,41 +31,104 @@ float tunnelLight(float s) {
 }
 `
 
-// Metre-based UVs keep lining joints and asphalt grain consistent along both bores.
+// Reconstruct the UV frame from geometry derivatives; this also supports mirrored walls.
+// Local lamp shading deliberately uses the existing illumination field, not the globe sun.
+const surfaceLightingShader = `
+mat3 tunnelFrame(czm_materialInput inputValue) {
+  vec3 n = normalize(inputValue.normalEC);
+  vec3 px = dFdx(-inputValue.positionToEyeEC), py = dFdy(-inputValue.positionToEyeEC);
+  vec2 tx = dFdx(inputValue.st), ty = dFdy(inputValue.st);
+  vec3 t = cross(py,n)*tx.x + cross(n,px)*ty.x;
+  vec3 b = cross(py,n)*tx.y + cross(n,px)*ty.y;
+  t *= inversesqrt(max(dot(t,t),0.00000001));
+  b *= inversesqrt(max(dot(b,b),0.00000001));
+  return mat3(t,b,n);
+}
+vec3 shadeTunnel(czm_materialInput inputValue, czm_material material) {
+  vec2 st = inputValue.st;
+  float period = mix(16.0,8.0,step(1.5,u_basic));
+  float along = period*0.5-mod(st.s+50.0+period*0.5,period);
+#ifdef TUNNEL_WALL
+  vec3 localLight = vec3(along,4.65-st.t,1.2);
+#else
+  vec3 localLight = vec3(along,sign(st.t)*4.2-st.t,4.45);
+#endif
+  mat3 frame = tunnelFrame(inputValue);
+  vec3 light = normalize(frame*normalize(localLight));
+  float inside = step(-60.0,st.s)*step(st.s,u_length+60.0);
+  light = normalize(mix(czm_lightDirectionEC,light,inside));
+  vec3 n = normalize(material.normal);
+  float diffuse = max(dot(n,light),0.0);
+  vec3 eye = normalize(inputValue.positionToEyeEC);
+  vec3 halfVector = normalize(light+eye);
+  float highlight = pow(max(dot(n,halfVector),0.0),material.shininess)*diffuse;
+  float illumination = tunnelLight(st.s);
+  return (material.diffuse*(0.52+0.58*diffuse) + material.specular*highlight)*illumination;
+}
+`
+
+const surfaceFragmentShader = `
+in vec3 v_positionEC;
+in vec3 v_normalEC;
+in vec2 v_st;
+void main() {
+  czm_materialInput inputValue;
+  inputValue.normalEC = normalize(v_normalEC);
+#ifdef FACE_FORWARD
+  inputValue.normalEC = faceforward(inputValue.normalEC,normalize(v_positionEC),inputValue.normalEC);
+#endif
+  inputValue.positionToEyeEC = -v_positionEC;
+  inputValue.st = v_st;
+  czm_material material = czm_getMaterial(inputValue);
+  out_FragColor = vec4(shadeLightSample(inputValue,material,shadeTunnel(inputValue,material)),material.alpha);
+}
+`
+
+// Explicit gradients keep mip selection continuous across the repeated texture seams.
+const textureShader = `
+vec3 surfaceTexture(sampler2D image, vec2 uv) {
+  return textureGrad(image,fract(uv),dFdx(uv),dFdy(uv)).rgb;
+}
+float surfaceJoint(float coordinate, float period, float width) {
+  float distanceToJoint = abs(mod(coordinate+period*0.5,period)-period*0.5);
+  float aa = max(fwidth(coordinate),0.001);
+  return 1.0-smoothstep(width,width+aa,distanceToJoint);
+}
+`
 const concreteShader = `
-float hashSurface(vec2 p) { return fract(sin(dot(p, vec2(127.1,311.7))) * 43758.5453); }
 czm_material czm_getMaterial(czm_materialInput materialInput) {
   czm_material material = czm_getDefaultMaterial(materialInput);
-  vec2 st = materialInput.st;
-  float grain = hashSurface(floor(st * 48.0)) * 0.035;
-  float joint = 1.0 - smoothstep(0.018, 0.055, min(mod(st.s, 6.0), 6.0 - mod(st.s, 6.0)));
-  float panel = 1.0 - step(2.42, st.t);
-  float tileX = 1.0 - smoothstep(0.005,0.014,min(mod(st.s,1.2),1.2-mod(st.s,1.2)));
-  float tileY = 1.0 - smoothstep(0.004,0.012,min(mod(st.t,0.6),0.6-mod(st.t,0.6)));
-  vec3 roof = vec3(0.31,0.33,0.32) + grain;
-  vec3 aggregate = texture(u_image,fract(st/4.2)).rgb;
-  vec3 wall = aggregate + grain - max(tileX,tileY)*0.035;
-  vec3 color = mix(roof,wall,panel) - joint*0.09;
-  float pool = pow(max(0.0,cos((st.s+50.0)*0.785398)),8.0);
-  color *= 0.83 + pool*0.17;
-  material.diffuse = vec3(0.0);
-  material.emission = color * tunnelLight(st.s);
-  material.specular = panel * (1.0-texture(u_arm,fract(st/4.2)).g)*0.13;
-  material.shininess = 14.0;
+  float sampleWeight = lightSampleWeight((u_eyeToSample*vec4(-materialInput.positionToEyeEC,1.0)).xyz);
+  vec2 st = materialInput.st, uv = st/mix(4.2,3.2,sampleWeight);
+  float joint = surfaceJoint(st.s,6.0,0.018);
+  float panel = 1.0-smoothstep(2.40,2.44,st.t);
+  float tiles = max(surfaceJoint(st.s,1.2,0.005),surfaceJoint(st.t,0.6,0.004));
+  vec3 aggregate = surfaceTexture(u_image,uv);
+  aggregate = mix(aggregate,mix(vec3(0.48,0.50,0.49),aggregate,0.28),sampleWeight);
+  vec3 arm = surfaceTexture(u_arm,uv);
+  vec3 normal = surfaceTexture(u_normal,uv)*2.0-1.0;
+  normal.xy *= mix(mix(0.35,0.18,panel),mix(0.16,0.10,panel),sampleWeight);
+  material.normal = normalize(tunnelFrame(materialInput)*normalize(normal));
+  vec3 roof = mix(vec3(0.31,0.33,0.32),aggregate,mix(0.22,0.10,sampleWeight));
+  vec3 color = mix(roof,aggregate-tiles*0.035,panel)-joint*0.065;
+  float contact = mix(0.72,1.0,smoothstep(0.2,0.9,st.t));
+  material.diffuse = color*mix(0.8,1.0,arm.r)*contact;
+  material.specular = mix(0.025,0.12,panel)*(1.0-arm.g);
+  material.shininess = mix(12.0,48.0,1.0-arm.g);
   material.alpha = 1.0;
   return material;
 }`
 const asphaltShader = `
 czm_material czm_getMaterial(czm_materialInput materialInput) {
   czm_material material = czm_getDefaultMaterial(materialInput);
-  vec2 st = materialInput.st;
-  float grain = fract(sin(dot(floor(st*160.0),vec2(12.9898,78.233)))*43758.5453);
-  float pool = pow(max(0.0,cos((st.s+50.0)*0.785398)),6.0);
-  vec3 color = texture(u_image,fract(st/4.0)).rgb + grain*0.012 + pool*0.025;
-  material.diffuse = vec3(0.0);
-  material.emission = color*tunnelLight(st.s);
-  material.specular = (1.0-texture(u_arm,fract(st/4.0)).g)*0.12;
-  material.shininess = 4.0;
+  vec2 st = materialInput.st, uv = st/4.0;
+  vec3 arm = surfaceTexture(u_arm,uv);
+  vec3 normal = surfaceTexture(u_normal,uv)*2.0-1.0;
+  normal.xy *= 0.38;
+  material.normal = normalize(tunnelFrame(materialInput)*normalize(normal));
+  material.diffuse = surfaceTexture(u_image,uv)*mix(0.82,1.0,arm.r);
+  material.specular = (1.0-arm.g)*0.09;
+  material.shininess = mix(8.0,32.0,1.0-arm.g);
   material.alpha = 1.0;
   return material;
 }`
@@ -72,8 +138,7 @@ czm_material czm_getMaterial(czm_materialInput materialInput) {
   czm_material material = czm_getDefaultMaterial(materialInput);
   float stripe = step(0.5,fract(materialInput.st.s*1.35 + materialInput.st.t*2.1));
   vec3 color = mix(vec3(0.035,0.04,0.035),vec3(0.84,0.59,0.08),stripe);
-  material.diffuse = vec3(0.0);
-  material.emission = color*tunnelLight(materialInput.st.s);
+  material.diffuse = color;
   material.alpha = 1.0;
   return material;
 }`
@@ -97,18 +162,21 @@ function surface(viewer: Viewer, positions: number[], uv: number[], indices: num
   const textureUniforms = textureName ? {
     u_image: `${import.meta.env.BASE_URL}textures/${textureName}-diff.jpg`,
     u_arm: `${import.meta.env.BASE_URL}textures/${textureName}-arm.jpg`,
+    u_normal: `${import.meta.env.BASE_URL}textures/${textureName}-normal.jpg`,
   } : {}
-  const material = new Material({ fabric: { type, source: lightingShader + shader,
-    uniforms: { ...textureUniforms, u_deviceLight:neutralLightImage(),u_length: length, u_basic: 1, u_enhanced: 1, u_day: 1, u_street: 0 } }, translucent: false })
+  const shading = (textureName !== 'asphalt' ? '#define TUNNEL_WALL\n' : '') + surfaceLightingShader + sampleLightingShader + (textureName ? textureShader : '')
+  const material = new Material({ fabric: { type, source: lightingShader + shading + shader,
+    uniforms: { ...textureUniforms, ...sampleUniforms(), u_deviceLight:neutralLightImage(),u_length: length, u_basic: 1, u_enhanced: 1, u_day: 1, u_street: 0 } }, translucent: false })
   const primitive = viewer.scene.primitives.add(new Primitive({ asynchronous: false, compressVertices: false,
     geometryInstances: new GeometryInstance({ geometry }),
     appearance: new MaterialAppearance({ material,
+      fragmentShaderSource: surfaceFragmentShader,
       materialSupport: MaterialAppearance.MaterialSupport.TEXTURED, faceForward: true, closed: false }),
   }))
   return { material, primitive,tube }
 }
 
-export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLighting: (state: SystemsState) => void; setWallsVisible: (visible: boolean) => void } {
+export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey) {
   const materials: { material: Material; primitive: Primitive; tube:number }[] = []
   const walls: Primitive[] = []
   for (const tube of boreIndices(survey)) {
@@ -202,7 +270,39 @@ export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLi
     }
 
   }
-  function update(state: SystemsState): void {
+  const sample=lightSampleRange(survey.length)
+  const sampleInverse=Matrix4.inverse(surveyFrame(survey,tunnelPoint(survey,0,sample.start)),new Matrix4())
+  const eyeToSample=new Matrix4()
+  const ownsOcclusion=materials.some(item=>item.tube===0)
+  const occlusion=ownsOcclusion?addTunnelContactOcclusion(viewer):undefined
+  const removeSampleFrame=viewer.scene.preRender.addEventListener(()=>{
+    Matrix4.multiply(sampleInverse,viewer.camera.inverseViewMatrix,eyeToSample)
+    for(const {material,tube} of materials)if(tube===0)material.uniforms.u_eyeToSample=eyeToSample
+    if(occlusion){
+      const camera=Matrix4.getTranslation(eyeToSample,new Cartesian3())
+      const edge=Math.max(0,Math.min(1,camera.x/8,(sample.length-camera.x)/8))
+      const height=camera.z-camera.x*survey.grade/100
+      occlusion.enabled=edge>0&&Math.abs(camera.y)<12&&height>0&&height<12&&walls.some(wall=>wall.show)
+      occlusion.uniforms.intensity=1.2*edge*edge*(3-2*edge)
+    }
+  })
+  let sampleDevices:SceneDevice[]=[]
+  function setLightSample(state:SystemsState,devices:SceneDevice[]):void {
+    sampleDevices=devices
+    const lights=sampleLights(devices,state,0,sample.length,device=>
+      Matrix4.multiplyByPoint(sampleInverse,device.position??tunnelPoint(survey,device.tube,device.station,device.lateral,device.height),new Cartesian3()),basicSpacing(survey.project?.section))
+    for(const {material,tube} of materials)if(tube===0){
+      material.uniforms.u_sampleEnabled=Number(devices.length>0)
+      material.uniforms.u_sampleLength=sample.length
+      material.uniforms.u_sampleStart=sample.start
+      for(let i=0;i<SAMPLE_LIGHT_LIMIT;i++){
+        const light=lights[i]
+        material.uniforms[`u_sampleLamp${i}`]=light?new Cartesian4(light.x,light.y,light.z,light.power):new Cartesian4()
+      }
+    }
+  }
+  function update(state: SystemsState,devices=sampleDevices): void {
+    setLightSample(state,devices)
     const baseline={...state,devices:{}}
     const adjustments=[0,1].map(tube=>{
       const canvas=document.createElement('canvas');canvas.width=Math.ceil((survey.length+480)/2);canvas.height=1
@@ -223,7 +323,10 @@ export function addTunnelInterior(viewer: Viewer, survey: TunnelSurvey): { setLi
     viewer.scene.requestRender()
   }
   update(initialSystems)
-  return { setLighting: update, setWallsVisible(visible) {
+  return { setLighting: update, setLightSample, dispose(){
+    removeSampleFrame()
+    if(occlusion)viewer.scene.postProcessStages.remove(occlusion)
+  }, setWallsVisible(visible:boolean) {
     for (const wall of walls) wall.show = visible
     viewer.scene.requestRender()
   } }

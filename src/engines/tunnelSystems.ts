@@ -229,10 +229,11 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
   function update(next: SystemsState): void {
     state=next
     alarmedModels=models.filter(entry=>deviceTelemetry(entry.device,state,survey.length).severity!=='normal')
+    const lamps=devices.flatMap(d=>d.kind==='basic'||d.kind==='enhanced'?[{id:d.id,kind:d.kind,tube:d.tube,station:d.station}]:[])
     for (const {model,device,shader} of models) {
       shader.setUniform('u_power',Number(deviceEnabled(device,state,basicSpacing(survey.project?.section))))
       shader.setUniform('u_alarm',Number(deviceTelemetry(device,state,survey.length).severity!=='normal'))
-      setEquipmentLighting(model,illuminationAt(device.station,survey.length,state,device.tube,devices.flatMap(d=>d.kind==='basic'||d.kind==='enhanced'?[{id:d.id,kind:d.kind,tube:d.tube,station:d.station}]:[])))
+      setEquipmentLighting(model,illuminationAt(device.station,survey.length,state,device.tube,lamps))
       const display=deviceVms(device,state)
       if(device.kind==='vms' && model.ready)for(const name of ['Weatherproof VMS housing','Recessed screen']) {
         const node=model.getNode(name)

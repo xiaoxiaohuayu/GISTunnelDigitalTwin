@@ -76,6 +76,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     baseLayer:new ImageryLayer(provider),terrainProvider,baseLayerPicker:false,geocoder:false,homeButton:false,
     sceneModePicker:false,navigationHelpButton:false,animation:false,timeline:false,fullscreenButton:false,
     infoBox:false,selectionIndicator:false,shouldAnimate:true,requestRenderMode:true,maximumRenderTimeChange:Infinity,
+    useBrowserRecommendedResolution:false,
   })
   viewer.creditDisplay.addStaticCredit(new Credit(`<a href="${import.meta.env.BASE_URL}model-credits.html" target="_blank" rel="noopener">模型署名</a>`,true))
   function globeCamera():Cartesian3 {
@@ -124,7 +125,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     survey.boreNames=project!.bores.map(bore=>bore.name)
     options.onProject?.(project!)
     bindLights()
-    model.setLighting(state);systems.update(state)
+    model.setLighting(state,systems.devices);systems.update(state)
     resources.capture()
   } catch(error) {viewer.destroy();throw error}
   let interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,device=>focusDevice(device.id),()=>{stopCamera();interaction.select();options.onSignEdit?.()},index=>{stopCamera();interaction.select();options.onTrafficSignEdit?.(index)})
@@ -270,7 +271,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   function previewPosition(patch:Partial<AssetRecord>):void{if(!editing||positionSaving)return;editing.draft=moveAsset(editing.draft,patch,project!);
     if(['pedestrian','vehicle','layby'].includes(editing.draft.kind)){
       const preview=facilityProject(project!,{...editing.draft}),indices=preview.bores.flatMap((b,i)=>b.id===editing!.draft.boreId||b.id===editing!.draft.link?.targetBoreId?[i]:[])
-      model.updateInterior(projectSurvey(preview),indices);bindLights();model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)
+      model.updateInterior(projectSurvey(preview),indices);bindLights();model.setLighting(state,systems.devices);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)
       for(const id of editing.draft.link?.memberIds??[]){const a=preview.assets.find(a=>a.id===id);if(a)moveRecord(a)}
     }
     moveRecord(editing.draft);const b=project!.bores.find(b=>b.id===editing!.draft.boreId)!;editing.gizmo.setOffset(new Cartesian3((editing.draft.chainage-editing.original.chainage)*Math.sign(b.end-b.start),editing.draft.lateral-editing.original.lateral,editing.draft.height-editing.original.height));options.onPositionEdit?.({...editing.draft})}
@@ -300,6 +301,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     const frame=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(CesiumMath.toRadians(a.heading-(referenceHeadings.get(a.id)??0)))),new Matrix4())
     systems.instances.get(a.id)?.move(frame)
     Object.assign(d,{tube,station,lateral:-a.lateral,height:a.height,position:point,name:a.name,code:a.code,boreName:b.name,chainage:formatChainage(a.chainage)})
+    if(refresh&&(a.kind==='basic'||a.kind==='enhanced'))model.setLightSample(state,systems.devices)
     if(refresh){interaction.refresh();options.onDevices?.([...systems.devices])}
   }
   async function applyProject(value:TunnelProject|null,recovering=false):Promise<void>{
@@ -326,7 +328,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i))
         detection=addDetectionCoverage(viewer,survey,systems.devices);detection.bind(systems.instances);events=addTunnelEvents(viewer,survey);effects=addIncidentEffects(viewer,survey)
         stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
-        model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state);interaction.update(state)
+        model.setLighting(state,systems.devices);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state);interaction.update(state)
         await saveTunnelProject(target);publish(target);options.onDevices?.(systems.devices)
       }catch(error){resources.capture();throw error}finally{viewer.camera.setView({destination,orientation:{direction,up}});viewer.scene.requestRender()}
     }
@@ -335,7 +337,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         const changes=config.assets.filter(a=>JSON.stringify(a)!==JSON.stringify(previous.assets.find(x=>x.id===a.id)))
         const structural=changes.filter(a=>['pedestrian','vehicle','layby'].includes(a.kind))
         const indices=config.bores.flatMap((b,i)=>structural.some(a=>a.boreId===b.id||a.link?.targetBoreId===b.id)?[i]:[])
-        const updateInterior=(target:TunnelProject)=>{if(indices.length){model.updateInterior(projectSurvey(target),indices);bindLights();model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)}}
+        const updateInterior=(target:TunnelProject)=>{if(indices.length){model.updateInterior(projectSurvey(target),indices);bindLights();model.setLighting(state,systems.devices);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)}}
         updateInterior(config);for(const a of changes)moveRecord(a);await saveTunnelProject(config)
         if(config.name!==previous.name)await boards.update({...boards.config,name:config.name})
         if(config.name!==previous.name||JSON.stringify(config.mouths??null)!==JSON.stringify(previous.mouths??null))model.applyPortalNames(config)
@@ -352,7 +354,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         bindLights()
         signResources.dispose();signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
         for(const a of config.assets)moveRecord(resolveAsset(a,config),false)
-        model.setLighting(state);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state)
+        model.setLighting(state,systems.devices);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state)
         traffic?.dispose();traffic=await addTunnelTraffic(viewer,survey,()=>state)
         stopOverlays();stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
         const selectedId=interaction.selected?.id;interaction.dispose();interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i));if(selectedId)interaction.select(systems.devices.find(d=>d.id===selectedId));interaction.update(state)
@@ -384,7 +386,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     clearDeviceSelection(){interaction.select()},
     setCanopyVisible(visible:boolean){canopyVisible=visible;model.setCanopyVisible(visible);viewer.scene.requestRender()},
     setSystems(patch:Partial<SystemsState>) {
-      state=changeSystems(state,patch);if(project&&patch.devices)void saveControlOverrides(project.id,state.devices).catch(e=>options.onWarning?.(String(e)));trafficSigns.setLighting(state.environment==='day');model.setLighting(state);systems.update(state);interaction.update(state);events.update(state)
+      state=changeSystems(state,patch);if(project&&patch.devices)void saveControlOverrides(project.id,state.devices).catch(e=>options.onWarning?.(String(e)));trafficSigns.setLighting(state.environment==='day');model.setLighting(state,systems.devices);systems.update(state);interaction.update(state);events.update(state)
       effects.update(state)
       const direction=travelOf(state.incidentTube)
       const station=incidentStation(survey.length,state,direction)
