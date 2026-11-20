@@ -18,12 +18,10 @@
   "dependencies": {
     "cesium": "^1.146.0",
     "element-plus": "^2.14.7",
-    "three": "^0.186.1",
     "vue": "^3.5.44"
   },
   "devDependencies": {
     "@types/node": "^26.6.5",
-    "@types/three": "^0.186.0",
     "@vitejs/plugin-vue": "^6.0.10",
     "typescript": "^5.9.3",
     "vite": "^8.3.4",

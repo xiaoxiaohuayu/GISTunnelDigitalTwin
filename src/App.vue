@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { defineAsyncComponent } from 'vue'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import ViewportLoading from './components/ViewportLoading.vue'
 import ViewportError from './components/ViewportError.vue'
+
 const CesiumViewport = defineAsyncComponent({
   loader: () => import('./components/CesiumViewport.vue'),
   loadingComponent: ViewportLoading,
@@ -12,11 +14,11 @@ const CesiumViewport = defineAsyncComponent({
 </script>
 
 <template>
-  <div class="workspace">
-
-    <main class="workspace-main">
-      <CesiumViewport />
-    </main>
-
-  </div>
+  <el-config-provider :locale="zhCn">
+    <div class="workspace">
+      <main class="workspace-main">
+        <CesiumViewport />
+      </main>
+    </div>
+  </el-config-provider>
 </template>

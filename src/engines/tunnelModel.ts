@@ -49,12 +49,13 @@ function createBore(viewer:Viewer,survey:TunnelSurvey) {
 export async function addTunnelModel(viewer:Viewer,survey:TunnelSurvey,progress?:(resource:string)=>void){
   const boreSurvey=(i:number):TunnelSurvey=>({...survey,length:survey.project?boreLength(survey.project.bores[i]!):survey.length,tubeIndices:[i]})
   const bores=new Map(boreIndices(survey).map(i=>[i,createBore(viewer,boreSurvey(i))]))
-  if(!ClippingPolygonCollection.isSupported(viewer.scene))throw new Error('当前浏览器不支持地形开挖')
+  const clippingSupported=ClippingPolygonCollection.isSupported(viewer.scene)
   let siteScope=sceneResources(viewer)
   let sites=await Promise.all(([0,1] as const).map(end=>addPortalSite(viewer,survey,end,progress)))
   siteScope.capture()
-  const clip=()=>{viewer.scene.globe.clippingPolygons=new ClippingPolygonCollection({polygons:sites.map(site=>site.excavation)})};clip()
+  const clip=()=>{if(clippingSupported)viewer.scene.globe.clippingPolygons=new ClippingPolygonCollection({polygons:sites.map(site=>site.excavation)})};clip()
   return {
+    clippingSupported,
     applyPortalNames(project?:TunnelProject){sites.forEach((site,index)=>{const end=(index===0?0:1) as 0|1;site.setNames(project?project.bores.map(bore=>mouthName(project,bore.id,end)):survey.tubes.map(()=>'青山隧道'))})},get sites(){return sites},get lightFrames(){return new Map([...bores.values()].flatMap(b=>[...b.lightFrames]))},get lightPrimitives(){return new Map([...bores.values()].flatMap(b=>[...b.lightPrimitives]))},
     updateInterior(next:TunnelSurvey,indices:number[]){survey=next;for(const i of indices){bores.get(i)?.dispose();bores.delete(i);if(survey.tubes[i])bores.set(i,createBore(viewer,boreSurvey(i)))}},
     async updateStructure(next:TunnelSurvey,indices:number[]){survey=next;for(const i of indices){bores.get(i)?.dispose();bores.delete(i);if(survey.tubes[i])bores.set(i,createBore(viewer,boreSurvey(i)))}sites.forEach(s=>s.dispose());siteScope.dispose();siteScope=sceneResources(viewer);sites=await Promise.all(([0,1] as const).map(end=>addPortalSite(viewer,survey,end)));siteScope.capture();clip();await new Promise<void>((resolve,reject)=>{const timer=setTimeout(()=>{remove();reject(new Error("洞口模型更新超时"))},30000);const remove=viewer.scene.postRender.addEventListener(()=>{if(sites.every(s=>s.structures.ready&&s.substation.ready)){clearTimeout(timer);remove();resolve()}});viewer.scene.requestRender()})},

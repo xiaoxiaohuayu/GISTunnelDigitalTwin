@@ -1,22 +1,17 @@
 <script setup lang="ts">
 import { computed,nextTick,ref,shallowRef,watch } from 'vue'
 import { ElMessageBox } from 'element-plus'
-import type { UploadFile } from 'element-plus'
 import { upgradeProject,mountBase,resolveAsset } from '../../engines/assetPlacement'
 import type { Mount } from '../../engines/assetPlacement'
 import BoreEditor from './BoreEditor.vue'
+import PackageTransferTab from './PackageTransferTab.vue'
 import { defaultProject,formatChainage,parseChainage,projectErrors,laneLateral,boreLength } from '../../engines/projectConfig'
 import type { MouthName } from '../../engines/projectConfig'
 import { portalEndName } from '../../engines/sceneFrame'
 import type { AssetRecord,BoreConfig,PassageRecord,TunnelProject } from '../../engines/projectConfig'
 import { BASIC_SPACING, ENHANCED_SPACING, PROFILE_HALF } from '../../engines/sectionProfile'
 import type { SectionProfile } from '../../engines/sectionProfile'
-import { encodeTunnelPackage, readTunnelPackage } from '../../engines/projectPackage'
 import type { TunnelPackageExtras } from '../../engines/projectPackage'
-import { readControlOverrides } from '../../engines/projectStorage'
-import { readPortalSign } from '../../engines/portalSignConfig'
-import { readTrafficSigns } from '../../engines/trafficSignConfig'
-import { assetCsvTemplate,previewAssetImport } from '../../engines/assetImport'
 import { deviceCatalog } from '../../engines/tunnelSystemsState'
 const props=defineProps<{project:TunnelProject;selectedId?:string;apply:(project:TunnelProject|null,focusId?:string,extras?:TunnelPackageExtras)=>Promise<void>}>()
 const emit=defineEmits<{close:[]}>()
@@ -24,7 +19,7 @@ const draft=ref<TunnelProject>(upgradeProject(props.project))
 const tab=shallowRef<'tunnel'|'assets'|'transfer'>(props.selectedId?'assets':'tunnel'),query=shallowRef(''),selectedId=shallowRef(props.selectedId??'')
 const boreFilter=shallowRef('all'),kindFilter=shallowRef('all')
 const sortKey=shallowRef<'code'|'name'|'kind'|'bore'|'chainage'>('chainage'),sortAsc=shallowRef(true)
-const busy=shallowRef(false),error=shallowRef(''),csv=shallowRef(''),imported=shallowRef<ReturnType<typeof previewAssetImport>>(),pendingProject=shallowRef<TunnelProject>(),pendingExtras=shallowRef<TunnelPackageExtras>(),stagedExtras=shallowRef<TunnelPackageExtras>()
+const busy=shallowRef(false),error=shallowRef(''),stagedExtras=shallowRef<TunnelPackageExtras>()
 const issues=computed(()=>projectErrors(draft.value)),selected=computed(()=>draft.value.assets.find(a=>a.id===selectedId.value))
 const kindName=(kind:string)=>deviceCatalog.find(row=>row[1]===kind)?.[2]??kind
 const boreName=(id:string)=>draft.value.bores.find(bore=>bore.id===id)?.name??''
@@ -108,27 +103,12 @@ function changeChainage(which:'chainage'|'endChainage',text:string):void{
   if(!selected.value)return
   try{if(which==='endChainage'&&!text.trim())delete selected.value.endChainage;else selected.value[which]=parseChainage(text);error.value=''}catch(e){error.value=String(e)}
 }
-function download(text:string,name:string,type:string):void{const url=URL.createObjectURL(new Blob([text],{type})),link=document.createElement('a');link.href=url;link.download=name;link.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
 function setSection(key:keyof SectionProfile,value:string):void{const text=value.trim();const section={...draft.value.section};if(!text)delete section[key];else section[key]=Number(text);draft.value.section=Object.keys(section).length?section:undefined}
 function addPassage():void{const bore=draft.value.bores[0];const passage:PassageRecord={station:bore?Math.round(boreLength(bore)/2):0,vehicle:(draft.value.passages?.length??0)===1};draft.value.passages=[...(draft.value.passages??[]),passage]}
 function removePassage(index:number):void{const passages=draft.value.passages?.filter((_,i)=>i!==index)??[];if(passages.length)draft.value.passages=passages;else delete draft.value.passages}
-function newProject():void{draft.value=upgradeProject(defaultProject());draft.value.assets=[];selectedId.value='';error.value='';stagedExtras.value=undefined;pendingExtras.value=undefined}
-async function exportPackage():Promise<void>{
-  const [controls,portalSign,trafficSigns]=await Promise.all([
-    readControlOverrides(draft.value.id).catch(()=>({})),
-    readPortalSign().catch(()=>undefined),
-    readTrafficSigns().catch(()=>undefined),
-  ])
-  download(JSON.stringify(await encodeTunnelPackage({project:draft.value,controls,portalSign,trafficSigns}),null,2),'隧道配置包.json','application/json')
-}
-async function file(upload:UploadFile,kind:'csv'|'json'):Promise<void>{
-  const f=upload.raw;if(!f)return
-  try{if(f.size>(kind==='json'?25_000_000:10_000_000))throw new Error(kind==='json'?'配置包不得超过 25 MB':'配置文件不得超过 10 MB');const text=await f.text();if(kind==='csv'){csv.value=text;imported.value=previewAssetImport(text,draft.value)}else{const loaded=readTunnelPackage(JSON.parse(text));pendingProject.value=loaded.project;pendingExtras.value=loaded.extras}error.value=''}catch(e){error.value=e instanceof Error?e.message:String(e)}
-}
-function acceptProject():void{if(pendingProject.value){draft.value=structuredClone(pendingProject.value);stagedExtras.value=pendingExtras.value;pendingProject.value=undefined;pendingExtras.value=undefined;selectedId.value='';error.value=''}}
-function acceptCsv():void{const preview=previewAssetImport(csv.value,draft.value);imported.value=preview;if(preview.errors.length)return;draft.value.assets.push(...preview.assets);imported.value=undefined;csv.value='';tab.value='assets'}
-function onCsv(upload:UploadFile):void{void file(upload,'csv')}
-function onJson(upload:UploadFile):void{void file(upload,'json')}
+function newProject():void{draft.value=upgradeProject(defaultProject());draft.value.assets=[];selectedId.value='';error.value='';stagedExtras.value=undefined}
+function importAssets(assets:AssetRecord[]):void{draft.value.assets.push(...assets);tab.value='assets'}
+function replaceProject(next:TunnelProject,extras?:TunnelPackageExtras):void{draft.value=next;stagedExtras.value=extras;selectedId.value='';error.value=''}
 async function save():Promise<void>{
   if(document.activeElement instanceof HTMLElement)document.activeElement.blur()
   await nextTick()
@@ -136,7 +116,7 @@ async function save():Promise<void>{
   busy.value=true
   try{await props.apply(JSON.parse(JSON.stringify({...draft.value,assets:draft.value.assets.map(a=>resolveAsset(a,draft.value))})),selectedId.value||undefined,stagedExtras.value);stagedExtras.value=undefined}catch(e){error.value=e instanceof Error?e.message:String(e)}finally{busy.value=false}
 }
-async function demo():Promise<void>{try{await ElMessageBox.confirm('返回原演示场景？已应用配置将从浏览器移除，请先导出备份。','返回演示场景',{type:'warning',confirmButtonText:'返回演示',cancelButtonText:'取消'})}catch{return}busy.value=true;try{await props.apply(null)}catch(e){error.value=String(e)}finally{busy.value=false}}
+async function demo():Promise<void>{busy.value=true;try{await props.apply(null)}catch(e){error.value=String(e)}finally{busy.value=false}}
 </script>
 
 <template>
@@ -211,11 +191,7 @@ async function demo():Promise<void>{try{await ElMessageBox.confirm('返回原演
         </div>
       </template>
       <template v-else>
-        <section class="transfer-section"><h3>批量录入设备</h3><p>下载模板后用 Excel 填写并保存为 CSV UTF-8。类型可填写设备类型名称或代码，洞筒可填写名称或 ID。横向偏移左负右正，高度单位为米。</p><div class="transfer-actions"><el-button @click="download(assetCsvTemplate(draft),'设备录入模板.csv','text/csv;charset=utf-8')">下载 CSV 模板</el-button><el-upload :auto-upload="false" :show-file-list="false" accept=".csv,.tsv" :on-change="onCsv"><el-button>选择设备 CSV</el-button></el-upload></div>
-          <div v-if="imported" class="import-preview"><h4>导入预览 · {{imported.assets.length}} 条有效数据</h4><ul v-if="imported.errors.length" class="config-errors"><li v-for="message in imported.errors.slice(0,20)" :key="message">{{message}}</li></ul><p v-for="asset in imported.assets.slice(0,5)" :key="asset.id">{{asset.code}} · {{asset.name}} · {{formatChainage(asset.chainage)}}</p><el-button :disabled="!!imported.errors.length||!imported.assets.length" @click="acceptCsv">加入草稿，暂不保存</el-button></div>
-        </section>
-        <section class="transfer-section"><h3>完整配置包</h3><p>一份 JSON 包含线路、洞筒、设备台账、入口标牌、交通标志图片和单设备控制。浏览器里的记录只是本机缓存。旧的纯项目 JSON 仍可导入。导入后先替换草稿，只有保存并应用后才修改场景。</p><div class="transfer-actions"><el-button type="primary" plain @click="exportPackage">导出完整配置包</el-button><el-upload :auto-upload="false" :show-file-list="false" accept=".json,application/json" :on-change="onJson"><el-button>导入配置包或 JSON</el-button></el-upload></div><div v-if="pendingProject" class="import-preview"><p>{{pendingProject.name}} · {{pendingProject.bores.length}} 个洞筒 · {{pendingProject.assets.length}} 条台账{{pendingExtras?' · 含标牌与设备控制':''}}</p><el-button type="primary" @click="acceptProject()">用此配置替换草稿</el-button></div></section>
-        <el-button type="warning" plain @click="demo">返回原演示场景</el-button>
+        <PackageTransferTab :draft="draft" @error="error=$event" @import-assets="importAssets" @replace-project="replaceProject" @restore-demo="demo" />
       </template>
     </div>
     <footer class="project-footer"><div><p v-if="error" role="alert" class="config-errors">{{error}}</p><p v-if="issues.length" role="status" class="config-errors">{{issues.slice(0,3).join('；')}}<details v-if="issues.length>3"><summary>查看全部 {{issues.length}} 项问题</summary><ul><li v-for="issue in issues" :key="issue">{{issue}}</li></ul></details></p><p v-else class="config-help">校验通过 · {{draft.bores.length}} 个洞筒 · {{draft.assets.length}} 条台账</p></div><el-button type="primary" :disabled="busy||!!error||!!issues.length" @click="save">{{busy?'正在保存…':'保存并应用到场景'}}</el-button></footer>

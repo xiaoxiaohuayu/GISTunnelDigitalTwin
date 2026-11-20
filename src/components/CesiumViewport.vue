@@ -1,16 +1,20 @@
 <script setup lang="ts">
-import { computed, nextTick, shallowRef, useTemplateRef } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, shallowRef, useTemplateRef } from 'vue'
+import { ElMessageBox } from 'element-plus'
 import { boreTravelLabel, portalEndName } from '../engines/sceneFrame'
 import { useEngine } from '../composables/useEngine'
 import { createCesiumMap } from '../engines/cesiumMap'
-import type { IntroPhase } from '../engines/cesiumMap'
-import { initialSystems, deviceAlarmIds, deviceEnabled, changeDevice as updateDevice } from '../engines/tunnelSystemsState'
+import type { IntroPhase, SceneRuntimeError } from '../engines/cesiumMap'
+import { initialSystems, deviceAlarmIds, deviceEnabled } from '../engines/tunnelSystemsState'
+import { defaultRuntimeConfig } from '../config/runtimeConfig'
+import type { RuntimeConfig } from '../config/runtimeConfig'
+import { appendAuditEntry, createTunnelServices, describeDeviceAction, describeSystemsAction, highRiskDeviceConfirmMessage, resolveUserRole, roleLabel, rolePermissions } from '../services'
+import type { AuditEntry, ConnectionStatus, TelemetrySnapshot, TunnelServices } from '../services'
+import CameraPlayer from './CameraPlayer.vue'
 import type { SceneDevice, SystemsState, DeviceSettings } from '../engines/tunnelSystemsState'
 import SceneLoading from './SceneLoading.vue'
 import SceneOverlayLayer from './SceneOverlayLayer.vue'
-import TrafficSignEditor from './TrafficSignEditor.vue'
 import { defaultTrafficSigns, saveTrafficSigns } from '../engines/trafficSignConfig'
-import PortalSignEditor from './PortalSignEditor.vue'
 import { defaultPortalSign, savePortalSign } from '../engines/portalSignConfig'
 import type { LoadProgress, PortalSignConfig, SceneOverlay, TrafficSignsConfig } from '../types/scene'
 import SystemsControls from './SystemsControls.vue'
@@ -22,9 +26,11 @@ import EventConsole from './EventConsole.vue'
 import SceneRoaming from './SceneRoaming.vue'
 import type { RoamingState } from '../types/tunnel'
 import 'cesium/Build/Cesium/Widgets/widgets.css'
-import PositionEditor from './configuration/PositionEditor.vue'
 import type { AssetRecord } from '../engines/projectConfig'
-import ProjectEditor from './configuration/ProjectEditor.vue'
+const ProjectEditor = defineAsyncComponent(() => import('./configuration/ProjectEditor.vue'))
+const PositionEditor = defineAsyncComponent(() => import('./configuration/PositionEditor.vue'))
+const PortalSignEditor = defineAsyncComponent(() => import('./PortalSignEditor.vue'))
+const TrafficSignEditor = defineAsyncComponent(() => import('./TrafficSignEditor.vue'))
 import { defaultProject } from '../engines/projectConfig'
 import type { TunnelPackageExtras } from '../engines/projectPackage'
 import { saveControlOverrides } from '../engines/projectStorage'
@@ -38,11 +44,13 @@ const incidentNames=computed(()=>project.value.bores.map(bore=>boreTravelLabel(b
 const portalNames=computed(()=>[portalEndName(project.value.origin.heading,0),portalEndName(project.value.origin.heading,1)])
 const positionDraft=shallowRef<AssetRecord>()
 const storageWarning=shallowRef('')
+const runtimeError=shallowRef<SceneRuntimeError|null>(null)
+function reloadScene():void{window.location.reload()}
 const container=useTemplateRef<HTMLDivElement>('container')
 const overlayLayer=useTemplateRef<InstanceType<typeof SceneOverlayLayer>>('overlayLayer')
 const roamingOpen=shallowRef(false),detectionVisible=shallowRef(false),monitor=shallowRef<SceneDevice>()
 const roamingState=shallowRef<RoamingState>({playing:false,tube:0,speed:60,distance:-220,length:0})
-const wallsVisible=shallowRef(true),canopyVisible=shallowRef(true),selectedDevice=shallowRef<SceneDevice>()
+const wallsVisible=shallowRef(true),canopyVisible=shallowRef(true),cameraGuardEnabled=shallowRef(true),selectedDevice=shallowRef<SceneDevice>()
 const underground=shallowRef(false),panel=shallowRef<'devices'|'systems'|'events'|'sign'|'traffic'|null>(null)
 const returnPanel=shallowRef<'devices'|'systems'|'events'|null>(null)
 const returnLabel=computed(()=>returnPanel.value?{devices:'返回设备列表',systems:'返回系统控制',events:'返回演练清单'}[returnPanel.value]:'')
@@ -54,7 +62,33 @@ const overlays=shallowRef<SceneOverlay[]>([]),signConfig=shallowRef<PortalSignCo
 const activeEvent=computed(()=>state.value.incident!=='none'||deviceAlarmIds(state.value).length>0)
 const trafficSignsConfig=shallowRef<TrafficSignsConfig>(defaultTrafficSigns()),trafficSignIndex=shallowRef(-1),trafficSignWarning=shallowRef('')
 let panelTrigger:HTMLElement|undefined
+const runtimeConfig=shallowRef<RuntimeConfig>(defaultRuntimeConfig())
+const userRole=computed(()=>resolveUserRole(runtimeConfig.value.auth.defaultRole,typeof window!=='undefined'?window.location.search:''))
+const permissions=computed(()=>rolePermissions(userRole.value))
+const auditEntries=shallowRef<AuditEntry[]>([])
+const controlBusy=shallowRef(false)
+const telemetrySnapshot=shallowRef<TelemetrySnapshot>({connection:'mock',readings:{}})
+const connectionLabels:Record<ConnectionStatus,string>={mock:'本地演示',connecting:'实时连接中',connected:'实时在线',reconnecting:'实时重连中',offline:'实时离线'}
+const connectionLabel=computed(()=>connectionLabels[telemetrySnapshot.value.connection])
+let services:TunnelServices=createTunnelServices(runtimeConfig.value)
+let unsubscribeTelemetry=services.telemetry.subscribe(snapshot=>{telemetrySnapshot.value=snapshot})
+function bindServices(config:RuntimeConfig):void{
+  runtimeConfig.value=config
+  unsubscribeTelemetry();services.dispose()
+  services=createTunnelServices(config)
+  unsubscribeTelemetry=services.telemetry.subscribe(snapshot=>{telemetrySnapshot.value=snapshot})
+  services.telemetry.start()
+}
+onBeforeUnmount(()=>{unsubscribeTelemetry();services.dispose()})
+const selectedLiveReading=computed(()=>{
+  if(!selectedDevice.value||services.telemetry.mode!=='live')return undefined
+  void telemetrySnapshot.value
+  return services.telemetry.getReading(selectedDevice.value,state.value,roamingState.value.length)
+})
 const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiumMap(element,{
+  onRuntimeConfig:bindServices,
+  onRuntimeError:value=>{runtimeError.value=value},
+  onUndergroundChange:value=>{underground.value=value},
   onPositionEdit:value=>{positionDraft.value=value},
   onProject:value=>{project.value=value},
   onWarning:message=>{storageWarning.value=message},
@@ -76,7 +110,7 @@ const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiu
   },
   onDevices:list=>{devices.value=list},onIntro:phase=>{intro.value=phase},shouldSkipIntro:()=>skipRequested.value,
 }))
-function openProject(id?:string):void{if(positionDraft.value){storageWarning.value="请先保存或取消位置调整";return}editAssetId.value=id;projectOpen.value=true;closeDevice();panel.value=null;stopRoaming()}
+function openProject(id?:string):void{if(!permissions.value.canEditProject){storageWarning.value='当前角色无权修改配置与台账';return}if(positionDraft.value){storageWarning.value="请先保存或取消位置调整";return}editAssetId.value=id;projectOpen.value=true;closeDevice();panel.value=null;stopRoaming()}
 async function applyProject(value:TunnelProject|null,focusId?:string,extras?:TunnelPackageExtras):Promise<void>{
   if(extras?.portalSign){await savePortalSign(extras.portalSign);signConfig.value=extras.portalSign}
   if(extras?.trafficSigns){await saveTrafficSigns(extras.trafficSigns);trafficSignsConfig.value=extras.trafficSigns}
@@ -88,8 +122,38 @@ async function applyProject(value:TunnelProject|null,focusId?:string,extras?:Tun
 }
 
 const phases:Record<IntroPhase,string>={earth:'地球视角',region:'区域定位',overview:'线路全览',portal:'抵达洞口',complete:''}
-function change(patch:Partial<SystemsState>):void{const next=getHandle()?.setSystems(patch);if(next)state.value=next}
-function changeDevice(id:string,patch:DeviceSettings):void{change({devices:updateDevice(state.value,id,patch).devices})}
+function applySystemsPatch(patch:Partial<SystemsState>):void{const next=getHandle()?.setSystems(patch);if(next)state.value=next}
+function recordAudit(target:string,action:string,status:AuditEntry['status'],id:string,message?:string):void{
+  auditEntries.value=appendAuditEntry(auditEntries.value,{id,timestamp:Date.now(),role:userRole.value,target,action,status,message})
+}
+function change(patch:Partial<SystemsState>):void{
+  if(!permissions.value.canControl){storageWarning.value='当前只读角色无权执行系统控制';return}
+  const summary=describeSystemsAction(patch)
+  if(services.control.mode==='mock'){applySystemsPatch(patch);recordAudit(summary.target,summary.action,'applied',`local-${Date.now()}`);return}
+  controlBusy.value=true
+  void services.control.sendSystemsControl(patch,state.value).then(result=>{
+    recordAudit(summary.target,summary.action,result.status,result.commandId,result.message)
+    if(result.ok&&result.appliedPatch){storageWarning.value='';applySystemsPatch(result.appliedPatch)}
+    else if(!result.ok){storageWarning.value=result.message??'系统控制指令下发失败'}
+  }).finally(()=>{controlBusy.value=false})
+}
+async function changeDevice(id:string,patch:DeviceSettings):Promise<void>{
+  if(!permissions.value.canControl){storageWarning.value='当前只读角色无权执行设备控制';return}
+  const device=devices.value.find(item=>item.id===id)
+  const confirmText=highRiskDeviceConfirmMessage(device,patch)
+  if(confirmText){
+    try{await ElMessageBox.confirm(confirmText,'高危控制确认',{type:'warning',confirmButtonText:'确认下发',cancelButtonText:'取消'})}
+    catch{return}
+  }
+  const summary=describeDeviceAction(device,id,patch)
+  controlBusy.value=services.control.mode==='live'
+  try{
+    const result=await services.control.sendDeviceControl(id,patch,state.value)
+    recordAudit(summary.target,summary.action,result.status,result.commandId,result.message)
+    if(result.ok&&result.appliedPatch){storageWarning.value='';applySystemsPatch(result.appliedPatch)}
+    else if(!result.ok){storageWarning.value=result.message??'设备控制指令下发失败'}
+  }finally{controlBusy.value=false}
+}
 function stopRoaming():void{getHandle()?.setRoaming(false)}
 function view(action:()=>void):void{stopRoaming();monitor.value=undefined;action()}
 function skip():void{skipRequested.value=true;getHandle()?.skipIntro()}
@@ -137,29 +201,34 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
   <section class="viewport" aria-label="GIS 隧道场景" :class="{'is-roaming':roamingOpen,'has-device-alerts':alerts.length>0}" :style="alerts.length?{'--alert-panel-top':`${154+Math.min(150,alerts.length*70)}px`,'--alert-mobile-top':`${170+Math.min(110,alerts.length*62)}px`}:undefined" @keydown.esc="dismiss">
     <div ref="container" class="engine-container" />
     <SceneLoading v-if="!ready" :progress="progress" :error="error" />
-    <p v-if="storageWarning" class="viewport-message" role="alert">{{storageWarning}}</p>
+    <div v-if="runtimeError" class="viewport-message runtime-error-card" role="alert">
+      <strong>{{runtimeError.kind==='webgl-lost'?'WebGL 渲染上下文已丢失':'三维场景渲染异常'}}</strong>
+      <p>{{runtimeError.message}}</p>
+      <div class="runtime-error-actions"><el-button type="primary" size="small" @click="reloadScene">重新加载场景</el-button><el-button v-if="runtimeError.recoverable" size="small" @click="runtimeError=null">继续等待恢复</el-button></div>
+    </div>
+    <div v-else-if="storageWarning" class="viewport-message warning-banner" role="alert"><span>{{storageWarning}}</span><el-button size="small" text @click="storageWarning=''">知道了</el-button></div>
     <div v-else-if="intro!=='complete'" class="arrival" aria-live="polite"><span class="arrival-step">{{phases[intro]}}</span><span>{{ready?'镜头正在抵达隧道':'正在加载地形与设备模型'}}</span><el-button @click="skip">{{skipRequested?'将在加载后直接抵达':'跳过入场'}}</el-button></div>
-    <div class="scene-context"><span class="scene-live-dot" />{{project.name}}<span>{{project.bores.length}} 个洞筒</span></div>
+    <div class="scene-context"><span class="scene-live-dot" />{{project.name}}<span>{{project.bores.length}} 个洞筒 · {{connectionLabel}} · {{roleLabel(userRole)}}</span></div>
     <div class="scene-actions">
       <el-button :disabled="!ready" :type="panel==='devices'?'primary':'default'" :aria-expanded="panel==='devices'" @click="togglePanel('devices',$event)">设备与设施</el-button>
-      <el-button :disabled="!ready" :type="panel==='systems'?'primary':'default'" :aria-expanded="panel==='systems'" @click="togglePanel('systems',$event)">系统控制</el-button>
-      <el-button :disabled="!ready" :type="panel==='events'?'primary':'default'" :aria-expanded="panel==='events'" @click="togglePanel('events',$event)">事件演练<span v-if="activeEvent" class="event-indicator">进行中</span></el-button>
+      <el-button v-if="permissions.canControl" :disabled="!ready" :type="panel==='systems'?'primary':'default'" :aria-expanded="panel==='systems'" @click="togglePanel('systems',$event)">系统控制</el-button>
+      <el-button v-if="permissions.canDrill" :disabled="!ready" :type="panel==='events'?'primary':'default'" :aria-expanded="panel==='events'" @click="togglePanel('events',$event)">事件演练<span v-if="activeEvent" class="event-indicator">进行中</span></el-button>
       <el-button :disabled="!ready" @click="replay">重播入场</el-button>
-      <el-button :type="projectOpen?'primary':'default'" :aria-expanded="projectOpen" @click="openProject()">配置与台账</el-button>
+      <el-button v-if="permissions.canEditProject" :type="projectOpen?'primary':'default'" :aria-expanded="projectOpen" @click="openProject()">配置与台账</el-button>
     </div>
     <aside v-show="panel&&panel!=='events'" class="scene-panel" :aria-label="panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'">
       <header><h2>{{panel==='devices'?'设备与设施':panel==='sign'?'入口标牌':panel==='traffic'?'洞口交通标志':'系统控制'}}</h2><el-button text aria-label="关闭面板" @click="closePanel">×</el-button></header>
       <div v-show="panel==='devices'"><DeviceExplorer :bore-names="boreNames" :devices="devices" :state="state" :length="roamingState.length" @focus="focusDevice" /></div>
-      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="incidentNames" v-if="panel==='systems'" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'" :config="signConfig" :length="roamingState.length" :apply="applySign" @position="getHandle()?.editPortalPosition('board',$event)" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="(panel==='traffic'||panel==='systems')" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @position="getHandle()?.editPortalPosition('traffic',$event)" @saved="trafficSignsConfig=$event" /></template>
+      <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="incidentNames" v-if="panel==='systems'&&permissions.canControl" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" :audit-entries="auditEntries" :control-busy="controlBusy" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'&&permissions.canEditProject" :config="signConfig" :length="roamingState.length" :apply="applySign" @position="getHandle()?.editPortalPosition('board',$event)" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="(panel==='traffic'||panel==='systems')&&permissions.canEditProject" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @position="getHandle()?.editPortalPosition('traffic',$event)" @saved="trafficSignsConfig=$event" /></template>
     </aside>
     <DeviceAlerts v-if="ready" :alerts="alerts" @focus="focusDevice" />
-    <DeviceInspector v-if="selectedDevice&&!positionDraft" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" @edit-position="getHandle()?.startPositionEdit(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
+    <DeviceInspector v-if="selectedDevice&&!positionDraft" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" :live-reading="selectedLiveReading" :can-control="permissions.canControl" :can-edit-project="permissions.canEditProject" @edit-position="getHandle()?.startPositionEdit(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
     <PositionEditor v-if="positionDraft" :asset="positionDraft" :save="()=>getHandle()!.savePositionEdit()" @preview="getHandle()?.previewPosition($event)" @cancel="getHandle()?.cancelPositionEdit()" />
     <ProjectEditor v-if="projectOpen" :project="project" :selected-id="editAssetId" :apply="applyProject" @close="projectOpen=false" />
-    <EventConsole :bore-names="boreNames" :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
+    <EventConsole v-if="permissions.canDrill" :bore-names="boreNames" :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
     <SceneOverlayLayer ref="overlayLayer" :items="overlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
     <SceneRoaming :bore-names="travelNames" v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
-    <div v-if="monitor" class="monitor-view" role="status"><div><strong>{{monitor.tube===0?'上行':'下行'}}监控点 · {{monitor.id}}</strong><span>三维模拟视角 · 未接入视频流</span></div><el-button @click="monitor=undefined;view(()=>getHandle()?.focusPortal())">退出预览</el-button></div>
+    <CameraPlayer v-if="monitor" :device="monitor" :bore-name="monitor.boreName" :stream-url="runtimeConfig.streams[monitor.id]" @close="monitor=undefined;view(()=>getHandle()?.focusPortal())" />
     <div v-if="devices.some(d=>d.kind==='speaker'&&deviceEnabled(d,state))" class="broadcast-state" role="status">应急广播中 · {{['fire','smoke','collision'].includes(state.incident)?'请按指示前往就近横洞':'广播状态本地演示'}}（静音演示）</div>
     <div class="viewport-tools">
       <span>场景导航</span>
@@ -173,9 +242,18 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
       <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior(true))">横洞</el-button>
       <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusLayBy())">停车带</el-button>
       <el-button size="small" :disabled="!ready" :type="detectionVisible?'primary':'default'" :aria-pressed="detectionVisible" @click="detectionVisible=!detectionVisible;getHandle()?.setDetectionVisible(detectionVisible)">检测范围：{{detectionVisible?'开':'关'}}</el-button>
+      <el-button size="small" :disabled="!ready" :type="cameraGuardEnabled?'primary':'default'" :aria-pressed="cameraGuardEnabled" @click="cameraGuardEnabled=!cameraGuardEnabled;getHandle()?.setCameraGuardEnabled(cameraGuardEnabled)">防穿模：{{cameraGuardEnabled?'开':'关'}}</el-button>
       <el-button size="small" :disabled="!ready" :type="roamingOpen?'primary':'default'" :aria-pressed="roamingOpen" @click="openRoaming">巡检漫游</el-button>
       <el-button size="small" :disabled="!ready" @click="view(resetView)">全览</el-button>
     </div>
     <div class="scene-help">点选设备查看详情 · 左键平移 · 滚轮缩放 · 中键倾斜</div>
   </section>
 </template>
+
+<style scoped>
+.runtime-error-card{display:flex;flex-direction:column;gap:10px;width:min(420px,calc(100% - 32px));border-radius:6px}
+.runtime-error-card strong{font-size:15px;color:#ffb7a1}
+.runtime-error-card p{margin:0;font-size:12px;line-height:1.6;color:#d5e4f8}
+.runtime-error-actions{display:flex;gap:8px;justify-content:flex-end}
+.warning-banner{display:flex;align-items:center;gap:14px;border-radius:6px;font-size:12px;line-height:1.6}
+</style>

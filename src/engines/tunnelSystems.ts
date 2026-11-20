@@ -189,19 +189,27 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
   const initializedSites=new Set<Model>()
   let alarmedModels:typeof models=[]
   let previous=performance.now()
+  const ANIMATE_DISTANCE=320
+  const scratchPos=new Cartesian3()
   const stopTick=viewer.scene.preUpdate.addEventListener(()=>{
-    const now=performance.now(),delta=Math.min((now-previous)/1000,.1);previous=now
+    const now=performance.now()
+    if(typeof document!=='undefined'&&document.hidden){previous=now;return}
+    const delta=Math.min((now-previous)/1000,.1);previous=now
+    const cameraPos=viewer.camera.positionWC
+    let needsRender=false
     for(const screen of screens)if(screen.type==='vms') {
       const display=deviceVms(screen.device,state)
       if(!display.enabled||display.scroll==='none')continue
+      const pos=screen.device.position??tunnelPoint(survey,screen.device.tube,screen.device.station,screen.device.lateral,screen.device.height)
+      if(Cartesian3.distance(cameraPos,pos)>ANIMATE_DISTANCE)continue
       const size=screen.surface.material.uniforms.contentSize as Cartesian2
       const offset=vmsOffset(display,size.x,size.y,(now-(screen.started??now))/1000)
       screen.surface.material.uniforms.offset=new Cartesian2(offset.x,offset.y)
-      viewer.scene.requestRender()
+      needsRender=true
     }
     for(const site of sites)if(site.structures.ready&&!initializedSites.has(site.structures)) {
       for(const name of ['structures / Anthracite board','structures / LED red']) {const node=site.structures.getNode(name);if(node)node.show=false}
-      initializedSites.add(site.structures);viewer.scene.requestRender()
+      initializedSites.add(site.structures);needsRender=true
     }
     for(const entry of models)if(entry.shutter&&entry.model.ready) {
       const target=deviceEnabled(entry.device,state)?.02:1
@@ -210,21 +218,30 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
         scale+=Math.sign(target-scale)*Math.min(Math.abs(target-scale),delta*.5)
         const node=entry.model.getNode('Curtain')
         if(node)node.matrix=Matrix4.multiplyByScale(node.originalMatrix,new Cartesian3(1,scale,1),new Matrix4())
-        shutterScales.set(entry.model,scale);viewer.scene.requestRender()
+        shutterScales.set(entry.model,scale);needsRender=true
       }
     }
     if(alarmedModels.length) {
-      const pulse=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0.5:(Math.sin(now/270)+1)/2
-      for(const entry of alarmedModels)entry.shader.setUniform('u_pulse',pulse)
-      viewer.scene.requestRender()
+      const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      const pulse=reduced?0.5:(Math.sin(now/270)+1)/2
+      for(const entry of alarmedModels){
+        if(!entry.model.ready)continue
+        const pos=Matrix4.getTranslation(entry.model.modelMatrix,scratchPos)
+        if(Cartesian3.distance(cameraPos,pos)>ANIMATE_DISTANCE)continue
+        entry.shader.setUniform('u_pulse',pulse)
+        if(!reduced)needsRender=true
+      }
     }
     for(const entry of models)if(entry.device.kind==='fan'&&entry.model.ready&&deviceEnabled(entry.device,state)&&deviceAlarm(entry.device.id,state)!=='fan') {
+      const pos=Matrix4.getTranslation(entry.model.modelMatrix,scratchPos)
+      if(Cartesian3.distance(cameraPos,pos)>ANIMATE_DISTANCE)continue
       const rotation=(fanRotations.get(entry.model)??0)+delta*12
       fanRotations.set(entry.model,rotation)
       const rotor=entry.model.getNode('fan_01_obj_00')
       if(rotor)rotor.matrix=Matrix4.multiply(rotor.originalMatrix,Matrix4.fromRotationTranslation(Matrix3.fromRotationX(rotation)),new Matrix4())
-      viewer.scene.requestRender()
+      needsRender=true
     }
+    if(needsRender)viewer.scene.requestRender()
   })
   function update(next: SystemsState): void {
     state=next

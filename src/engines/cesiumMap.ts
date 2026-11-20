@@ -5,10 +5,14 @@ import type { AssetRecord } from './projectConfig'
 // @env browser
 import { modelAssetUrl } from './modelAssets'
 import {
-  createWorldImageryAsync, createWorldTerrainAsync, ImageryLayer, BoundingSphere,
+  CesiumTerrainProvider, createWorldImageryAsync, createWorldTerrainAsync, EllipsoidTerrainProvider, ImageryLayer, BoundingSphere,
   Cartesian3, DirectionalLight, HeadingPitchRange, Ion, IonWorldImageryStyle, Math as CesiumMath, Matrix4, Transforms, Viewer,
-  Model, Axis, Matrix3, Credit, Cartographic, EasingFunction,
+  Model, Axis, Matrix3, Credit, Cartographic, EasingFunction, SingleTileImageryProvider, UrlTemplateImageryProvider,
+  WebMapServiceImageryProvider, WebMapTileServiceImageryProvider,
 } from 'cesium'
+import type { ImageryProvider, TerrainProvider } from 'cesium'
+import { loadRuntimeConfig } from '../config/runtimeConfig'
+import type { ImageryConfig, TerrainConfig } from '../config/runtimeConfig'
 import { addTunnelEvents } from './tunnelEvents'
 import { addIncidentEffects } from './incidentEffects'
 import { addDetectionCoverage } from './detectionCoverage'
@@ -17,6 +21,7 @@ import { addPortalBoards } from './portalBoards'
 import { addSceneOverlays } from './sceneOverlays'
 import { createLoadReporter } from './scenePresentation'
 import type { LoadProgress, OverlayPosition, PortalSignConfig, SceneOverlay, TrafficSignsConfig } from '../types/scene'
+import { addCameraGuard } from './cameraGuard'
 import { addDeviceInteraction, deviceHeight } from './deviceInteraction'
 import type { RoamingState, TunnelMapHandle } from '../types/tunnel'
 import { surveyTunnel } from './tunnelSurvey'
@@ -40,7 +45,15 @@ import { applyTunnelProject } from './projectApply'
 import { demoProject,readControlOverrides,saveControlOverrides,saveTunnelProject } from './projectStorage'
 
 export type IntroPhase = 'earth' | 'region' | 'overview' | 'portal' | 'complete'
+export interface SceneRuntimeError {
+  kind: 'webgl-lost' | 'render-error'
+  message: string
+  recoverable: boolean
+}
 export interface MapOptions {
+  onRuntimeConfig?: (config: import('../config/runtimeConfig').RuntimeConfig) => void
+  onRuntimeError?: (error: SceneRuntimeError | null) => void
+  onUndergroundChange?: (enabled: boolean) => void
   onPositionEdit?:(asset:AssetRecord|undefined)=>void
   onWarning?: (message:string) => void
   onSystems?: (state:SystemsState) => void
@@ -58,19 +71,41 @@ export interface MapOptions {
   onIntro?: (phase: IntroPhase) => void
   shouldSkipIntro?: () => boolean
 }
+async function createTerrainSource(config: TerrainConfig): Promise<TerrainProvider> {
+  if (config.type === 'ellipsoid') return new EllipsoidTerrainProvider()
+  if (config.type === 'url') return CesiumTerrainProvider.fromUrl(config.url, { requestVertexNormals: true })
+  return createWorldTerrainAsync({ requestVertexNormals: true })
+}
+
+async function createImagerySource(config: ImageryConfig): Promise<ImageryProvider> {
+  if (config.type === 'xyz') return new UrlTemplateImageryProvider({ url: config.url, maximumLevel: config.maximumLevel })
+  if (config.type === 'wmts') {
+    return new WebMapTileServiceImageryProvider({
+      url: config.url,
+      layer: config.layer,
+      style: config.style,
+      tileMatrixSetID: config.tileMatrixSetID,
+      maximumLevel: config.maximumLevel,
+    })
+  }
+  if (config.type === 'wms') return new WebMapServiceImageryProvider({ url: config.url, layers: config.layer })
+  if (config.type === 'single-tile') return SingleTileImageryProvider.fromUrl(config.url)
+  return createWorldImageryAsync({ style: IonWorldImageryStyle.AERIAL })
+}
+
 export async function createCesiumMap(container: HTMLDivElement, options: MapOptions = {}): Promise<TunnelMapHandle> {
   const saved=await readTunnelProject()
   let project=saved
   let originalProject:TunnelProject|undefined=await demoProject()
   const report=createLoadReporter(progress=>options.onProgress?.(progress))
-  report(2,'渲染引擎','Cesium 初始化')
+  report(2,'渲染引擎','Cesium 初始化与运行时配置')
   window.CESIUM_BASE_URL = new URL(`${import.meta.env.BASE_URL}cesium/`,document.baseURI).href
-  const token=import.meta.env.VITE_CESIUM_ION_TOKEN
-  if (!token) throw new Error('请在 .env.local 中配置 VITE_CESIUM_ION_TOKEN')
-  Ion.defaultAccessToken=token
+  const runtimeConfig=await loadRuntimeConfig(import.meta.env.BASE_URL,import.meta.env.VITE_CESIUM_ION_TOKEN??'')
+  options.onRuntimeConfig?.(runtimeConfig)
+  if (runtimeConfig.cesium.ionToken) Ion.defaultAccessToken=runtimeConfig.cesium.ionToken
   report(5,'地图资源','卫星影像与地形服务')
   const [provider,terrainProvider]=await Promise.all([
-    createWorldImageryAsync({style:IonWorldImageryStyle.AERIAL}),createWorldTerrainAsync({requestVertexNormals:true}),
+    createImagerySource(runtimeConfig.cesium.imagery),createTerrainSource(runtimeConfig.cesium.terrain),
   ])
   const viewer=new Viewer(container,{
     baseLayer:new ImageryLayer(provider),terrainProvider,baseLayerPicker:false,geocoder:false,homeButton:false,
@@ -78,6 +113,20 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     infoBox:false,selectionIndicator:false,shouldAnimate:true,requestRenderMode:true,maximumRenderTimeChange:Infinity,
     useBrowserRecommendedResolution:false,
   })
+  const onWebglContextLost=(event:Event)=>{
+    event.preventDefault()
+    options.onRuntimeError?.({
+      kind:'webgl-lost',
+      message:'WebGL 渲染上下文已丢失（可能是显卡驱动重置或显存不足），正在等待自动恢复；若长时间未恢复请重新加载场景。',
+      recoverable:true,
+    })
+  }
+  const onWebglContextRestored=()=>{
+    options.onRuntimeError?.(null)
+    if(!viewer.isDestroyed())viewer.scene.requestRender()
+  }
+  viewer.canvas.addEventListener('webglcontextlost',onWebglContextLost,false)
+  viewer.canvas.addEventListener('webglcontextrestored',onWebglContextRestored,false)
   viewer.creditDisplay.addStaticCredit(new Credit(`<a href="${import.meta.env.BASE_URL}model-credits.html" target="_blank" rel="noopener">模型署名</a>`,true))
   function globeCamera():Cartesian3 {
     const origin=project?.origin
@@ -141,6 +190,12 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   viewer.scene.globe.maximumScreenSpaceError=1.5
   viewer.resolutionScale=1
   viewer.scene.postProcessStages.fxaa.enabled=true
+  if(!model.clippingSupported){
+    viewer.scene.globe.translucency.enabled=true
+    model.setUnderground(true)
+    options.onUndergroundChange?.(true)
+    options.onWarning?.('当前显卡或浏览器不支持洞口地形裁切（Clipping Polygons），已自动切换为地下透明观察模式')
+  }
   let effects=addIncidentEffects(viewer,survey)
   report(91,'演练资源','事故车辆与效果资源')
   let incidentCars:Model[]
@@ -148,7 +203,8 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     incidentCars=await Promise.all(['car-audi','car-blue','car-white','car-orange','car-blue'].map(asset=>Model.fromGltfAsync({url:modelAssetUrl(asset),upAxis:Axis.Y,forwardAxis:Axis.X,show:false})))
     for(const car of incidentCars)viewer.scene.primitives.add(car)
   } catch(error){traffic?.dispose();systems.dispose();viewer.destroy();throw error}
-  let roaming=false,roamDistance=-220,roamTube:0|1=0,roamSpeed=60,previousFrame=0,introGeneration=0,disposed=false,lastReport=0
+  let roaming=false,roamDistance=-220,roamTube:0|1=0,roamSpeed=60,previousFrame=0,introGeneration=0,introPlaying=false,disposed=false,lastReport=0
+  const cameraGuard=addCameraGuard({viewer,getSurvey:()=>survey,isRoaming:()=>roaming,isIntroPlaying:()=>introPlaying,isUnderground:()=>viewer.scene.globe.translucency.enabled,isWallsVisible:()=>wallsVisible})
   function travelOf(tube:number):1|-1 {return lanePositions(survey,tube)[0]?.direction===-1?-1:1}
   function rightLane(tube:number):number {
     const direction=travelOf(tube),lanes=lanePositions(survey,tube)
@@ -189,7 +245,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     viewer.scene.requestRender()
   })
   reportRoaming()
-  function cancelIntro():void {introGeneration++;viewer.camera.cancelFlight();options.onIntro?.('complete')}
+  function cancelIntro():void {introGeneration++;introPlaying=false;viewer.camera.cancelFlight();options.onIntro?.('complete')}
   function stopCamera():void {cancelIntro();roaming=false;reportRoaming()}
   function look(point:Cartesian3,heading:number,pitch:number,range:number):void {
     viewer.camera.lookAt(point,new HeadingPitchRange(CesiumMath.toRadians(heading),CesiumMath.toRadians(pitch),range))
@@ -200,7 +256,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   function playIntro():void {
     stopCamera()
     if(window.matchMedia('(prefers-reduced-motion: reduce)').matches || options.shouldSkipIntro?.()) {focusPortal();return}
-    const generation=++introGeneration
+    const generation=++introGeneration;introPlaying=true
     viewer.camera.setView({destination:globeCamera()})
     options.onIntro?.('earth')
     const stages: {phase:IntroPhase;point:Cartesian3;range:number;heading:number;pitch:number;duration:number}[]=[
@@ -211,10 +267,10 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     function next(index:number):void {
       if(disposed || generation!==introGeneration)return
       const stage=stages[index]
-      if(!stage){options.onIntro?.('complete');return}
+      if(!stage){introPlaying=false;options.onIntro?.('complete');return}
       options.onIntro?.(stage.phase)
       viewer.camera.flyToBoundingSphere(new BoundingSphere(stage.point,1),{duration:stage.duration,
-        offset:new HeadingPitchRange(CesiumMath.toRadians(stage.heading),CesiumMath.toRadians(stage.pitch),stage.range),complete:()=>next(index+1),cancel:()=>{if(generation===introGeneration)options.onIntro?.('complete')}})
+        offset:new HeadingPitchRange(CesiumMath.toRadians(stage.heading),CesiumMath.toRadians(stage.pitch),stage.range),complete:()=>next(index+1),cancel:()=>{if(generation===introGeneration){introPlaying=false;options.onIntro?.('complete')}}})
     }
     next(0)
   }
@@ -263,7 +319,16 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       })
       viewer.scene.requestRender()
     })
-  } catch(error){stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect();viewer.destroy();throw error}
+  } catch(error){cameraGuard.dispose();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect();viewer.destroy();throw error}
+  const stopRenderError=viewer.scene.renderError.addEventListener((_scene:unknown,err:Error)=>{
+    if(disposed)return
+    stopCamera()
+    options.onRuntimeError?.({
+      kind:'render-error',
+      message:`三维场景渲染异常：${err?.message||String(err)}`,
+      recoverable:false,
+    })
+  })
   report(100,'场景就绪','模型与资源初始化完成')
   playIntro()
   let editing:{original:AssetRecord;draft:AssetRecord;gizmo:ReturnType<typeof positionGizmo>}|undefined
@@ -414,6 +479,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     },
     focusDevice,
     setRoaming(enabled:boolean) {cancelIntro();roaming=enabled;if(enabled){previousFrame=performance.now();moveRoaming()}reportRoaming()},
+    setCameraGuardEnabled(enabled:boolean) { cameraGuard.setEnabled(enabled) },
     setWallsVisible(visible:boolean) { wallsVisible=visible;model.setWallsVisible(visible) },
     setUnderground(enabled:boolean) {viewer.scene.globe.translucency.enabled=enabled;model.setUnderground(enabled);viewer.scene.requestRender()},
     focusLayBy() {stopCamera();const bay=projectLayBy(survey,0);viewer.camera.setView({destination:tunnelPoint(survey,0,bay.start-17,-1.5,2.2),orientation:{heading:CesiumMath.toRadians(96),pitch:-.015,roll:0}});viewer.scene.requestRender()},
@@ -421,7 +487,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     focusInterior(crossPassage=false) {stopCamera();viewer.camera.setView({destination:tunnelPoint(survey,0,crossPassage?(layoutPassages(survey,0).find(p=>p.vehicle)?.station??survey.length*.5):survey.length*.25-25,0,1.8),
       orientation:{heading:CesiumMath.toRadians((survey.heading??90)-(crossPassage?90:0)),pitch:crossPassage?0:Math.atan(survey.grade/100),roll:0}});viewer.scene.requestRender()},
     dispose() {
-      disposed=true;introGeneration++;editing?.gizmo.dispose();detection.dispose();events.dispose();model.dispose();stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect()
+      disposed=true;introGeneration++;introPlaying=false;cameraGuard.dispose();stopRenderError();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);editing?.gizmo.dispose();detection.dispose();events.dispose();model.dispose();stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect()
       if(!viewer.isDestroyed()){viewer.camera.cancelFlight();const context=viewer.canvas.getContext('webgl2')??viewer.canvas.getContext('webgl');viewer.destroy();context?.getExtension('WEBGL_lose_context')?.loseContext()}
     },
   }

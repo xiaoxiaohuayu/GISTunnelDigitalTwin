@@ -1,0 +1,24 @@
+{
+  "cesium": {
+    "ionToken": "",
+    "terrain": {
+      "type": "ion",
+      "url": ""
+    },
+    "imagery": {
+      "type": "ion",
+      "url": "",
+      "layer": "",
+      "style": "default",
+      "tileMatrixSetID": "",
+      "maximumLevel": 18
+    }
+  },
+  "dataMode": "mock",
+  "apiBaseUrl": "",
+  "wsUrl": "",
+  "auth": {
+    "defaultRole": "admin"
+  },
+  "streams": {}
+}

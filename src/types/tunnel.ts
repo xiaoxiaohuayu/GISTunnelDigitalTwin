@@ -40,6 +40,7 @@ export interface TunnelMapHandle extends EngineHandle {
   playIntro: () => void
   skipIntro: () => void
   setRoaming: (enabled: boolean) => void
+  setCameraGuardEnabled: (enabled: boolean) => void
   setWallsVisible: (visible: boolean) => void
   setUnderground: (enabled: boolean) => void
   focusLayBy: () => void

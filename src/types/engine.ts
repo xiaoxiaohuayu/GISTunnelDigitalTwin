@@ -4,4 +4,3 @@ export interface EngineHandle {
 }
 
 export type EngineFactory<T extends EngineHandle = EngineHandle> = (container: HTMLDivElement) => T | Promise<T>
-export type WorkspaceMode = 'scene' | 'map'

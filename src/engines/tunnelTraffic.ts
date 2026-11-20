@@ -34,9 +34,29 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
   const rotation = Matrix3.fromRotationY(-Math.atan(survey.grade / 100))
   function update(): void {
     const now = performance.now()
+    if (typeof document !== 'undefined' && document.hidden) {
+      previous = now
+      return
+    }
+    const cameraPos = viewer.camera.positionWC
+    const maxRelevantDistance = survey.length * 0.5 + 260 + trafficShowDistance
+    if (Cartesian3.distance(cameraPos, survey.center) > maxRelevantDistance) {
+      previous = now
+      let visibilityChanged = false
+      for (const car of cars) {
+        if (car.model.show) {
+          car.model.show = false
+          visibilityChanged = true
+        }
+      }
+      if (visibilityChanged) viewer.scene.requestRender()
+      return
+    }
     // Clamp time after backgrounding so traffic does not jump across a camera.
     const delta = Math.min((now - previous) / 1000, 0.1)
     previous = now
+    let anyVisible = false
+    let visibilityChanged = false
     for (const car of cars) {
       const span=(survey.project?boreLength(survey.project.bores[car.tube]!):survey.length)+380
       const state=getState()
@@ -52,19 +72,26 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
         if(car.direction*(oldStation-queue)<=0&&car.direction*(station-queue)>=0){car.held=queue;car.stop=stop;station=queue;break}
       }
       car.progress=car.direction===1?station+220:span-station-220
-      setEquipmentLighting(car.model,illuminationAt(station,survey.length,state))
       const lateral = car.lateral
       const point = tunnelPoint(survey, car.tube, station, lateral, 0.25)
       car.station=station
       Cartesian3.clone(tunnelPoint(survey,car.tube,station,lateral,2.1),car.position)
-      const bearing = Matrix3.multiply(rotation,
-        Matrix3.fromRotationZ(car.direction === 1 ? 0 : Math.PI), new Matrix3())
-      car.model.modelMatrix = Matrix4.multiply(surveyFrame(survey,point),
-        Matrix4.fromRotationTranslation(bearing), new Matrix4())
       // Keep invisible traffic from consuming draw calls in distant overview views.
-      car.model.show = Cartesian3.distance(viewer.camera.positionWC, point) < trafficShowDistance
+      const visible = Cartesian3.distance(cameraPos, point) < trafficShowDistance
+      if (car.model.show !== visible) {
+        car.model.show = visible
+        visibilityChanged = true
+      }
+      if (visible) {
+        anyVisible = true
+        setEquipmentLighting(car.model,illuminationAt(station,survey.length,state))
+        const bearing = Matrix3.multiply(rotation,
+          Matrix3.fromRotationZ(car.direction === 1 ? 0 : Math.PI), new Matrix3())
+        car.model.modelMatrix = Matrix4.multiply(surveyFrame(survey,point),
+          Matrix4.fromRotationTranslation(bearing), new Matrix4())
+      }
     }
-    viewer.scene.requestRender()
+    if (anyVisible || visibilityChanged) viewer.scene.requestRender()
   }
   update()
   const removeTick = viewer.scene.preUpdate.addEventListener(update)

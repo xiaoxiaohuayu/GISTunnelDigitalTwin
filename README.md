@@ -1,145 +1,78 @@
-# 隧道数字孪生基础工程
+# 隧道数字孪生前端系统（Tunnel Digital Twin）
 
-Vue 3 + TypeScript + Vite + Three.js + Cesium。当前完成双引擎运行基础、真实山区地形与 GIS 地下双洞几何样板，已增加程序化洞门、联络通道和设施示意，不包含精细贴图资产、设备事件、数据看板或真实监测接口。
+基于 **Vue 3 + TypeScript + Vite + Cesium + Element Plus（按需引入）** 构建的公路双洞隧道数字孪生前端工程。支持地球到洞口的四段式入场、程序化可配置双洞/联络通道/停车带建模、28+ 类机电与交通设施三维实景、设备点选与 3D 位置拖拽调整、交通/设备事件演练联动、CSV 台账与配置包导入导出，以及**运行时离线底图/地形切换、双轨遥测/控制适配、三级角色权限、高危操作二次确认与视频流监控**。
 
-## 本地启动
+## 环境要求
 
-需要 Node.js 22.12+ 和 pnpm 10.6.3。依赖版本记录在 `pnpm-lock.yaml`。
+- Node.js `>= 22.12.0`
+- pnpm `10.6.3`（依赖锁定于 `pnpm-lock.yaml`）
+- 现代浏览器（需支持 WebGL2；不支持 Cesium Clipping Polygons 的显卡将自动降级为地下透明观察模式）
+
+## 快速启动
 
 ```bash
-pnpm install --frozen-lockfile
-# 首次配置：复制 .env.example 为 .env.local 并填写 Cesium ion Token
+pnpm install
+# 方式一（推荐）：在 public/config.json 中填写 cesium.ionToken 或离线地形/影像地址
+# 方式二：复制 .env.example 为 .env.local 并填写 VITE_CESIUM_ION_TOKEN
 pnpm dev
 ```
 
-访问 http://127.0.0.1:5180/ 。使用 5180 是因为本机 5173 已有其他服务。仅监听本机地址，端口占用时明确报错，不自动跳转端口。
+开发服务默认监听 5180 端口（端口占用时直接报错，不自动漂移）。
 
 ```bash
-pnpm typecheck
-pnpm build
-pnpm preview --port 4180
-pnpm ci
+pnpm typecheck   # vue-tsc + tsconfig.node.json 类型检查
+pnpm test        # 运行 tests/*.test.ts 单元测试
+pnpm build       # 类型检查 + 生产构建（输出到 dist/）
+pnpm preview     # 预览生产构建产物
 ```
 
-`typecheck` 同时检查 Vue SFC 和 Vite 配置。`build` 先做类型检查，产物在 `dist/`。当前 `ci` 执行类型检查和生产构建，不代表自动化浏览器测试。Vite 能运行不等于 Vue 类型检查通过。
+## 核心功能
 
-TypeScript 固定使用 5.9.x。初始化时实测 TypeScript 7.0.2 与 vue-tsc 3.3.13 不兼容，错误为 `Package subpath './lib/tsc' is not defined by "exports"`。不要未经验证直接升级到 TypeScript 7。
+- **空间与建模**：支持单洞/双洞、多车道与独立行车方向、人行/车行横洞、紧急停车带、洞口门楣与交通标志定制，以及洞口遮雨棚、隧道墙体和地下透明结构切换。
+- **设备与交互**：覆盖交通、照明、通风、通信、消防、环境监测与设施 7 大类三维模型；支持三维点选、分类/桩号/状态检索、3D Gizmo 拖拽微调位置与台账联动更新。
+- **双轨数据与控制适配层（`src/services/`）**：
+  - 默认运行于 `mock` 本地演示模式，所有读数与告警明确标注“本地模拟”。
+  - 在 `public/config.json` 中切换 `dataMode: "live"` 并配置 `wsUrl` / `apiBaseUrl` 后，自动启用 WebSocket 实时遥测（带指数退避重连）与 HTTP 控制网关（带 `X-Command-Id` 幂等键与超时保护）。
+- **权限、安全与审计**：
+  - 支持 `viewer`（只读观察）、`operator`（调度运维）、`admin`（系统管理）三级角色，可通过 `config.json` 的 `auth.defaultRole` 或 URL 参数 `?role=viewer|operator|admin` 切换。
+  - 关闭横洞卷帘门、入口信号切红灯、车道切红叉等高危单控需二次确认，所有控制指令均记录到系统控制面板底部的操作审计记录。
+- **监控视频与巡检漫游**：支持按摄像机 ID 配置实时视频流地址（`config.json` 中 `streams` 字段），并在视频流与三维模拟视角间切换；支持双向、变速、暂停/拖动进度的洞内巡检漫游。
+- **运行时容错与性能优化**：
+  - 内置 `webglcontextlost` / `webglcontextrestored` 与持久 `renderError` 恢复卡片。
+  - Element Plus 按需引入、配置编辑器与标牌编辑器异步懒加载、Vite `manualChunks` 拆分引擎与依赖包；远景与后台标签页自动休眠按需渲染循环。
 
-## 当前可操作功能
-
-- 三维场景：网格、坐标轴、测试物体、OrbitControls、重置视角。
-- GIS 地图：Cesium World Terrain 真实山体、卫星影像、倾斜观察与返回山区。
-- 两个模式按需加载，切换时卸载旧组件；引擎不进入 Vue 深层响应式系统。
-- Three.js 清理动画循环、ResizeObserver、控制器、几何、材质和 WebGL 上下文。
-- Cesium 销毁 Viewer、ResizeObserver 和 WebGL 上下文。异步初始化完成前离开页面也会清理返回的实例。
-- 初始化失败与模块加载失败分别有提示。
-
-GIS 使用 Cesium ion 提供的 World Terrain 和 AERIAL 影像，需要网络及有资产访问权限的 Token。配置项为 `.env.local` 中的 `VITE_CESIUM_ION_TOKEN`，该文件已被忽略；`.env.example` 仅记录变量名。Vite 的客户端环境变量会进入浏览器构建产物，部署时应使用限制来源和必要读取权限的公开客户端 Token。
-
-初始视角为青城山周边演示山区，不代表视频中的真实隧道位置。山体使用真实地形，不做高度夸张；尚未接入工程模型和地理锚点。缺少 Token 或初始化失败时显示错误，不静默退回平面地球。
-
-## 文件职责
+## 目录结构
 
 ```text
+public/
+  config.json                       运行时配置（无需重新打包即可修改地形/影像/接口/权限/视频流）
+  model-credits.html                第三方 3D 模型署名
+  textures/                         路面、墙面与地表贴图
 src/
-  App.vue                      应用壳、模式切换、引擎组件懒加载
-  main.ts                      Vue 启动入口
-  style.css                    全局基础布局与视口公共样式
-  env.d.ts                     Cesium 资源地址的 Window 类型
+  App.vue                           应用壳（ElConfigProvider 中文语言包 + 异步主视口）
+  main.ts                           入口与 Element Plus 按需注册
+  plugins/elementPlus.ts            Element Plus 按需组件与样式清单
+  config/runtimeConfig.ts           运行时配置加载、合并与校验
+  services/                         数据、控制、权限与审计适配层
+    types.ts                        遥测与控制契约类型
+    telemetryProvider.ts            Mock / WebSocket 遥测实现
+    controlGateway.ts               Mock / HTTP 控制网关实现
+    auth.ts                         三级角色权限解析
+    auditLog.ts                     高危二次确认文案与操作审计记录
   components/
-    ThreeViewport.vue          三维容器、初始化状态、重置操作
-    CesiumViewport.vue         地图容器、初始化状态、重置操作
-    ViewportLoading.vue        异步组件加载状态
-    ViewportError.vue          异步组件加载失败状态
-  composables/useEngine.ts     挂载、异步竞态和卸载生命周期
-  engines/threeScene.ts         Three.js 场景及资源所有权
-  engines/cesiumMap.ts          Cesium Viewer、底图、相机和资源释放
-  types/engine.ts              最小引擎接口和模式类型
-src/assets/modelAssets/        按类别归档的运行时 GLB
-blendFile/                     Blender 原始、处理后及场景源文件
-modelSources/                  FBX、OBJ、glTF 和纹理等导入资源
+    CesiumViewport.vue              主视口与面板编排
+    CameraPlayer.vue                实时视频流 / 三维模拟视角播放器
+    DeviceExplorer.vue              设备分类检索与定位
+    DeviceInspector.vue             设备详情、实时/模拟读数与单控
+    SystemsControls.vue             环境照明策略、单控与操作审计
+    EventConsole.vue                交通/设备事件演练与处置记录
+    configuration/                  隧道配置、洞筒编辑、台账与配置包导入导出
+  engines/                          Cesium 场景、地形、设备、车流、光照与持久化核心引擎
+docs/
+  DEPLOYMENT.md                     离线部署、Nginx 配置、接口契约与交付验收清单
+tests/                              Node 原生 TypeScript 单元测试
 ```
 
-当前只有两个模式，使用组件状态切换，无需先引入 Router、Pinia 或通用插件体系。后续需要可分享 URL、深层业务状态时再增加。
+## 部署与联调
 
-## Cesium 资源和部署
-
-`vite.config.ts` 用 `vite-plugin-static-copy` 将 Cesium 的 Workers、Assets、Widgets、ThirdParty 提供到 `cesium/`。开发和生产均使用同一 URL 布局。
-
-插件 4.x 默认保留源目录结构，这里使用 `rename.stripBase: 4` 去掉 `node_modules/cesium/Build/Cesium` 前缀，避免请求 XML 实际收到 SPA 的 HTML。
-
-`window.CESIUM_BASE_URL` 在创建 Viewer 前设置为基于当前页面的绝对资源地址。Vite `base: './'` 支持静态子目录部署，发布时需要复制整个 `dist/`，不能只取 JS 文件。以 HTTP 服务访问，不直接双击 HTML。
-
-Cesium 与 Three.js 已按视口分包。生产构建仍会提示大于 500 kB 的包，主要是引擎自身代码；未通过提高阈值隐藏警告。后续依据实际加载时间决定是否进一步优化。
-
-## 后续接入位置
-
-1. Blender 导出的 GLB 放进 `src/assets/modelAssets/`，通过 `modelAssetUrl()` 加载；源 `.blend` 统一放在 `blendFile/`。详见[模型资产说明](src/assets/modelAssets/README.md)。
-2. 在 `threeScene.ts` 接入模型加载，模型拥有者负责纹理、材质、几何和动画资源的释放。
-3. 模型稳定后再添加设备 ID、拾取、高亮、事件与漫游，不把业务逻辑堆进 `App.vue`。
-4. 确认地理资料后，在独立数据文件中定义地理锚点与坐标约定，再连接地图和局部场景。
-
-[视频还原方案](docs/隧道数字孪生_视频还原方案.md)记录后续完整目标，当前工程只完成基础阶段。
-
-## 本次验证记录
-
-2026-10-20：
-
-- `pnpm build` 通过，包含 Vue 和 Vite 配置的 TypeScript 检查。
-- ego-browser 实测开发服务和生产预览，三维网格与地球底图均正常显示。
-- 生产页面 5 轮双引擎往返切换，跟踪的 10 个 WebGL 上下文最后只有当前场景 1 个有效，DOM 只有 1 个 Canvas。
-- 同轮验证未捕获 window error / unhandledrejection，资源请求无 HTTP 4xx/5xx。
-- 两个视口在 1280×720 容器内正确适配为 1280×606 Canvas，其余高度用于头部和页脚；重置视角可操作。
-- 未执行长时间 GPU/内存压力测试，也未验证真实模型和多路视频性能。
-
-[三维运行截图](docs/foundation-three.png) · [GIS 运行截图](docs/foundation-cesium.png)
-
-### 山体接入验证
-
-已接入 World Terrain 和 AERIAL，开发页面实测加载 131 个地形瓦片请求，未发现 HTTP 4xx/5xx；类型检查和生产构建通过。已目视检查山脊、沟谷起伏及影像贴合，山区复位按钮可用。该次数仅为当前视角记录，不是性能指标。
-
-[山体实际运行截图](docs/gis-mountain.png)
-
-## 山体内双洞初版
-
-GIS 已增加地形约束的演示双洞，不需要 Blender 资产即可检查地下空间位置。
-
-- `src/engines/tunnelSurvey.ts` 在青城山演示区域采样 9 条横向候选断面，每条 65 点，间距 50 m；选择纵坡不超过 4%、主体有足够覆土的直线候选。
-- 按双洞中心距 24 m，再对两洞中心和左右外缘分别采样验证。断面外宽 12 m、内宽 11 m，拱顶相对路面最高 8.5 m。
-- 两端各 100 m 作为洞口过渡范围，不计入主体覆土指标。该采样不是连续地形碰撞证明，不替代测绘、地质和工程设计。
-- 当前服务数据实测：单洞 1.90 km，纵坡 1.42%，主体最小采样覆土 36.3 m。上游地形数据变化后结果可能变化。
-- `tunnelModel.ts` 创建空心拱形衬砌和路面，衬砌使用灰色混凝土示意；洞口采用局部地形裁切、底板和两侧挡墙。精细化进展见下文。
-- 默认完整山体遮挡地下主体。点击“查看地下隧道”开启地形透明观察，再点击恢复；“查看洞口”和“隧道全景”切换观察位置。
-- 需要支持 Cesium clipping polygons 的 WebGL 环境才能显示洞口局部开挖；不支持时仍能使用透明地形查看地下主体。
-
-当前只是 GIS 地下几何样板，不是视频完整还原，不涉及低代码编辑功能。
-
-本次地下隧道验证：类型检查和生产构建通过；浏览器中完整山体遮挡、地形透明、洞口定位和全景复位可操作，未捕获运行错误或 HTTP 失败。截图：[完整山体](docs/tunnel-mountain.png)、[地下双洞](docs/tunnel-underground.png)、[洞口初版](docs/tunnel-portal.png)。洞口目前为简化开挖结构，需后续细化洞门、道路衔接和开挖边界。
-
-## 洞口、联络通道和设施细化
-
-2026-10-21：在原线路两端各延长 60 m 明洞，路面延伸到原端点外 160 m，包含洞门拱圈、立柱、限高牌、车道虚线、边线及人行道。洞口挡墙保留两侧，前后端开放。接线末端目前截断于演示开挖范围，尚未与现实道路和边坡连续衔接。
-
-在主体 25%、50%、75% 桩号处增加 3 条人行联络通道。净宽 4 m、净高约 2.3 m，两洞相邻洞壁及人行道留口，横通道可直接看到另一洞路面。这里没有设置防火门，位置与尺寸是演示参数，不代表工程疏散设计。
-
-`src/engines/tunnelDetails.ts` 管理沿线定位和设施。灯具间距 25 m，消防箱及疏散标识间距 100 m，双风机组间距 300 m。风机目前是简化箱体，灯具使用亮色几何，不产生真实照明，设施没有运行状态或监测数据。批量静态盒体合并到一个 Cesium Primitive，避免为每个部件建立 Entity。
-
-新增“洞内视角”和“联络通道”按钮；洞内相机允许进入地形以下。默认完整山体遮挡地下主体，透明模式仍可查看双洞及横通道。联络通道是人行连通，不是上下行车辆调头车道。
-
-验证：`pnpm build` 通过。ego-browser 已目视检查洞内、横通道开口及洞门接线路面，初轮检查无 window error / unhandledrejection。仍有 Cesium/Three.js 包体积提示，未进行长时间压力测试。当前属于程序化几何细化，尚未达到参考视频的 1:1 美术还原。
-
-截图：[洞口延伸](docs/tunnel-portal-detail.png)、[洞内设施](docs/tunnel-interior-detail.png)、[联络通道](docs/tunnel-cross-passage.png)。
-
-### 洞口山体裁切修正
-
-原开挖矩形横跨双洞并深入原端点内 100 m，导致近景出现大面积长槽和外露拱顶。现改为每洞各 15 m 宽的独立入口裁切，在原端点处停止，保留双洞之间与主体上方的地形。外露的 60 m 延长明洞仍可见。洞外接线与挡墙仍为简化示意，未完成精细边坡衔接。
-
-本次 `pnpm build` 通过；ego-browser 等待近景地形瓦片加载后，确认完整山体模式遮挡后方主体，未捕获运行异常。[修正后洞口](docs/tunnel-portal-terrain-fix.png)。
-
-## Three.js 精细样板
-
-局部三维场景已替换基础网格，新增 120 m 双洞样板。`src/engines/tunnelSample.ts` 生成可重复的衬砌环缝、路面和标线、检修道、墙面板、桥架、连续灯具、消防箱、限高与疏散标牌、带叶片与支架的圆筒风机，以及有实际开口的人行联络通道。`threeScene.ts` 为洞外和洞内设置独立的光照和雾效，风机叶片持续旋转。
-
-三维页面提供洞口、洞内和联络通道三个固定观察位置。局部山体仅用于洞口构图，真实地形和隧道定位仍在 GIS 页面查看。样板使用程序化网格和生成纹理，尚未加载 Blender 制作的 GLB，也没有使用真实工程断面、设施型号或材质贴图。
-
-验证：`pnpm build` 通过。ego-browser 实测三个视角均可切换，未捕获 `window error` 或 `unhandledrejection`。截图：[洞口样板](docs/sample-portal.png)、[洞内样板](docs/sample-interior.png)、[联络通道](docs/sample-passage.png)。
+完整的 `public/config.json` 配置说明、内网离线地形/影像部署、Nginx 缓存与代理模板、WebSocket/HTTP 联调协议及上线验收清单，请参见 [部署与联调手册](docs/DEPLOYMENT.md)。
