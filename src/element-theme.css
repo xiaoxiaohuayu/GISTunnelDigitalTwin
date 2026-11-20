@@ -1,33 +1,38 @@
 html.dark {
-  --el-color-primary: #3c8fd6;
-  --el-color-primary-light-3: #6cbaff;
-  --el-color-primary-light-5: #2c649c;
-  --el-color-primary-light-7: #1c426c;
-  --el-color-primary-light-8: #173552;
-  --el-color-primary-light-9: #122844;
-  --el-color-primary-dark-2: #8acaff;
-  --el-color-danger: #e07a68;
-  --el-color-warning: #e0a45a;
-  --el-bg-color: #111b3b;
-  --el-bg-color-overlay: #101c38;
+  --el-color-primary: #4ca6ff;
+  --el-color-primary-light-3: #78c4ff;
+  --el-color-primary-light-5: #3678b8;
+  --el-color-primary-light-7: #1f4b7a;
+  --el-color-primary-light-8: #17375b;
+  --el-color-primary-light-9: #102642;
+  --el-color-primary-dark-2: #8fd0ff;
+  --el-color-success: #45d19e;
+  --el-color-warning: #f0b15b;
+  --el-color-danger: #f07b6b;
+
+  --el-bg-color: #0d1730;
+  --el-bg-color-overlay: rgba(11, 21, 46, 0.92);
   --el-bg-color-page: #070d20;
   --el-text-color-primary: #edf4ff;
-  --el-text-color-regular: #d5e4f8;
-  --el-text-color-secondary: #abbfdc;
-  --el-text-color-placeholder: #7e96b8;
-  --el-border-color: #3c5178;
-  --el-border-color-light: #344c78;
-  --el-border-color-lighter: #2c4268;
-  --el-fill-color: #162844;
-  --el-fill-color-light: #1a3054;
-  --el-fill-color-blank: #111f3c;
-  --el-mask-color: rgba(7, 13, 32, .72);
-  --el-border-radius-base: 4px;
+  --el-text-color-regular: #d4e3f8;
+  --el-text-color-secondary: #a2b8d8;
+  --el-text-color-placeholder: #738bad;
+  --el-border-color: rgba(120, 174, 240, 0.24);
+  --el-border-color-light: rgba(120, 174, 240, 0.18);
+  --el-border-color-lighter: rgba(120, 174, 240, 0.12);
+  --el-fill-color: rgba(20, 38, 74, 0.72);
+  --el-fill-color-light: rgba(26, 48, 92, 0.82);
+  --el-fill-color-blank: rgba(11, 22, 46, 0.78);
+  --el-mask-color: rgba(5, 10, 24, 0.74);
+  --el-border-radius-base: 7px;
   --el-font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
 }
 
 button.el-button {
   font-family: inherit;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease, transform 0.16s ease;
 }
 
 .scene-actions button.el-button,
@@ -45,12 +50,13 @@ button.el-button {
   width: auto;
   height: auto;
   min-height: 32px;
-  padding: 8px 14px;
-  background-color: var(--el-button-bg-color);
-  border: 1px solid var(--el-button-border-color);
-  color: var(--el-button-text-color);
-  box-shadow: none;
-  line-height: 1.2;
+  padding: 7px 14px;
+  border-radius: 8px;
+  background: rgba(18, 34, 68, 0.64);
+  border: 1px solid rgba(122, 178, 245, 0.22);
+  color: #dcecff;
+  box-shadow: inset 0 1px 0 rgba(210, 234, 255, 0.08);
+  line-height: 1.25;
 }
 
 .scene-actions button.el-button:hover:not(:disabled),
@@ -65,28 +71,78 @@ button.el-button {
 .monitor-view button.el-button:hover:not(:disabled),
 .scene-loading button.el-button:hover:not(:disabled),
 .position-editor button.el-button:hover:not(:disabled) {
-  background-color: var(--el-button-hover-bg-color);
-  border-color: var(--el-button-hover-border-color);
-  color: var(--el-button-hover-text-color);
+  background: rgba(31, 60, 112, 0.84);
+  border-color: rgba(108, 186, 255, 0.56);
+  color: #ffffff;
+  box-shadow: 0 0 16px rgba(76, 166, 255, 0.2), inset 0 1px 0 rgba(220, 240, 255, 0.16);
+}
+
+button.el-button.el-button--primary:not(.is-plain):not(.is-text) {
+  background: linear-gradient(135deg, rgba(46, 126, 214, 0.94), rgba(74, 152, 238, 0.92));
+  border-color: rgba(132, 204, 255, 0.72);
+  color: #ffffff;
+  box-shadow: 0 4px 16px rgba(46, 134, 230, 0.34), inset 0 1px 0 rgba(255, 255, 255, 0.26);
+}
+
+button.el-button.el-button--primary:not(.is-plain):not(.is-text):hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(60, 144, 234, 0.98), rgba(96, 174, 255, 0.96));
+  border-color: rgba(168, 222, 255, 0.9);
+  box-shadow: 0 6px 22px rgba(76, 166, 255, 0.44), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+}
+
+button.el-button.el-button--warning {
+  background: rgba(112, 69, 26, 0.54);
+  border-color: rgba(240, 177, 91, 0.52);
+  color: #ffdfa8;
+}
+
+button.el-button.el-button--warning:hover:not(:disabled) {
+  background: rgba(145, 89, 32, 0.74);
+  border-color: rgba(255, 198, 114, 0.8);
+  color: #fff3da;
+  box-shadow: 0 0 16px rgba(240, 177, 91, 0.26);
+}
+
+button.el-button.el-button--danger {
+  background: rgba(118, 40, 44, 0.48);
+  border-color: rgba(240, 123, 107, 0.5);
+  color: #ffc2b8;
+}
+
+button.el-button.el-button--danger:hover:not(:disabled) {
+  background: rgba(152, 50, 56, 0.72);
+  border-color: rgba(255, 148, 134, 0.82);
+  color: #ffe4df;
+  box-shadow: 0 0 16px rgba(240, 123, 107, 0.26);
 }
 
 .scene-panel > header button.el-button,
 .device-inspector header button.el-button,
 .roaming-controls header button.el-button {
-  width: 32px;
-  min-height: 32px;
+  width: 30px;
+  min-height: 30px;
   padding: 0;
-  background: transparent;
-  border-color: transparent;
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(154, 198, 255, 0.14);
+  color: #b5cbe7;
   font-size: 18px;
+}
+
+.scene-panel > header button.el-button:hover:not(:disabled),
+.device-inspector header button.el-button:hover:not(:disabled),
+.roaming-controls header button.el-button:hover:not(:disabled) {
+  background: rgba(108, 186, 255, 0.16);
+  border-color: rgba(108, 186, 255, 0.44);
+  color: #ffffff;
 }
 
 .viewport-tools button.el-button,
 .event-grid button.el-button,
-.event-tabs button.el-button,
 .alarm-options button.el-button {
-  min-height: 32px;
-  padding: 7px 10px;
+  min-height: 31px;
+  padding: 6px 11px;
+  font-size: 12px;
 }
 
 .project-editor .el-input,
@@ -123,6 +179,63 @@ input.el-select__input {
   border-radius: 0;
 }
 
+.el-input__wrapper,
+.el-select__wrapper,
+.el-textarea__inner {
+  background-color: rgba(9, 18, 39, 0.82) !important;
+  box-shadow: 0 0 0 1px rgba(118, 174, 240, 0.24) inset !important;
+  border-radius: 7px !important;
+  transition: box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.el-input__wrapper:hover,
+.el-select__wrapper:hover,
+.el-textarea__inner:hover {
+  box-shadow: 0 0 0 1px rgba(124, 194, 255, 0.48) inset !important;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focused,
+.el-textarea__inner:focus {
+  background-color: rgba(13, 26, 56, 0.92) !important;
+  box-shadow: 0 0 0 1px #6cbaff inset, 0 0 0 3px rgba(108, 186, 255, 0.18) !important;
+}
+
+.el-radio-group {
+  background: rgba(8, 16, 35, 0.72);
+  padding: 3px;
+  border-radius: 9px;
+  border: 1px solid rgba(118, 174, 240, 0.18);
+}
+
+.el-radio-button__inner {
+  background: transparent !important;
+  border: 0 !important;
+  border-radius: 6px !important;
+  color: #a9c0df !important;
+  box-shadow: none !important;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.el-radio-button__original-radio:checked + .el-radio-button__inner {
+  background: linear-gradient(135deg, rgba(46, 126, 214, 0.88), rgba(102, 124, 234, 0.78)) !important;
+  color: #ffffff !important;
+  box-shadow: 0 2px 10px rgba(76, 166, 255, 0.3) !important;
+}
+
+.el-slider__runway {
+  background-color: rgba(118, 174, 240, 0.22);
+}
+
+.el-slider__bar {
+  background: linear-gradient(90deg, #4ca6ff, #9b8cff);
+}
+
+.el-slider__button {
+  border-color: #8fd0ff;
+  box-shadow: 0 0 10px rgba(108, 186, 255, 0.5);
+}
+
 .scene-panel button.el-button.device-result,
 .scene-panel button.el-button.device-kind,
 .scene-panel button.el-button.more-results,
@@ -156,4 +269,37 @@ input.el-select__input {
 
 .el-popper {
   z-index: 4000 !important;
+  background: rgba(10, 20, 44, 0.94) !important;
+  backdrop-filter: blur(18px) saturate(145%);
+  -webkit-backdrop-filter: blur(18px) saturate(145%);
+  border: 1px solid rgba(118, 182, 252, 0.28) !important;
+  border-radius: 10px !important;
+  box-shadow: 0 18px 42px rgba(3, 8, 22, 0.62) !important;
+}
+
+.el-select-dropdown__item.is-hovering {
+  background: rgba(108, 186, 255, 0.14) !important;
+}
+
+.el-select-dropdown__item.is-selected {
+  color: #7cc4ff !important;
+  font-weight: 600;
+}
+
+.el-message-box {
+  background: linear-gradient(165deg, rgba(13, 25, 54, 0.94), rgba(8, 15, 34, 0.96)) !important;
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
+  border: 1px solid rgba(124, 186, 255, 0.3) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 24px 64px rgba(2, 6, 18, 0.72), inset 0 1px 0 rgba(210, 236, 255, 0.14) !important;
+}
+
+.el-message-box__title {
+  color: #f0f6ff !important;
+  font-weight: 600;
+}
+
+.el-message-box__message {
+  color: #bfd3ee !important;
 }

@@ -230,21 +230,29 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
     <SceneRoaming :bore-names="travelNames" v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
     <CameraPlayer v-if="monitor" :device="monitor" :bore-name="monitor.boreName" :stream-url="runtimeConfig.streams[monitor.id]" @close="monitor=undefined;view(()=>getHandle()?.focusPortal())" />
     <div v-if="devices.some(d=>d.kind==='speaker'&&deviceEnabled(d,state))" class="broadcast-state" role="status">应急广播中 · {{['fire','smoke','collision'].includes(state.incident)?'请按指示前往就近横洞':'广播状态本地演示'}}（静音演示）</div>
-    <div class="viewport-tools">
-      <span>场景导航</span>
-      <el-button size="small" :disabled="!ready" :type="underground?'primary':'default'" :aria-pressed="underground" @click="underground=!underground;getHandle()?.setUnderground(underground)">{{underground?'恢复山体':'地下结构'}}</el-button>
-      <el-button size="small" :disabled="!ready" :type="canopyVisible?'primary':'default'" :aria-pressed="canopyVisible" @click="canopyVisible=!canopyVisible;getHandle()?.setCanopyVisible(canopyVisible)">遮雨棚：{{canopyVisible?'开':'关'}}</el-button>
-      <el-button size="small" :disabled="!ready" :type="wallsVisible?'primary':'default'" :aria-pressed="wallsVisible" @click="wallsVisible=!wallsVisible;getHandle()?.setWallsVisible(wallsVisible)">隧道墙体：{{wallsVisible?'开':'关'}}</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(0))">{{portalNames[0]}}</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(1))">{{portalNames[1]}}</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusSubstation())">变电所</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior())">洞内</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior(true))">横洞</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusLayBy())">停车带</el-button>
-      <el-button size="small" :disabled="!ready" :type="detectionVisible?'primary':'default'" :aria-pressed="detectionVisible" @click="detectionVisible=!detectionVisible;getHandle()?.setDetectionVisible(detectionVisible)">检测范围：{{detectionVisible?'开':'关'}}</el-button>
-      <el-button size="small" :disabled="!ready" :type="cameraGuardEnabled?'primary':'default'" :aria-pressed="cameraGuardEnabled" @click="cameraGuardEnabled=!cameraGuardEnabled;getHandle()?.setCameraGuardEnabled(cameraGuardEnabled)">防穿模：{{cameraGuardEnabled?'开':'关'}}</el-button>
-      <el-button size="small" :disabled="!ready" :type="roamingOpen?'primary':'default'" :aria-pressed="roamingOpen" @click="openRoaming">巡检漫游</el-button>
-      <el-button size="small" :disabled="!ready" @click="view(resetView)">全览</el-button>
+    <div class="viewport-tools" role="toolbar" aria-label="场景导航">
+      <div class="tool-group" role="group" aria-label="结构显隐">
+        <span class="tool-group-label">结构</span>
+        <el-button size="small" :disabled="!ready" :type="underground?'primary':'default'" :aria-pressed="underground" @click="underground=!underground;getHandle()?.setUnderground(underground)">{{underground?'恢复山体':'地下结构'}}</el-button>
+        <el-button size="small" :disabled="!ready" :type="canopyVisible?'primary':'default'" :aria-pressed="canopyVisible" @click="canopyVisible=!canopyVisible;getHandle()?.setCanopyVisible(canopyVisible)">遮雨棚：{{canopyVisible?'开':'关'}}</el-button>
+        <el-button size="small" :disabled="!ready" :type="wallsVisible?'primary':'default'" :aria-pressed="wallsVisible" @click="wallsVisible=!wallsVisible;getHandle()?.setWallsVisible(wallsVisible)">隧道墙体：{{wallsVisible?'开':'关'}}</el-button>
+      </div>
+      <div class="tool-group" role="group" aria-label="视角定位">
+        <span class="tool-group-label">视角</span>
+        <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(0))">{{portalNames[0]}}</el-button>
+        <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusPortal(1))">{{portalNames[1]}}</el-button>
+        <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusSubstation())">变电所</el-button>
+        <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior())">洞内</el-button>
+        <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusInterior(true))">横洞</el-button>
+        <el-button size="small" :disabled="!ready" @click="view(()=>getHandle()?.focusLayBy())">停车带</el-button>
+        <el-button size="small" :disabled="!ready" @click="view(resetView)">全览</el-button>
+      </div>
+      <div class="tool-group" role="group" aria-label="巡检工具">
+        <span class="tool-group-label">巡检</span>
+        <el-button size="small" :disabled="!ready" :type="detectionVisible?'primary':'default'" :aria-pressed="detectionVisible" @click="detectionVisible=!detectionVisible;getHandle()?.setDetectionVisible(detectionVisible)">检测范围：{{detectionVisible?'开':'关'}}</el-button>
+        <el-button size="small" :disabled="!ready" :type="cameraGuardEnabled?'primary':'default'" :aria-pressed="cameraGuardEnabled" @click="cameraGuardEnabled=!cameraGuardEnabled;getHandle()?.setCameraGuardEnabled(cameraGuardEnabled)">防穿模：{{cameraGuardEnabled?'开':'关'}}</el-button>
+        <el-button size="small" :disabled="!ready" :type="roamingOpen?'primary':'default'" :aria-pressed="roamingOpen" @click="openRoaming">巡检漫游</el-button>
+      </div>
     </div>
     <div class="scene-help">点选设备查看详情 · 左键平移 · 滚轮缩放 · 中键倾斜</div>
   </section>

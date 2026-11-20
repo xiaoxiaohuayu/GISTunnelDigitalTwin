@@ -22,7 +22,7 @@ import { addSceneOverlays } from './sceneOverlays'
 import { createLoadReporter } from './scenePresentation'
 import type { LoadProgress, OverlayPosition, PortalSignConfig, SceneOverlay, TrafficSignsConfig } from '../types/scene'
 import { addCameraGuard } from './cameraGuard'
-import { addDeviceInteraction, deviceHeight } from './deviceInteraction'
+import { addDeviceInteraction, deviceBoxOffset, deviceBoxSize, deviceHeight } from './deviceInteraction'
 import type { RoamingState, TunnelMapHandle } from '../types/tunnel'
 import { surveyTunnel } from './tunnelSurvey'
 import { projectLayBy,layoutPassages } from './facilityLayout'
@@ -281,14 +281,18 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       interaction.select(d)
       options.onDeviceSelect?.(d)
       stopCamera()
-      const overhead=['lane','vms','basic','enhanced','fan','detector'].includes(d.kind)
+      const largeOverhead=['lane','vms','fan','detector'].includes(d.kind)
+      const lamp=d.kind==='basic'||d.kind==='enhanced'
       const h=deviceHeight(d)
       const target=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,h)
       const yard=d.kind==='tank'||d.kind==='pump'
-      const approach=travelOf(d.tube)*(overhead?12:4)
-      const position=d.position?Matrix4.multiplyByPoint(surveyFrame(survey,target),new Cartesian3(-travelOf(d.tube)*12,0,-.65),new Cartesian3()):tunnelPoint(survey,d.tube,d.station-approach,yard?8:0,yard?h+2.5:Math.max(1.6,h-.65))
-      const up=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(target),Cartesian3.UNIT_Z,new Cartesian3())
-      const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:.9
+      const approach=travelOf(d.tube)*(largeOverhead?11:lamp?6:5)
+      // Keep interior camera centered in the safe carriageway with a comfortable upright view instead of hugging the wall.
+      const camLateral=yard?8:Math.max(-1.8,Math.min(1.8,-d.lateral*0.25))
+      const camHeight=yard?h+2.5:lamp?Math.max(2.0,Math.min(3.5,h-1.35)):Math.max(1.7,Math.min(3.6,h-0.85))
+      const position=tunnelPoint(survey,d.tube,d.station-approach,camLateral,camHeight)
+      const up=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(position),Cartesian3.UNIT_Z,new Cartesian3())
+      const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:.85
       if(d.kind==='street'||d.kind==='substation') {
         viewer.camera.flyToBoundingSphere(new BoundingSphere(d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,3),1),{
           duration,offset:new HeadingPitchRange(CesiumMath.toRadians(65),CesiumMath.toRadians(-15),d.kind==='substation'?28:20),
@@ -344,7 +348,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     if(editing)return
     const a=project!.assets.find(a=>a.id===id),d=systems.devices.find(d=>d.id===id);if(!a||!d)return
     stopCamera();const original=structuredClone(resolveAsset(a,project!)),point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind)),b=project!.bores[d.tube]!
-    const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit)
+    const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit,deviceBoxSize(d.kind),deviceBoxOffset(d))
     editing={original,draft:structuredClone(original),gizmo};options.onPositionEdit?.({...original})
   }
   async function savePositionEdit():Promise<void>{

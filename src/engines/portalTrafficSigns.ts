@@ -32,7 +32,7 @@ export async function addPortalTrafficSigns(viewer:Viewer,survey:TunnelSurvey) {
       const geometry=GeometryPipeline.computeNormal(new Geometry({attributes,indices:new Uint16Array([0,1,2,0,2,3]),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(positions)}))
       viewer.scene.primitives.add(new Primitive({asynchronous:false,compressVertices:false,geometryInstances:new GeometryInstance({id,geometry}),appearance:new MaterialAppearance({material,materialSupport:MaterialAppearance.MaterialSupport.TEXTURED,faceForward:true,closed:false})}))
     }
-    await portalPosition(viewer,`traffic:${end}`,frame,viewer.entities.values.filter(e=>!beforeEntities.has(e)),Array.from({length:viewer.scene.primitives.length},(_,i)=>viewer.scene.primitives.get(i)).filter(p=>!beforePrimitives.has(p)))
+    await portalPosition(viewer,`traffic:${end}`,frame,viewer.entities.values.filter(e=>!beforeEntities.has(e)),Array.from({length:viewer.scene.primitives.length},(_,i)=>viewer.scene.primitives.get(i)).filter(p=>!beforePrimitives.has(p)),{center:world(-35.9,-13.9,3.88),boxSize:[0.85,9.3,7.85]})
   }
   return {config,warning,async update(next:TrafficSignsConfig){const images=await Promise.all(next.images.map((image,index)=>trafficSignImage(index,image)));for(const {material,index} of materials)material.uniforms.image=images[index];viewer.scene.requestRender()},setLighting(day:boolean){for(const {material} of materials)material.uniforms.level=day?1:.35}}
 }

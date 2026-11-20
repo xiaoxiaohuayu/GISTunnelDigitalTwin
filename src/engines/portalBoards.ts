@@ -35,7 +35,7 @@ export async function addPortalBoards(viewer:Viewer,survey:TunnelSurvey) {
     attributes.st=new GeometryAttribute({componentDatatype:ComponentDatatype.FLOAT,componentsPerAttribute:2,values:new Float32Array([0,0,1,0,1,1,0,1])})
     const geometry=GeometryPipeline.computeNormal(new Geometry({attributes,indices:new Uint16Array([0,1,2,0,2,3]),primitiveType:PrimitiveType.TRIANGLES,boundingSphere:BoundingSphere.fromVertices(positions)}))
     viewer.scene.primitives.add(new Primitive({asynchronous:false,compressVertices:false,geometryInstances:new GeometryInstance({id:`portal-sign:${id}`,geometry}),appearance:new MaterialAppearance({material,materialSupport:MaterialAppearance.MaterialSupport.TEXTURED,closed:false,faceForward:true})}))
-    await portalPosition(viewer,`board:${direction===1?0:1}`,frame,viewer.entities.values.filter(e=>!beforeEntities.has(e)),Array.from({length:viewer.scene.primitives.length},(_,i)=>viewer.scene.primitives.get(i)).filter(p=>!beforePrimitives.has(p)))
+    await portalPosition(viewer,`board:${direction===1?0:1}`,frame,viewer.entities.values.filter(e=>!beforeEntities.has(e)),Array.from({length:viewer.scene.primitives.length},(_,i)=>viewer.scene.primitives.get(i)).filter(p=>!beforePrimitives.has(p)),{center:world(0.05*direction,outer*0.25,4.68),boxSize:[0.85,4.55,9.45]})
   }
   return {get config(){return config},storageWarning,async update(next:PortalSignConfig){config=next;for(const {material,length} of materials){const canvas=await portalSignImage(next,length);material.uniforms.image=canvas.toDataURL()};viewer.scene.requestRender()}}
 }
