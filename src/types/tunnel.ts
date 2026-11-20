@@ -26,6 +26,13 @@ export interface TunnelMapHandle extends EngineHandle {
   cancelPositionEdit:()=>void
   applyProject:(project:import("../engines/projectConfig").TunnelProject|null)=>Promise<void>
   previewAsset:(asset:import("../engines/projectConfig").AssetRecord)=>void
+  commitAssetRecord:(asset:import("../engines/projectConfig").AssetRecord,nextProject?:import("../engines/projectConfig").TunnelProject)=>Promise<void>
+  attachEditorGizmo:(id:string,options:{mode:import('../editor/editorStore').GizmoMode;snapMode:import('../editor/editorStore').SnapMode;onPreview?:(record:import('../engines/projectConfig').AssetRecord)=>void;onCommit:(before:import('../engines/projectConfig').AssetRecord,after:import('../engines/projectConfig').AssetRecord)=>void;onCancel?:()=>void})=>void
+  setEditorGizmoOptions:(options:{mode?:import('../editor/editorStore').GizmoMode;snapMode?:import('../editor/editorStore').SnapMode})=>void
+  detachEditorGizmo:()=>void
+  captureCameraBookmark:(name:string)=>import('../engines/projectConfig').CameraBookmark
+  flyToCameraBookmark:(bookmark:import('../engines/projectConfig').CameraBookmark)=>void
+  setSceneVisuals:(visuals:Partial<import('../engines/projectConfig').SceneVisualSettings>)=>void
   updateTrafficSigns: (config: import('./scene').TrafficSignsConfig) => Promise<void>
   updatePortalSign: (config: import('./scene').PortalSignConfig) => Promise<void>
   setDetectionVisible: (visible:boolean) => void

@@ -9,6 +9,7 @@ import type { addPortalSite } from './portalSite'
 import { ledPlane } from './ledScreen'
 import { createVmsText, vmsOffset, vmsSize } from './vmsDisplay'
 import { modelAssetUrl } from './modelAssets'
+import { resolveCustomModelUrl } from './customModelLibrary'
 import {
   Axis, Cartesian3, Color, CustomShader, DistanceDisplayCondition,
   Matrix3, Matrix4,
@@ -70,20 +71,23 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     if(survey.project&&listed&&!record)return {id,kind,tube,station,lateral,height}
     if(resolved){const bore=survey.project!.bores.find(b=>b.id===resolved.boreId)!;tube=survey.project!.bores.indexOf(bore);station=assetStation(resolved,bore);lateral=-resolved.lateral;height=resolved.height-assetMountOffset(kind);angle=resolved.heading*Math.PI/180}
     if(resolved&&kind==='escape')asset=`escape-sign-${escapeSignDirection(station,tube,survey.length,layoutPassages(survey,tube))}`
-    const device:SceneDevice = { id,kind,tube,station,lateral,height,...(resolved?{name:resolved.name,code:resolved.code,boreName:survey.project!.bores[tube]!.name,chainage:formatChainage(resolved.chainage)}:{}) }
+    const device:SceneDevice = { id,kind,tube,station,lateral,height,...(resolved?{name:resolved.name,code:resolved.code,boreName:survey.project!.bores[tube]!.name,chainage:formatChainage(resolved.chainage),customModelId:resolved.customModelId,customModelUrl:resolved.customModelUrl}:{}) }
     if(resolved)device.position=survey.actualPointAt!(tube,station,lateral,resolved.height)
     if(listed)devices.push(device)
-    if (!asset) return device
+    const isCustom=kind==='custom'&&Boolean(resolved?.customModelId||resolved?.customModelUrl)
+    if (!asset&&!isCustom) return device
     const point=resolved?survey.actualPointAt!(tube,station,lateral,height):tunnelPoint(survey,tube,station,lateral,height)
     const rotation=Matrix3.multiply(Matrix3.fromRotationY(-Math.atan(survey.grade/100)),Matrix3.fromRotationZ(angle),new Matrix3())
     const matrix=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(rotation),new Matrix4())
     // Flip around the fan shaft at 0.47 m so the mounting feet face the ceiling.
     if(kind==='fan')Matrix4.multiply(matrix,Matrix4.fromRotationTranslation(Matrix3.fromRotationX(Math.PI),new Cartesian3(0,0,.94)),matrix)
     const shader=equipmentShader()
-    requests.push(Model.fromGltfAsync({ url:modelAssetUrl(kind==='fan'?'fan':asset),
-      modelMatrix:matrix,scale:kind==='fan'?2:1,upAxis:Axis.Y,forwardAxis:Axis.X,customShader:shader,
-      distanceDisplayCondition:new DistanceDisplayCondition(0,300) }).then(model=>{
-      progress?.(++completed,requests.length,`${asset}.glb`)
+    const baseScale=(kind==='fan'?2:1)*(resolved?.scale??1)
+    const urlPromise=isCustom?resolveCustomModelUrl(resolved!.customModelId??resolved!.id,resolved!.customModelUrl):Promise.resolve(modelAssetUrl(kind==='fan'?'fan':asset!))
+    requests.push(urlPromise.then(url=>Model.fromGltfAsync({ url,
+      modelMatrix:matrix,scale:baseScale,upAxis:Axis.Y,forwardAxis:Axis.X,customShader:shader,
+      distanceDisplayCondition:new DistanceDisplayCondition(0,isCustom?500:300) })).then(model=>{
+      progress?.(++completed,requests.length,`${asset??resolved?.name??'custom'}.glb`)
       setEquipmentLighting(model,illuminationAt(station,survey.length,state,tube))
       model.id=device.id; viewer.scene.primitives.add(model); models.push({model,device,shader,shutter:kind==='shutter'})
     }))

@@ -1,9 +1,13 @@
 import { editPortalPosition } from './portalPosition'
 import { positionGizmo } from './positionGizmo'
+import type { GizmoTransformMode } from './positionGizmo'
+import { snapHeading, snapScale, snapTunnelPosition } from './tunnelSnap'
+import type { SnapMode } from '../editor/editorStore'
 import { moveAsset,facilityProject } from './assetPlacement'
 import type { AssetRecord } from './projectConfig'
 // @env browser
 import { modelAssetUrl } from './modelAssets'
+import { disposeCustomModelUrls } from './customModelLibrary'
 import {
   CesiumTerrainProvider, createWorldImageryAsync, createWorldTerrainAsync, EllipsoidTerrainProvider, ImageryLayer, BoundingSphere,
   Cartesian3, DirectionalLight, HeadingPitchRange, Ion, IonWorldImageryStyle, Math as CesiumMath, Matrix4, Transforms, Viewer,
@@ -33,8 +37,8 @@ import { addTunnelSystems, setEquipmentLighting } from './tunnelSystems'
 import { initialSystems, deviceAlarm, deviceEnabled, changeSystems, illuminationAt, incidentStation, incidentDefinition } from './tunnelSystemsState'
 import type { SceneDevice, SystemsState } from './tunnelSystemsState'
 import { readTunnelProject } from './projectStorage'
-import { seedAssets } from './projectConfig'
-import type { TunnelProject } from './projectConfig'
+import { DEFAULT_SCENE_VISUALS, seedAssets } from './projectConfig'
+import type { CameraBookmark, SceneVisualSettings, TunnelProject } from './projectConfig'
 import { centerlineProject } from './centerlineProject'
 import { lanePositions, projectSurvey, surveyFrame } from './projectSurvey'
 import { DEMO_LATITUDE, DEMO_LONGITUDE, travelHeadingRadians, travelModelYaw, travelPitchRadians } from './sceneFrame'
@@ -348,7 +352,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     if(editing)return
     const a=project!.assets.find(a=>a.id===id),d=systems.devices.find(d=>d.id===id);if(!a||!d)return
     stopCamera();const original=structuredClone(resolveAsset(a,project!)),point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind)),b=project!.bores[d.tube]!
-    const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit,deviceBoxSize(d.kind),deviceBoxOffset(d))
+    const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit,deviceBoxSize(d.kind,d),deviceBoxOffset(d))
     editing={original,draft:structuredClone(original),gizmo};options.onPositionEdit?.({...original})
   }
   async function savePositionEdit():Promise<void>{
@@ -367,11 +371,123 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     const a=resolveAsset(record,project!),b=project!.bores.find(b=>b.id===a.boreId)!,tube=project!.bores.indexOf(b),station=assetStation(a,b)
     const d=systems.devices.find(d=>d.id===a.id);if(!d)return
     const point=(survey.actualPointAt??((t,s,y,h)=>tunnelPoint(survey,t,s,y,h)))(tube,station,-a.lateral,a.height)
-    const frame=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(CesiumMath.toRadians(a.heading-(referenceHeadings.get(a.id)??0)))),new Matrix4())
+    const rot=Matrix3.fromRotationZ(CesiumMath.toRadians(a.heading-(referenceHeadings.get(a.id)??0)))
+    if(a.scale!==undefined&&a.scale!==1)Matrix3.multiplyByUniformScale(rot,a.scale,rot)
+    const frame=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(rot),new Matrix4())
     systems.instances.get(a.id)?.move(frame)
     Object.assign(d,{tube,station,lateral:-a.lateral,height:a.height,position:point,name:a.name,code:a.code,boreName:b.name,chainage:formatChainage(a.chainage)})
     if(refresh&&(a.kind==='basic'||a.kind==='enhanced'))model.setLightSample(state,systems.devices)
     if(refresh){interaction.refresh();options.onDevices?.([...systems.devices])}
+  }
+  let editorGizmo:{id:string;snapMode:SnapMode;original:AssetRecord;draft:AssetRecord;gizmo:ReturnType<typeof positionGizmo>}|undefined
+  function detachEditorGizmo():void{
+    if(!editorGizmo)return
+    editorGizmo.gizmo.dispose()
+    editorGizmo=undefined
+  }
+  function setEditorGizmoOptions(next:{mode?:GizmoTransformMode;snapMode?:SnapMode}):void{
+    if(!editorGizmo)return
+    if(next.snapMode!==undefined)editorGizmo.snapMode=next.snapMode
+    if(next.mode!==undefined)editorGizmo.gizmo.setMode(next.mode)
+  }
+  function attachEditorGizmo(id:string,opts:{mode:GizmoTransformMode;snapMode:SnapMode;onPreview?:(record:AssetRecord)=>void;onCommit:(before:AssetRecord,after:AssetRecord)=>void;onCancel?:()=>void}):void{
+    detachEditorGizmo()
+    if(editing||!project)return
+    const a=project.assets.find(item=>item.id===id),d=systems.devices.find(item=>item.id===id)
+    if(!a||!d)return
+    const bore=project.bores[d.tube]
+    if(!bore)return
+    const dirSign=Math.sign(bore.end-bore.start)||1
+    const original=structuredClone(resolveAsset(a,project))
+    const constrained=['pedestrian','vehicle','layby'].includes(original.kind)
+    const point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind))
+    const gizmo=positionGizmo(
+      viewer,
+      surveyFrame(survey,point),
+      constrained,
+      ()=>{},
+      ()=>{
+        if(!editorGizmo)return
+        moveRecord(editorGizmo.original,true)
+        editorGizmo.draft=structuredClone(editorGizmo.original)
+        editorGizmo.gizmo.setOffset(new Cartesian3())
+        editorGizmo.gizmo.setRotation(0)
+        editorGizmo.gizmo.setScale(editorGizmo.original.scale??1)
+        opts.onCancel?.()
+      },
+      deviceBoxSize(d.kind,d),
+      deviceBoxOffset(d),
+      {
+        mode:opts.mode,
+        initialHeadingDelta:0,
+        initialScale:original.scale??1,
+        onMoveWithShift:(offset,shiftHeld)=>{
+          if(!editorGizmo||!project)return
+          const snapped=snapTunnelPosition(bore,{
+            chainage:editorGizmo.original.chainage+offset.x*dirSign,
+            lateral:constrained?editorGizmo.original.lateral:editorGizmo.original.lateral+offset.y,
+            height:constrained?editorGizmo.original.height:editorGizmo.original.height+offset.z,
+          },editorGizmo.snapMode,{shiftHeld})
+          editorGizmo.draft=moveAsset(editorGizmo.draft,{chainage:snapped.chainage,lateral:snapped.lateral,height:snapped.height},project)
+          editorGizmo.gizmo.setOffset(new Cartesian3((snapped.chainage-editorGizmo.original.chainage)*dirSign,snapped.lateral-editorGizmo.original.lateral,snapped.height-editorGizmo.original.height))
+          editorGizmo.gizmo.setSnapHint(snapped.snappedLabels.join(' · '))
+          moveRecord(editorGizmo.draft,true)
+          opts.onPreview?.(structuredClone(editorGizmo.draft))
+        },
+        onRotate:(headingDelta,shiftHeld)=>{
+          if(!editorGizmo||!project||constrained)return
+          const nextHeading=snapHeading(editorGizmo.original.heading+headingDelta,editorGizmo.snapMode,shiftHeld)
+          editorGizmo.draft=moveAsset(editorGizmo.draft,{heading:nextHeading},project)
+          editorGizmo.gizmo.setRotation(nextHeading-editorGizmo.original.heading)
+          editorGizmo.gizmo.setSnapHint(`${nextHeading.toFixed(1)}°`)
+          moveRecord(editorGizmo.draft,true)
+          opts.onPreview?.(structuredClone(editorGizmo.draft))
+        },
+        onScale:(factor,shiftHeld)=>{
+          if(!editorGizmo||!project||constrained)return
+          const nextScale=snapScale(factor,editorGizmo.snapMode,shiftHeld)
+          editorGizmo.draft=moveAsset(editorGizmo.draft,{scale:nextScale},project)
+          editorGizmo.gizmo.setScale(nextScale)
+          editorGizmo.gizmo.setSnapHint(editorGizmo.snapMode==='none'?'':`吸附 ×${nextScale.toFixed(2)}`)
+          moveRecord(editorGizmo.draft,true)
+          opts.onPreview?.(structuredClone(editorGizmo.draft))
+        },
+        onCommit:()=>{
+          if(!editorGizmo)return
+          const before=structuredClone(editorGizmo.original)
+          const after=structuredClone(editorGizmo.draft)
+          editorGizmo.original=structuredClone(after)
+          opts.onCommit(before,after)
+        },
+      },
+    )
+    editorGizmo={id,snapMode:opts.snapMode,original,draft:structuredClone(original),gizmo}
+  }
+  async function commitAssetRecord(record:AssetRecord,nextProject?:TunnelProject):Promise<void>{
+    if(!project)throw new Error('当前隧道配置尚未初始化')
+    const base=nextProject?upgradeProject(structuredClone(nextProject)):upgradeProject(structuredClone(project))
+    const exists=base.assets.some(item=>item.id===record.id)
+    if(!exists)throw new Error(`未找到设备：${record.id}`)
+    const resolved=resolveAsset(record,base)
+    if(['pedestrian','vehicle','layby'].includes(resolved.kind)){
+      await applyProject(facilityProject(base,resolved))
+      return
+    }
+    const updated=upgradeProject({...base,assets:base.assets.map(item=>item.id===resolved.id?resolved:item)})
+    const errors=projectErrors(updated)
+    if(errors.length)throw new Error(errors.join('\n'))
+    const previous=project
+    project=updated
+    try{
+      moveRecord(resolved,true)
+      await saveTunnelProject(updated)
+      options.onProject?.(updated)
+    }catch(error){
+      project=previous
+      const prior=previous.assets.find(item=>item.id===resolved.id)
+      if(prior)moveRecord(prior,true)
+      throw error
+    }
   }
   async function applyProject(value:TunnelProject|null,recovering=false):Promise<void>{
     if(!value&&!originalProject)throw new Error('当前会话没有原场景快照，请导入之前导出的默认配置')
@@ -410,6 +526,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         updateInterior(config);for(const a of changes)moveRecord(a);await saveTunnelProject(config)
         if(config.name!==previous.name)await boards.update({...boards.config,name:config.name})
         if(config.name!==previous.name||JSON.stringify(config.mouths??null)!==JSON.stringify(previous.mouths??null))model.applyPortalNames(config)
+        if(config.visuals)setSceneVisuals(config.visuals)
         publish(config)
       },
       async updateInventory(config){
@@ -433,9 +550,49 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       restore:rebuildScene,
     },previous,next,recovering)
   }
+  let currentVisuals:SceneVisualSettings={...DEFAULT_SCENE_VISUALS,...(project?.visuals??{})}
+  function setSceneVisuals(patch:Partial<SceneVisualSettings>):void{
+    currentVisuals={...currentVisuals,...patch}
+    const az=CesiumMath.toRadians(currentVisuals.sunAzimuth)
+    const el=CesiumMath.toRadians(currentVisuals.sunElevation)
+    const localDir=new Cartesian3(-Math.sin(az)*Math.cos(el),-Math.cos(az)*Math.cos(el),-Math.sin(el))
+    const worldDir=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(survey.center),localDir,new Cartesian3())
+    viewer.scene.light=new DirectionalLight({direction:Cartesian3.normalize(worldDir,worldDir),intensity:currentVisuals.sunIntensity})
+    viewer.scene.fog.density=currentVisuals.fogDensity
+    viewer.scene.requestRender()
+  }
+  if(project?.visuals)setSceneVisuals(project.visuals)
+  function captureCameraBookmark(name:string):CameraBookmark{
+    const pos=viewer.camera.positionCartographic
+    return {
+      id:crypto.randomUUID(),
+      name:name.trim()||'未命名视角',
+      longitude:Number(CesiumMath.toDegrees(pos.longitude).toFixed(6)),
+      latitude:Number(CesiumMath.toDegrees(pos.latitude).toFixed(6)),
+      height:Number(pos.height.toFixed(2)),
+      heading:Number(CesiumMath.toDegrees(viewer.camera.heading).toFixed(2)),
+      pitch:Number(CesiumMath.toDegrees(viewer.camera.pitch).toFixed(2)),
+      roll:Number(CesiumMath.toDegrees(viewer.camera.roll).toFixed(2)),
+    }
+  }
+  function flyToCameraBookmark(bookmark:CameraBookmark):void{
+    stopCamera()
+    const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:.85
+    viewer.camera.flyTo({
+      destination:Cartesian3.fromDegrees(bookmark.longitude,bookmark.latitude,bookmark.height),
+      orientation:{
+        heading:CesiumMath.toRadians(bookmark.heading),
+        pitch:CesiumMath.toRadians(bookmark.pitch),
+        roll:CesiumMath.toRadians(bookmark.roll),
+      },
+      duration,
+      easingFunction:EasingFunction.CUBIC_IN_OUT,
+    })
+    viewer.scene.requestRender()
+  }
   options.onSystems?.(state)
   return {
-    editPortalPosition:(kind:string,end:number)=>editPortalPosition(viewer,`${kind}:${end}`),startPositionEdit,previewPosition,savePositionEdit,cancelPositionEdit,applyProject,previewAsset:moveRecord,resetView,focusPortal,playIntro,skipIntro:focusPortal,
+    editPortalPosition:(kind:string,end:number)=>editPortalPosition(viewer,`${kind}:${end}`),startPositionEdit,previewPosition,savePositionEdit,cancelPositionEdit,applyProject,previewAsset:moveRecord,commitAssetRecord,attachEditorGizmo,setEditorGizmoOptions,detachEditorGizmo,captureCameraBookmark,flyToCameraBookmark,setSceneVisuals,resetView,focusPortal,playIntro,skipIntro:focusPortal,
     updateTrafficSigns:config=>trafficSigns.update(config),
     updatePortalSign:config=>boards.update(config),
     setDetectionVisible(visible:boolean){detection.setVisible(visible)},
@@ -491,7 +648,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     focusInterior(crossPassage=false) {stopCamera();viewer.camera.setView({destination:tunnelPoint(survey,0,crossPassage?(layoutPassages(survey,0).find(p=>p.vehicle)?.station??survey.length*.5):survey.length*.25-25,0,1.8),
       orientation:{heading:CesiumMath.toRadians((survey.heading??90)-(crossPassage?90:0)),pitch:crossPassage?0:Math.atan(survey.grade/100),roll:0}});viewer.scene.requestRender()},
     dispose() {
-      disposed=true;introGeneration++;introPlaying=false;cameraGuard.dispose();stopRenderError();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);editing?.gizmo.dispose();detection.dispose();events.dispose();model.dispose();stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect()
+      disposed=true;introGeneration++;introPlaying=false;detachEditorGizmo();disposeCustomModelUrls();cameraGuard.dispose();stopRenderError();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);editing?.gizmo.dispose();detection.dispose();events.dispose();model.dispose();stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect()
       if(!viewer.isDestroyed()){viewer.camera.cancelFlight();const context=viewer.canvas.getContext('webgl2')??viewer.canvas.getContext('webgl');viewer.destroy();context?.getExtension('WEBGL_lose_context')?.loseContext()}
     },
   }

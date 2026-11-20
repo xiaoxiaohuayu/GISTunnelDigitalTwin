@@ -1,11 +1,29 @@
 import { Cartesian2, Cartesian3, Matrix4, SceneTransforms } from 'cesium'
 import type { Viewer } from 'cesium'
 
-export function axisDistance(rayOrigin:Cartesian3,rayDirection:Cartesian3,origin:Cartesian3,axis:Cartesian3):number|undefined {
-  const dot=Cartesian3.dot(rayDirection,axis),denominator=1-dot*dot
-  if(denominator<.015)return undefined
-  const offset=Cartesian3.subtract(rayOrigin,origin,new Cartesian3())
-  return (Cartesian3.dot(offset,axis)-dot*Cartesian3.dot(offset,rayDirection))/denominator
+export type GizmoTransformMode = 'translate' | 'rotate' | 'scale'
+
+export interface GizmoTransformState {
+  offset: Cartesian3
+  headingDelta: number
+  scale: number
+}
+
+export interface TransformGizmoOptions {
+  mode?: GizmoTransformMode
+  initialHeadingDelta?: number
+  initialScale?: number
+  onRotate?: (headingDelta: number, shiftHeld: boolean) => void
+  onScale?: (scale: number, shiftHeld: boolean) => void
+  onMoveWithShift?: (offset: Cartesian3, shiftHeld: boolean) => void
+  onCommit?: (state: GizmoTransformState) => void
+}
+
+export function axisDistance(rayOrigin: Cartesian3, rayDirection: Cartesian3, origin: Cartesian3, axis: Cartesian3): number | undefined {
+  const dot = Cartesian3.dot(rayDirection, axis), denominator = 1 - dot * dot
+  if (denominator < .015) return undefined
+  const offset = Cartesian3.subtract(rayOrigin, origin, new Cartesian3())
+  return (Cartesian3.dot(offset, axis) - dot * Cartesian3.dot(offset, rayDirection)) / denominator
 }
 
 function planeIntersection(
@@ -41,6 +59,8 @@ const PLANES: readonly PlaneDef[] = [
   { id: 'yz', a: 1, b: 2, normalAxis: 0, fill: 'rgba(255, 174, 76, 0.34)', stroke: '#ffbe66', label: 'YZ 横断面' },
 ]
 
+const RING_SEGMENTS = 48
+
 export function positionGizmo(
   viewer: Viewer,
   frame: Matrix4,
@@ -49,6 +69,7 @@ export function positionGizmo(
   onCancel: () => void,
   boxSize: [number, number, number] = [1.4, 1.0, 0.9],
   boxOffset: [number, number, number] = [0, 0, 0],
+  options: TransformGizmoOptions = {},
 ) {
   const axes = [
     Cartesian3.UNIT_X,
@@ -59,8 +80,13 @@ export function positionGizmo(
   const ns = 'http://www.w3.org/2000/svg'
   const svg = document.createElementNS(ns, 'svg')
   const offset = new Cartesian3()
+  let mode: GizmoTransformMode = constrained ? 'translate' : (options.mode ?? 'translate')
+  let headingDelta = options.initialHeadingDelta ?? 0
+  let scale = options.initialScale ?? 1
+  let snapHint = ''
+
   svg.setAttribute('class', 'position-axes')
-  svg.setAttribute('aria-label', '位置调整三维控制器')
+  svg.setAttribute('aria-label', '三维变换控制器')
   Object.assign(svg.style, {
     position: 'absolute',
     inset: '0',
@@ -72,7 +98,7 @@ export function positionGizmo(
   })
   viewer.container.append(svg)
 
-  // 1. Yellow 3D bounding wireframe box (matching 3D editor selection box)
+  // 1. Yellow 3D bounding wireframe box
   const boxGroup = document.createElementNS(ns, 'g')
   const boxLines = BOX_EDGES.map(() => {
     const line = document.createElementNS(ns, 'line')
@@ -84,7 +110,8 @@ export function positionGizmo(
   })
   svg.append(boxGroup)
 
-  // 2. Center plane drag handles (XY cyan, XZ magenta, YZ amber)
+  // 2. Center plane drag handles (translate mode)
+  const translatePlanesGroup = document.createElementNS(ns, 'g')
   const planeHandles = (constrained ? [] : PLANES).map(def => {
     const group = document.createElementNS(ns, 'g')
     const poly = document.createElementNS(ns, 'polygon')
@@ -95,17 +122,19 @@ export function positionGizmo(
     poly.style.cursor = 'move'
     poly.setAttribute('aria-label', def.label)
     group.append(poly)
-    svg.append(group)
+    translatePlanesGroup.append(group)
     return { def, group, poly }
   })
+  svg.append(translatePlanesGroup)
 
-  // 3. Axis handles (Red X, Green Y, Blue Z) with solid dual-tone cones
+  // 3. Axis handles (shared by translate arrows and scale cube caps)
   const axisColors = [
     { main: '#ff3b3b', dark: '#b81d1d', glow: '#ff8a8a', label: 'X 沿线路' },
     { main: '#24e058', dark: '#119638', glow: '#7dff9e', label: 'Y 横向' },
     { main: '#2e88ff', dark: '#1554b5', glow: '#8ac2ff', label: 'Z 高度' },
   ] as const
 
+  const axisGroup = document.createElementNS(ns, 'g')
   const handles = axes.slice(0, constrained ? 1 : 3).map((_, i) => {
     const spec = axisColors[i]!
     const group = document.createElementNS(ns, 'g')
@@ -113,6 +142,7 @@ export function positionGizmo(
     const hit = document.createElementNS(ns, 'line')
     const coneLeft = document.createElementNS(ns, 'polygon')
     const coneRight = document.createElementNS(ns, 'polygon')
+    const scaleBox = document.createElementNS(ns, 'rect')
     const tipHit = document.createElementNS(ns, 'circle')
     const label = document.createElementNS(ns, 'text')
 
@@ -128,6 +158,15 @@ export function positionGizmo(
 
     coneLeft.setAttribute('fill', spec.main)
     coneRight.setAttribute('fill', spec.dark)
+
+    scaleBox.setAttribute('width', '12')
+    scaleBox.setAttribute('height', '12')
+    scaleBox.setAttribute('rx', '2')
+    scaleBox.setAttribute('fill', spec.main)
+    scaleBox.setAttribute('stroke', '#081326')
+    scaleBox.setAttribute('stroke-width', '1.4')
+    scaleBox.style.display = 'none'
+
     tipHit.setAttribute('r', '15')
     tipHit.setAttribute('fill', 'transparent')
     tipHit.style.pointerEvents = 'all'
@@ -141,20 +180,50 @@ export function positionGizmo(
     label.setAttribute('stroke-width', '3.2')
     label.style.paintOrder = 'stroke'
 
-    group.append(line, coneLeft, coneRight, label, hit, tipHit)
-    svg.append(group)
-    return { group, line, hit, tipHit, coneLeft, coneRight, label, spec }
+    group.append(line, coneLeft, coneRight, scaleBox, label, hit, tipHit)
+    axisGroup.append(group)
+    return { group, line, hit, tipHit, coneLeft, coneRight, scaleBox, label, spec }
   })
+  svg.append(axisGroup)
 
-  // Center origin diamond
+  // 4. Rotate mode: projected 3D Yaw ring + active angle ray
+  const rotateGroup = document.createElementNS(ns, 'g')
+  const rotateRing = document.createElementNS(ns, 'polyline')
+  rotateRing.setAttribute('fill', 'none')
+  rotateRing.setAttribute('stroke', '#42d8ff')
+  rotateRing.setAttribute('stroke-width', '3')
+  const rotateRingHit = document.createElementNS(ns, 'polyline')
+  rotateRingHit.setAttribute('fill', 'none')
+  rotateRingHit.setAttribute('stroke', 'transparent')
+  rotateRingHit.setAttribute('stroke-width', '24')
+  rotateRingHit.style.pointerEvents = 'stroke'
+  rotateRingHit.style.cursor = 'grab'
+  rotateRingHit.setAttribute('aria-label', '水平朝向旋转环')
+  const rotateRay = document.createElementNS(ns, 'line')
+  rotateRay.setAttribute('stroke', '#ffe63b')
+  rotateRay.setAttribute('stroke-width', '2')
+  rotateRay.setAttribute('stroke-dasharray', '4 3')
+  const rotateLabel = document.createElementNS(ns, 'text')
+  rotateLabel.textContent = 'Yaw 旋转'
+  rotateLabel.setAttribute('fill', '#98ecff')
+  rotateLabel.setAttribute('font-size', '12')
+  rotateLabel.setAttribute('font-weight', '600')
+  rotateLabel.setAttribute('stroke', '#081326')
+  rotateLabel.setAttribute('stroke-width', '3.2')
+  rotateLabel.style.paintOrder = 'stroke'
+  rotateGroup.append(rotateRing, rotateRay, rotateLabel, rotateRingHit)
+  svg.append(rotateGroup)
+
+  // Center origin handle (clickable uniform scale in scale mode)
   const originDot = document.createElementNS(ns, 'circle')
-  originDot.setAttribute('r', '4.2')
+  originDot.setAttribute('r', '5')
   originDot.setAttribute('fill', '#ffffff')
   originDot.setAttribute('stroke', '#0b1730')
-  originDot.setAttribute('stroke-width', '1.5')
+  originDot.setAttribute('stroke-width', '1.6')
+  originDot.style.pointerEvents = 'all'
   svg.append(originDot)
 
-  // Live drag delta HUD readout
+  // Live drag HUD readout
   const readoutGroup = document.createElementNS(ns, 'g')
   readoutGroup.style.display = 'none'
   const readoutBg = document.createElementNS(ns, 'rect')
@@ -169,10 +238,12 @@ export function positionGizmo(
   readoutGroup.append(readoutBg, readoutText)
   svg.append(readoutGroup)
 
-  let hovered: { kind: 'axis'; index: number } | { kind: 'plane'; id: string } | null = null
+  let hovered: { kind: 'axis'; index: number } | { kind: 'plane'; id: string } | { kind: 'rotate' } | { kind: 'uniform-scale' } | null = null
   let drag:
-    | { kind: 'axis'; axis: AxisIndex; start: number; offset: Cartesian3; originAtStart: Cartesian3 }
-    | { kind: 'plane'; def: PlaneDef; startA: number; startB: number; offset: Cartesian3; originAtStart: Cartesian3 }
+    | { kind: 'axis'; axis: AxisIndex; start: number; offset: Cartesian3; originAtStart: Cartesian3; moved: boolean }
+    | { kind: 'plane'; def: PlaneDef; startA: number; startB: number; offset: Cartesian3; originAtStart: Cartesian3; moved: boolean }
+    | { kind: 'rotate'; startAngleRad: number; startHeading: number; originAtStart: Cartesian3; moved: boolean }
+    | { kind: 'scale'; axis?: AxisIndex; startScreenX: number; startScale: number; startDist?: number; originAtStart: Cartesian3; moved: boolean }
     | undefined
   let inputs = true
   let enabled = true
@@ -187,9 +258,10 @@ export function positionGizmo(
   }
 
   function applyHighlightStyles(): void {
-    const activeAxis = drag?.kind === 'axis' ? drag.axis : hovered?.kind === 'axis' ? hovered.index : -1
+    const activeAxis = (drag?.kind === 'axis' || drag?.kind === 'scale') && drag.axis !== undefined ? drag.axis : hovered?.kind === 'axis' ? hovered.index : -1
     const activePlane = drag?.kind === 'plane' ? drag.def.id : hovered?.kind === 'plane' ? hovered.id : ''
-    const hasFocus = activeAxis !== -1 || activePlane !== ''
+    const activeRotate = drag?.kind === 'rotate' || hovered?.kind === 'rotate'
+    const hasFocus = activeAxis !== -1 || activePlane !== '' || activeRotate
 
     handles.forEach((h, i) => {
       const active = activeAxis === i || (drag?.kind === 'plane' && (drag.def.a === i || drag.def.b === i))
@@ -207,6 +279,14 @@ export function positionGizmo(
       p.poly.setAttribute('stroke-width', active ? '2.4' : '1.4')
       p.poly.style.cursor = drag ? 'grabbing' : 'move'
     })
+
+    rotateRing.setAttribute('stroke-width', activeRotate ? '4.5' : '3')
+    rotateRing.setAttribute('stroke', activeRotate ? '#a3f2ff' : '#42d8ff')
+    rotateRingHit.style.cursor = drag?.kind === 'rotate' ? 'grabbing' : 'grab'
+
+    originDot.setAttribute('r', mode === 'scale' ? '7' : '4.5')
+    originDot.setAttribute('fill', mode === 'scale' ? '#ffe63b' : '#ffffff')
+    originDot.style.cursor = mode === 'scale' ? (drag ? 'grabbing' : 'ew-resize') : 'default'
   }
 
   function updateReadout(): void {
@@ -217,15 +297,24 @@ export function positionGizmo(
     const fmt = (v: number) => `${v >= 0 ? '+' : ''}${v.toFixed(2)} m`
     const names = ['X', 'Y', 'Z'] as const
     const vals = [offset.x, offset.y, offset.z] as const
-    const text = drag.kind === 'axis'
-      ? `Δ${names[drag.axis]} ${fmt(vals[drag.axis]!)}`
-      : `Δ${names[drag.def.a]} ${fmt(vals[drag.def.a]!)} · Δ${names[drag.def.b]} ${fmt(vals[drag.def.b]!)}`
+    let text = ''
+    if (drag.kind === 'axis') {
+      text = `Δ${names[drag.axis]} ${fmt(vals[drag.axis]!)}`
+    } else if (drag.kind === 'plane') {
+      text = `Δ${names[drag.def.a]} ${fmt(vals[drag.def.a]!)} · Δ${names[drag.def.b]} ${fmt(vals[drag.def.b]!)}`
+    } else if (drag.kind === 'rotate') {
+      text = `Δ朝向 ${headingDelta >= 0 ? '+' : ''}${headingDelta.toFixed(1)}°`
+    } else {
+      text = `缩放 ×${scale.toFixed(2)}`
+    }
+    if (snapHint) text += ` · ${snapHint}`
+
     readoutText.textContent = text
     const x = pointerScreen.x + 16
     const y = pointerScreen.y - 18
     readoutText.setAttribute('x', String(x + 8))
     readoutText.setAttribute('y', String(y + 16))
-    const width = Math.max(88, text.length * 7.6 + 16)
+    const width = Math.max(96, text.length * 8.4 + 18)
     readoutBg.setAttribute('x', String(x))
     readoutBg.setAttribute('y', String(y))
     readoutBg.setAttribute('width', String(width))
@@ -239,10 +328,10 @@ export function positionGizmo(
     const size = Math.max(0.85, Math.min(14, camDist * 0.13))
     const start = SceneTransforms.worldToWindowCoordinates(viewer.scene, center)
 
-    // Render 3D yellow bounding wireframe box around the object (supporting non-centered pivots via boxOffset)
+    // 1. Wireframe box (scaled by current uniform scale)
     const [bx, by, bz] = boxSize
     const [ox, oy, oz] = boxOffset
-    const hx = bx * 0.5, hy = by * 0.5, hz = bz * 0.5
+    const hx = bx * 0.5 * scale, hy = by * 0.5 * scale, hz = bz * 0.5 * scale
     const corners: (Cartesian2 | undefined)[] = []
     for (const sx of [-1, 1]) {
       for (const sy of [-1, 1]) {
@@ -274,69 +363,155 @@ export function positionGizmo(
       originDot.setAttribute('cy', String(start.y))
     }
 
-    // Render plane square handles near origin
-    const planeSpan = size * 0.34
-    for (const p of planeHandles) {
-      if (!start) {
-        p.group.style.display = 'none'
-        continue
+    const showAxes = mode === 'translate' || mode === 'scale'
+    const showPlanes = mode === 'translate'
+    const showRotate = mode === 'rotate' && !constrained
+
+    axisGroup.style.display = showAxes ? '' : 'none'
+    translatePlanesGroup.style.display = showPlanes ? '' : 'none'
+    rotateGroup.style.display = showRotate ? '' : 'none'
+
+    // 2. Plane handles
+    if (showPlanes) {
+      const planeSpan = size * 0.34
+      for (const p of planeHandles) {
+        if (!start) {
+          p.group.style.display = 'none'
+          continue
+        }
+        const va = Cartesian3.multiplyByScalar(axes[p.def.a]!, planeSpan, new Cartesian3())
+        const vb = Cartesian3.multiplyByScalar(axes[p.def.b]!, planeSpan, new Cartesian3())
+        const pA = SceneTransforms.worldToWindowCoordinates(viewer.scene, Cartesian3.add(center, va, new Cartesian3()))
+        const pB = SceneTransforms.worldToWindowCoordinates(viewer.scene, Cartesian3.add(center, vb, new Cartesian3()))
+        const pAB = SceneTransforms.worldToWindowCoordinates(
+          viewer.scene,
+          Cartesian3.add(Cartesian3.add(center, va, new Cartesian3()), vb, new Cartesian3()),
+        )
+        if (!pA || !pB || !pAB) {
+          p.group.style.display = 'none'
+          continue
+        }
+        p.group.style.display = ''
+        p.poly.setAttribute('points', `${start.x},${start.y} ${pA.x},${pA.y} ${pAB.x},${pAB.y} ${pB.x},${pB.y}`)
       }
-      const va = Cartesian3.multiplyByScalar(axes[p.def.a]!, planeSpan, new Cartesian3())
-      const vb = Cartesian3.multiplyByScalar(axes[p.def.b]!, planeSpan, new Cartesian3())
-      const pA = SceneTransforms.worldToWindowCoordinates(viewer.scene, Cartesian3.add(center, va, new Cartesian3()))
-      const pB = SceneTransforms.worldToWindowCoordinates(viewer.scene, Cartesian3.add(center, vb, new Cartesian3()))
-      const pAB = SceneTransforms.worldToWindowCoordinates(
-        viewer.scene,
-        Cartesian3.add(Cartesian3.add(center, va, new Cartesian3()), vb, new Cartesian3()),
-      )
-      if (!pA || !pB || !pAB) {
-        p.group.style.display = 'none'
-        continue
-      }
-      p.group.style.display = ''
-      p.poly.setAttribute('points', `${start.x},${start.y} ${pA.x},${pA.y} ${pAB.x},${pAB.y} ${pB.x},${pB.y}`)
     }
 
-    // Render X/Y/Z axis shafts and dual-tone solid cones
-    handles.forEach((h, i) => {
-      const end = SceneTransforms.worldToWindowCoordinates(
-        viewer.scene,
-        Cartesian3.add(center, Cartesian3.multiplyByScalar(axes[i]!, size, new Cartesian3()), new Cartesian3()),
-      )
-      h.group.style.display = start && end ? '' : 'none'
-      if (!start || !end) return
-      const dx = end.x - start.x, dy = end.y - start.y
-      const len = Math.max(1, Math.hypot(dx, dy))
-      const ux = dx / len, uy = dy / len
-      const coneLen = 18, coneHalf = 6.5
-      const baseX = end.x - ux * coneLen, baseY = end.y - uy * coneLen
-      const leftX = baseX - uy * coneHalf, leftY = baseY + ux * coneHalf
-      const rightX = baseX + uy * coneHalf, rightY = baseY - ux * coneHalf
+    // 3. Axis shafts (cones for translate, cube caps for scale)
+    if (showAxes) {
+      handles.forEach((h, i) => {
+        const end = SceneTransforms.worldToWindowCoordinates(
+          viewer.scene,
+          Cartesian3.add(center, Cartesian3.multiplyByScalar(axes[i]!, size, new Cartesian3()), new Cartesian3()),
+        )
+        h.group.style.display = start && end ? '' : 'none'
+        if (!start || !end) return
+        const dx = end.x - start.x, dy = end.y - start.y
+        const len = Math.max(1, Math.hypot(dx, dy))
+        const ux = dx / len, uy = dy / len
 
-      for (const line of [h.line, h.hit]) {
-        line.setAttribute('x1', String(start.x))
-        line.setAttribute('y1', String(start.y))
-        line.setAttribute('x2', String(baseX))
-        line.setAttribute('y2', String(baseY))
+        if (mode === 'translate') {
+          const coneLen = 18, coneHalf = 6.5
+          const baseX = end.x - ux * coneLen, baseY = end.y - uy * coneLen
+          const leftX = baseX - uy * coneHalf, leftY = baseY + ux * coneHalf
+          const rightX = baseX + uy * coneHalf, rightY = baseY - ux * coneHalf
+
+          for (const line of [h.line, h.hit]) {
+            line.setAttribute('x1', String(start.x))
+            line.setAttribute('y1', String(start.y))
+            line.setAttribute('x2', String(baseX))
+            line.setAttribute('y2', String(baseY))
+          }
+          h.coneLeft.style.display = ''
+          h.coneRight.style.display = ''
+          h.scaleBox.style.display = 'none'
+          h.coneLeft.setAttribute('points', `${end.x},${end.y} ${leftX},${leftY} ${baseX},${baseY}`)
+          h.coneRight.setAttribute('points', `${end.x},${end.y} ${baseX},${baseY} ${rightX},${rightY}`)
+        } else {
+          for (const line of [h.line, h.hit]) {
+            line.setAttribute('x1', String(start.x))
+            line.setAttribute('y1', String(start.y))
+            line.setAttribute('x2', String(end.x))
+            line.setAttribute('y2', String(end.y))
+          }
+          h.coneLeft.style.display = 'none'
+          h.coneRight.style.display = 'none'
+          h.scaleBox.style.display = ''
+          h.scaleBox.setAttribute('x', String(end.x - 6))
+          h.scaleBox.setAttribute('y', String(end.y - 6))
+        }
+        h.tipHit.setAttribute('cx', String(end.x - ux * 6))
+        h.tipHit.setAttribute('cy', String(end.y - uy * 6))
+        h.label.setAttribute('x', String(end.x + ux * 10 + 4))
+        h.label.setAttribute('y', String(end.y + uy * 10 + 4))
+      })
+    }
+
+    // 4. Rotate Yaw ring
+    if (showRotate && start) {
+      const radius = size * 0.92
+      const pts: string[] = []
+      let allValid = true
+      for (let step = 0; step <= RING_SEGMENTS; step += 1) {
+        const angle = (step / RING_SEGMENTS) * Math.PI * 2
+        const worldPt = Cartesian3.add(
+          center,
+          Cartesian3.add(
+            Cartesian3.multiplyByScalar(axes[0]!, Math.cos(angle) * radius, new Cartesian3()),
+            Cartesian3.multiplyByScalar(axes[1]!, Math.sin(angle) * radius, new Cartesian3()),
+            new Cartesian3(),
+          ),
+          new Cartesian3(),
+        )
+        const screenPt = SceneTransforms.worldToWindowCoordinates(viewer.scene, worldPt)
+        if (!screenPt) { allValid = false; break }
+        pts.push(`${screenPt.x},${screenPt.y}`)
       }
-      h.coneLeft.setAttribute('points', `${end.x},${end.y} ${leftX},${leftY} ${baseX},${baseY}`)
-      h.coneRight.setAttribute('points', `${end.x},${end.y} ${baseX},${baseY} ${rightX},${rightY}`)
-      h.tipHit.setAttribute('cx', String(end.x - ux * 6))
-      h.tipHit.setAttribute('cy', String(end.y - uy * 6))
-      h.label.setAttribute('x', String(end.x + ux * 10 + 4))
-      h.label.setAttribute('y', String(end.y + uy * 10 + 4))
-    })
+      rotateGroup.style.display = allValid ? '' : 'none'
+      if (allValid) {
+        const joined = pts.join(' ')
+        rotateRing.setAttribute('points', joined)
+        rotateRingHit.setAttribute('points', joined)
+        const rad = (-headingDelta * Math.PI) / 180
+        const tipWorld = Cartesian3.add(
+          center,
+          Cartesian3.add(
+            Cartesian3.multiplyByScalar(axes[0]!, Math.cos(rad) * radius, new Cartesian3()),
+            Cartesian3.multiplyByScalar(axes[1]!, Math.sin(rad) * radius, new Cartesian3()),
+            new Cartesian3(),
+          ),
+          new Cartesian3(),
+        )
+        const tipScreen = SceneTransforms.worldToWindowCoordinates(viewer.scene, tipWorld)
+        if (tipScreen) {
+          rotateRay.setAttribute('x1', String(start.x))
+          rotateRay.setAttribute('y1', String(start.y))
+          rotateRay.setAttribute('x2', String(tipScreen.x))
+          rotateRay.setAttribute('y2', String(tipScreen.y))
+          rotateLabel.setAttribute('x', String(tipScreen.x + 8))
+          rotateLabel.setAttribute('y', String(tipScreen.y - 6))
+        }
+      }
+    }
 
     applyHighlightStyles()
     updateReadout()
   }
 
   const release = () => {
+    const finished = drag
     if (drag) viewer.scene.screenSpaceCameraController.enableInputs = inputs
     drag = undefined
     pointerScreen = null
+    snapHint = ''
     applyHighlightStyles()
     updateReadout()
+    if (finished?.moved) {
+      options.onCommit?.({
+        offset: Cartesian3.clone(offset),
+        headingDelta,
+        scale,
+      })
+    }
   }
 
   const rayAt = (event: PointerEvent) => {
@@ -355,7 +530,11 @@ export function positionGizmo(
     event.preventDefault()
     event.stopPropagation()
     inputs = viewer.scene.screenSpaceCameraController.enableInputs
-    drag = { kind: 'axis', axis, start, offset: Cartesian3.clone(offset), originAtStart: centerAtStart }
+    if (mode === 'scale') {
+      drag = { kind: 'scale', axis, startScreenX: event.clientX, startScale: scale, startDist: start, originAtStart: centerAtStart, moved: false }
+    } else {
+      drag = { kind: 'axis', axis, start, offset: Cartesian3.clone(offset), originAtStart: centerAtStart, moved: false }
+    }
     viewer.scene.screenSpaceCameraController.enableInputs = false
     target.setPointerCapture(event.pointerId)
     applyHighlightStyles()
@@ -375,7 +554,7 @@ export function positionGizmo(
     p.poly.addEventListener('pointerenter', () => { hovered = { kind: 'plane', id: p.def.id }; applyHighlightStyles() })
     p.poly.addEventListener('pointerleave', () => { if (hovered?.kind === 'plane' && hovered.id === p.def.id) hovered = null; applyHighlightStyles() })
     p.poly.addEventListener('pointerdown', event => {
-      if (!enabled) return
+      if (!enabled || mode !== 'translate') return
       const ray = rayAt(event)
       if (!ray) return
       const centerAtStart = currentCenter()
@@ -384,12 +563,46 @@ export function positionGizmo(
       event.preventDefault()
       event.stopPropagation()
       inputs = viewer.scene.screenSpaceCameraController.enableInputs
-      drag = { kind: 'plane', def: p.def, startA: hit[0], startB: hit[1], offset: Cartesian3.clone(offset), originAtStart: centerAtStart }
+      drag = { kind: 'plane', def: p.def, startA: hit[0], startB: hit[1], offset: Cartesian3.clone(offset), originAtStart: centerAtStart, moved: false }
       viewer.scene.screenSpaceCameraController.enableInputs = false
       p.poly.setPointerCapture(event.pointerId)
       applyHighlightStyles()
       updateReadout()
     })
+  })
+
+  rotateRingHit.addEventListener('pointerenter', () => { hovered = { kind: 'rotate' }; applyHighlightStyles() })
+  rotateRingHit.addEventListener('pointerleave', () => { if (hovered?.kind === 'rotate') hovered = null; applyHighlightStyles() })
+  rotateRingHit.addEventListener('pointerdown', event => {
+    if (!enabled || mode !== 'rotate' || constrained) return
+    const ray = rayAt(event)
+    if (!ray) return
+    const centerAtStart = currentCenter()
+    const hit = planeIntersection(ray.origin, ray.direction, centerAtStart, axes[2]!, axes[0]!, axes[1]!)
+    if (!hit) return
+    event.preventDefault()
+    event.stopPropagation()
+    inputs = viewer.scene.screenSpaceCameraController.enableInputs
+    drag = { kind: 'rotate', startAngleRad: Math.atan2(hit[1], hit[0]), startHeading: headingDelta, originAtStart: centerAtStart, moved: false }
+    viewer.scene.screenSpaceCameraController.enableInputs = false
+    rotateRingHit.setPointerCapture(event.pointerId)
+    applyHighlightStyles()
+    updateReadout()
+  })
+
+  originDot.addEventListener('pointerenter', () => { if (mode === 'scale') { hovered = { kind: 'uniform-scale' }; applyHighlightStyles() } })
+  originDot.addEventListener('pointerleave', () => { if (hovered?.kind === 'uniform-scale') { hovered = null; applyHighlightStyles() } })
+  originDot.addEventListener('pointerdown', event => {
+    if (!enabled || mode !== 'scale' || constrained) return
+    event.preventDefault()
+    event.stopPropagation()
+    rayAt(event)
+    inputs = viewer.scene.screenSpaceCameraController.enableInputs
+    drag = { kind: 'scale', startScreenX: event.clientX, startScale: scale, originAtStart: currentCenter(), moved: false }
+    viewer.scene.screenSpaceCameraController.enableInputs = false
+    originDot.setPointerCapture(event.pointerId)
+    applyHighlightStyles()
+    updateReadout()
   })
 
   const snap = (value: number, shift: boolean) => (shift ? Math.round(value * 10) / 10 : value)
@@ -404,17 +617,43 @@ export function positionGizmo(
       if (distance === undefined) return
       Cartesian3.clone(drag.offset, offset)
       const key = keys[drag.axis]!
-      offset[key] = snap(offset[key] + (distance - drag.start), event.shiftKey)
-    } else {
+      offset[key] = options.onMoveWithShift ? offset[key] + (distance - drag.start) : snap(offset[key] + (distance - drag.start), event.shiftKey)
+      drag.moved = true
+      if (options.onMoveWithShift) options.onMoveWithShift(Cartesian3.clone(offset), event.shiftKey)
+      else onMove(Cartesian3.clone(offset))
+    } else if (drag.kind === 'plane') {
       const hit = planeIntersection(ray.origin, ray.direction, drag.originAtStart, axes[drag.def.normalAxis]!, axes[drag.def.a]!, axes[drag.def.b]!)
       if (!hit) return
       Cartesian3.clone(drag.offset, offset)
       const keyA = keys[drag.def.a]!
       const keyB = keys[drag.def.b]!
-      offset[keyA] = snap(offset[keyA] + (hit[0] - drag.startA), event.shiftKey)
-      offset[keyB] = snap(offset[keyB] + (hit[1] - drag.startB), event.shiftKey)
+      offset[keyA] = options.onMoveWithShift ? offset[keyA] + (hit[0] - drag.startA) : snap(offset[keyA] + (hit[0] - drag.startA), event.shiftKey)
+      offset[keyB] = options.onMoveWithShift ? offset[keyB] + (hit[1] - drag.startB) : snap(offset[keyB] + (hit[1] - drag.startB), event.shiftKey)
+      drag.moved = true
+      if (options.onMoveWithShift) options.onMoveWithShift(Cartesian3.clone(offset), event.shiftKey)
+      else onMove(Cartesian3.clone(offset))
+    } else if (drag.kind === 'rotate') {
+      const hit = planeIntersection(ray.origin, ray.direction, drag.originAtStart, axes[2]!, axes[0]!, axes[1]!)
+      if (!hit) return
+      const currentAngleRad = Math.atan2(hit[1], hit[0])
+      let deltaDeg = ((drag.startAngleRad - currentAngleRad) * 180) / Math.PI
+      if (deltaDeg > 180) deltaDeg -= 360
+      if (deltaDeg < -180) deltaDeg += 360
+      headingDelta = drag.startHeading + deltaDeg
+      drag.moved = true
+      options.onRotate?.(headingDelta, event.shiftKey)
+    } else if (drag.kind === 'scale') {
+      let factor = drag.startScale
+      if (drag.axis !== undefined && drag.startDist !== undefined) {
+        const dist = axisDistance(ray.origin, ray.direction, drag.originAtStart, axes[drag.axis]!)
+        if (dist !== undefined) factor = drag.startScale + (dist - drag.startDist) * 0.35
+      } else {
+        factor = drag.startScale + (event.clientX - drag.startScreenX) * 0.008
+      }
+      scale = Math.max(0.25, Math.min(4, factor))
+      drag.moved = true
+      options.onScale?.(scale, event.shiftKey)
     }
-    onMove(Cartesian3.clone(offset))
     render()
     viewer.scene.requestRender()
   }
@@ -443,13 +682,33 @@ export function positionGizmo(
         h.tipHit.style.pointerEvents = enabled ? 'all' : 'none'
       })
       planeHandles.forEach(p => { p.poly.style.pointerEvents = enabled ? 'all' : 'none' })
+      rotateRingHit.style.pointerEvents = enabled ? 'stroke' : 'none'
+      originDot.style.pointerEvents = enabled ? 'all' : 'none'
+    },
+    setMode(next: GizmoTransformMode) {
+      mode = constrained ? 'translate' : next
+      render()
+      viewer.scene.requestRender()
     },
     setOffset(value: Cartesian3) {
       Cartesian3.clone(value, offset)
       render()
     },
+    setRotation(nextHeadingDelta: number) {
+      headingDelta = nextHeadingDelta
+      render()
+    },
+    setScale(nextScale: number) {
+      scale = Math.max(0.25, Math.min(4, nextScale))
+      render()
+    },
+    setSnapHint(hint: string) {
+      snapHint = hint
+      updateReadout()
+    },
     dispose() {
-      release()
+      drag = undefined
+      viewer.scene.screenSpaceCameraController.enableInputs = inputs
       tick()
       svg.remove()
       window.removeEventListener('keydown', key, true)

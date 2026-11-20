@@ -7,10 +7,14 @@ import { sectionErrors } from './sectionProfile.ts'
 import type { SectionProfile } from './sectionProfile.ts'
 
 export interface BoreConfig { id:string;name:string;start:number;end:number;offset:number;laneWidth:number;lanes:{id:string;direction:1|-1}[] }
-export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number }
+export interface TelemetryBinding { pointId:string;metric?:string;unit?:string;warningThreshold?:number;alarmThreshold?:number }
+export interface CameraBookmark { id:string;name:string;longitude:number;latitude:number;height:number;heading:number;pitch:number;roll:number }
+export interface SceneVisualSettings { sunIntensity:number;sunAzimuth:number;sunElevation:number;fogDensity:number }
+export const DEFAULT_SCENE_VISUALS: SceneVisualSettings = { sunIntensity: 2.4, sunAzimuth: 58, sunElevation: 62, fogDensity: 0.0002 }
+export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number;scale?:number;customModelId?:string;customModelUrl?:string;telemetry?:TelemetryBinding }
 export interface PassageRecord { station:number;vehicle:boolean }
 export interface MouthName { boreId:string;end:0|1;name:string }
-export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[];section?:SectionProfile;passages?:PassageRecord[];mouths?:MouthName[] }
+export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[];section?:SectionProfile;passages?:PassageRecord[];mouths?:MouthName[];bookmarks?:CameraBookmark[];visuals?:SceneVisualSettings }
 export function mouthName(project:TunnelProject,boreId:string,end:0|1):string {
   return project.mouths?.find(mouth=>mouth.boreId===boreId&&mouth.end===end)?.name.trim()||project.name
 }
@@ -60,6 +64,14 @@ export function projectErrors(value:unknown):string[] {
     const b=p.bores.find(b=>b.id===a.boreId)
     if(!b){errors.push(`${a.code}：所属洞筒不存在`);continue}
     if(![a.chainage,a.lateral,a.height,a.heading].every(Number.isFinite)||Math.abs(a.lateral)>50||a.height< -10||a.height>30||Math.abs(a.heading)>360)errors.push(`${a.code}：请检查桩号、偏移（±50 m）、高度（-10～30 m）和朝向（±360°）`)
+    if(a.scale!==undefined&&(!Number.isFinite(a.scale)||a.scale<0.25||a.scale>4))errors.push(`${a.code}：缩放比例须在 0.25～4 之间`)
+    if(a.kind==='custom'&&!a.customModelId&&!a.customModelUrl)errors.push(`${a.code}：自定义模型缺少模型资产引用`)
+    if(a.telemetry){
+      if(typeof a.telemetry.pointId!=='string'||!a.telemetry.pointId.trim())errors.push(`${a.code}：遥测绑定点位 ID 不能为空`)
+      if(a.telemetry.warningThreshold!==undefined&&!Number.isFinite(a.telemetry.warningThreshold))errors.push(`${a.code}：预警阈值须为有效数值`)
+      if(a.telemetry.alarmThreshold!==undefined&&!Number.isFinite(a.telemetry.alarmThreshold))errors.push(`${a.code}：告警阈值须为有效数值`)
+      if(a.telemetry.warningThreshold!==undefined&&a.telemetry.alarmThreshold!==undefined&&a.telemetry.alarmThreshold<a.telemetry.warningThreshold)errors.push(`${a.code}：告警阈值不能小于预警阈值`)
+    }
     if(assetStation(a,b)<-240||assetStation(a,b)>boreLength(b)+240)errors.push(`${a.code}：桩号超出 ${b.name} 的起止范围`)
     if(a.endChainage!==undefined&&(!Number.isFinite(a.endChainage)||a.endChainage<Math.min(b.start,b.end)||a.endChainage>Math.max(b.start,b.end)))errors.push(`${a.code}：设施结束桩号超出洞筒范围`)
   }
@@ -83,6 +95,14 @@ export function projectErrors(value:unknown):string[] {
   if(p.bores.length===2&&p.bores.every(b=>Number.isFinite(b.offset)&&Array.isArray(b.lanes))){
     const [a,b]=p.bores as [BoreConfig,BoreConfig]
     if(Math.abs(a.offset-b.offset)<(a.lanes.length*a.laneWidth+b.lanes.length*b.laneWidth)/2+2)errors.push('两个洞筒间距不足，请调整横向偏移')
+  }
+  if(p.bookmarks!==undefined){
+    if(!Array.isArray(p.bookmarks)||p.bookmarks.length>20)errors.push('相机视角书签最多保存 20 个')
+    else if(p.bookmarks.some(bm=>!bm||typeof bm.id!=='string'||!bm.id||typeof bm.name!=='string'||!bm.name.trim()||![bm.longitude,bm.latitude,bm.height,bm.heading,bm.pitch,bm.roll].every(Number.isFinite)))errors.push('相机视角书签包含无效的名称或坐标参数')
+  }
+  if(p.visuals!==undefined){
+    const v=p.visuals
+    if(!v||![v.sunIntensity,v.sunAzimuth,v.sunElevation,v.fogDensity].every(Number.isFinite)||v.sunIntensity<0.1||v.sunIntensity>5||v.sunAzimuth<0||v.sunAzimuth>360||v.sunElevation<5||v.sunElevation>89||v.fogDensity<0||v.fogDensity>0.01)errors.push('场景光影与雾效参数超出有效范围')
   }
   return [...errors,...placementErrors(p),...sectionErrors(p.section)]
 }

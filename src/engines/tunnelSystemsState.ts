@@ -188,10 +188,10 @@ export const deviceCatalog = [
   ['ventilation','fan','射流风机'], ['communication','speaker','应急广播'], ['communication','telephone','紧急电话'], ['communication','escape','安全出口标志'],
   ['fire','pump','消防水泵'], ['fire','tank','消防水箱'], ['fire','flame','红外火焰探测器'], ['fire','manual','火灾手报'], ['fire','shutter','横洞卷帘门'],
   ['environment','covi','CO / VI 监测器'], ['environment','no2','二氧化氮监测器'], ['environment','wind','风向风速传感器'], ['environment','fbg','感温光栅'], ['environment','humidity','温湿度监测器'],
-  ['facility','pedestrian','人行横洞'], ['facility','vehicle','车行横洞'], ['facility','layby','紧急停车带'], ['facility','distribution','洞内变电箱'], ['facility','substation','洞口变电所'],
+  ['facility','pedestrian','人行横洞'], ['facility','vehicle','车行横洞'], ['facility','layby','紧急停车带'], ['facility','distribution','洞内变电箱'], ['facility','substation','洞口变电所'], ['facility','custom','自定义模型'],
 ] as const
 export type DeviceKind = typeof deviceCatalog[number][1]
-export interface SceneDevice { id: string; kind: DeviceKind; tube: number; station: number; lateral: number; height: number; position?: Cartesian3; portalEnd?: 0 | 1; pickId?: string;name?:string;code?:string;boreName?:string;chainage?:string;heading?:number;boreLength?:number }
+export interface SceneDevice { id: string; kind: DeviceKind; tube: number; station: number; lateral: number; height: number; position?: Cartesian3; portalEnd?: 0 | 1; pickId?: string;name?:string;code?:string;boreName?:string;chainage?:string;heading?:number;boreLength?:number;customModelId?:string;customModelUrl?:string }
 export const categoryNames: Record<string,string> = { traffic: '交通', lighting: '照明', ventilation: '通风', communication: '通信', fire: '消防', environment: '环境检测', facility: '设施' }
 
 // Global fields are defaults for the initial scene and explicit simulation policies only.

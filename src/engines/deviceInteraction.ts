@@ -7,10 +7,15 @@ import { deviceTelemetry } from './deviceTelemetry'
 import { tunnelPoint } from './tunnelDetails'
 import { surveyFrame } from './projectSurvey'
 import { highlightPortalGroup } from './portalPosition'
+import { getCachedCustomModelMeta } from './customModelLibrary'
 
 export const deviceHeight=(d:SceneDevice)=>['lane','vms'].includes(d.kind)?(d.position?d.height:5.85):d.kind==='fan'?6.68:d.kind==='camera'?d.height+.35:d.kind==='tank'?1.8:d.kind==='pump'?.8:d.height
 
-export function deviceBoxSize(kind: DeviceKind): [number, number, number] {
+export function deviceBoxSize(kind: DeviceKind, device?: SceneDevice): [number, number, number] {
+  if (kind === 'custom' && device?.customModelId) {
+    const meta = getCachedCustomModelMeta(device.customModelId)
+    if (meta) return meta.bounds
+  }
   switch (kind) {
     case 'basic': return [1.9, 0.72, 0.56]
     case 'enhanced': return [2.0, 0.78, 0.56]
@@ -39,6 +44,10 @@ export function deviceBoxSize(kind: DeviceKind): [number, number, number] {
 }
 
 export function deviceBoxOffset(d: SceneDevice): [number, number, number] {
+  if (d.kind === 'custom' && d.customModelId) {
+    const meta = getCachedCustomModelMeta(d.customModelId)
+    if (meta) return meta.centerOffset
+  }
   if (d.kind === 'street') {
     // Streetlight anchor sits at the top luminaire head (z ~ 7.81 m), offset ~1.14 m from the pole.
     return [0, Math.sign(d.lateral || 1) * 0.55, -3.85]
@@ -127,7 +136,7 @@ export function addDeviceInteraction(viewer:Viewer,survey:TunnelSurvey,devices:S
     if(highlighted){highlighted.silhouetteColor=selectionColor;highlighted.silhouetteSize=4}
     if(device){
       const pos=position(device)
-      const [dx,dy,dz]=deviceBoxSize(device.kind)
+      const [dx,dy,dz]=deviceBoxSize(device.kind,device)
       const [ox,oy,oz]=deviceBoxOffset(device)
       const boxPos=(ox||oy||oz)?Matrix4.multiplyByPoint(surveyFrame(survey,pos),new Cartesian3(ox,oy,oz),new Cartesian3()):pos
       selection.position=new ConstantPositionProperty(pos)
