@@ -191,7 +191,8 @@ export const deviceCatalog = [
   ['facility','pedestrian','人行横洞'], ['facility','vehicle','车行横洞'], ['facility','layby','紧急停车带'], ['facility','distribution','洞内变电箱'], ['facility','substation','洞口变电所'], ['facility','custom','自定义模型'],
 ] as const
 export type DeviceKind = typeof deviceCatalog[number][1]
-export interface SceneDevice { id: string; kind: DeviceKind; tube: number; station: number; lateral: number; height: number; position?: Cartesian3; portalEnd?: 0 | 1; pickId?: string;name?:string;code?:string;boreName?:string;chainage?:string;heading?:number;boreLength?:number;customModelId?:string;customModelUrl?:string }
+export interface DeviceBoxDescriptor { size: [number, number, number]; offset?: [number, number, number]; offsetSpace?: 'local' | 'survey' }
+export interface SceneDevice { id: string; kind: DeviceKind; tube: number; station: number; lateral: number; height: number; position?: Cartesian3; portalEnd?: 0 | 1; pickId?: string;name?:string;code?:string;boreName?:string;chainage?:string;heading?:number;scale?:number;boreLength?:number;customModelId?:string;customModelUrl?:string;box?:DeviceBoxDescriptor }
 export const categoryNames: Record<string,string> = { traffic: '交通', lighting: '照明', ventilation: '通风', communication: '通信', fire: '消防', environment: '环境检测', facility: '设施' }
 
 // Global fields are defaults for the initial scene and explicit simulation policies only.

@@ -30,10 +30,23 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
       speed: lane === 0 ? 15 : 18 }
   }))
   cars.forEach(car => viewer.scene.primitives.add(car.model))
+  let trafficVisible = true
   let previous = performance.now()
   const rotation = Matrix3.fromRotationY(-Math.atan(survey.grade / 100))
   function update(): void {
     const now = performance.now()
+    if (!trafficVisible) {
+      previous = now
+      let changed = false
+      for (const car of cars) {
+        if (car.model.show) {
+          car.model.show = false
+          changed = true
+        }
+      }
+      if (changed) viewer.scene.requestRender()
+      return
+    }
     if (typeof document !== 'undefined' && document.hidden) {
       previous = now
       return
@@ -95,8 +108,21 @@ export async function addTunnelTraffic(viewer: Viewer, survey: TunnelSurvey, get
   }
   update()
   const removeTick = viewer.scene.preUpdate.addEventListener(update)
-  return {cars,dispose() {
-    removeTick()
-    cars.forEach(car => viewer.scene.primitives.remove(car.model))
-  }}
+  return {
+    cars,
+    setVisible(visible: boolean) {
+      trafficVisible = visible
+      if (!visible) {
+        for (const car of cars) car.model.show = false
+      } else {
+        previous = performance.now()
+        update()
+      }
+      viewer.scene.requestRender()
+    },
+    dispose() {
+      removeTick()
+      cars.forEach(car => viewer.scene.primitives.remove(car.model))
+    },
+  }
 }

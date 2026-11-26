@@ -249,7 +249,7 @@ function onDragStartCustom(model: CustomModelEntry, event: DragEvent): void {
         </section>
       </div>
       <footer class="px-3 py-[7px] border-0 border-t border-solid border-[#7cb6f8]/14 bg-[#091226]/72 text-[11px] text-twin-sub text-center">
-        单击选中（Ctrl 多选）· 双击聚焦视角
+        单击选中并聚焦视角 · Ctrl/Cmd 多选
       </footer>
     </template>
 

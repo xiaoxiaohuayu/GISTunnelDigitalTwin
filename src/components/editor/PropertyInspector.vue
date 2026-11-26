@@ -21,6 +21,7 @@ const props = defineProps<{
   underground: boolean
   wallsVisible: boolean
   canopyVisible: boolean
+  trafficVisible: boolean
   detectionVisible: boolean
   cameraGuardEnabled: boolean
 }>()
@@ -44,6 +45,7 @@ const emit = defineEmits<{
   toggleUnderground: [enabled: boolean]
   toggleWalls: [enabled: boolean]
   toggleCanopy: [enabled: boolean]
+  toggleTraffic: [enabled: boolean]
   toggleDetection: [enabled: boolean]
   toggleCameraGuard: [enabled: boolean]
 }>()
@@ -497,6 +499,10 @@ const bookmarks = computed(() => props.project.bookmarks ?? [])
           <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>入口遮雨棚</span>
             <el-switch :model-value="canopyVisible" size="small" @change="emit('toggleCanopy', Boolean($event))" />
+          </label>
+          <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
+            <span>隧道车流显示</span>
+            <el-switch :model-value="trafficVisible" size="small" @change="emit('toggleTraffic', Boolean($event))" />
           </label>
           <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>摄像机检测范围</span>

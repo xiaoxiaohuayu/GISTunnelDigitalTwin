@@ -118,16 +118,18 @@ export async function addPortalSite(viewer: Viewer, survey: TunnelSurvey, end: 0
   }`})
   const lamps=portalLamps.map(l=>{const y=survey.project?portalLateral(survey.project,end,l.y):l.y,tube=survey.tubes.length===1?0:(l.y<0?0:1)^end,b=survey.project?.bores[tube];return {...l,x:l.x+(survey.project?portalAlong(survey.project,end,l.y):0),y,headY:streetlightHead(l).y+y-l.y,roadCenter:b?(end===0?-b.offset:b.offset):(l.y<0?-12:12),roadHalfWidth:b?b.lanes.length*b.laneWidth/2:4.3}})
   const active=(id:string)=>!survey.project||survey.project.assets.some(a=>a.id===id)
+  const portalLampBox=(lateral:number)=>({size:[0.8,2.0,8.2] as [number,number,number],offset:[0,Math.sign(lateral||1)*0.55,-3.75] as [number,number,number],offsetSpace:'survey' as const})
   const devices=lamps.map((lamp,index):SceneDevice=>{
     const tube=survey.tubes.length===1?0:(portalLamps[index]!.y<0?0:1)^end
-    return {id:`street-${end*portalLamps.length+index+1}`,kind:'street',tube,station:end===0?-PORTAL_EXTENSION+lamp.x:survey.length+PORTAL_EXTENSION-lamp.x,lateral:0,height:8,portalEnd:end,
-      position:world(streetlightHead(lamp)),pickId:`portal-structures:${end}/${lamp.node}`}
+    const sideLateral=(lamp.headY-lamp.roadCenter)*(end===0?1:-1)
+    return {id:`street-${end*portalLamps.length+index+1}`,kind:'street',tube,station:end===0?-PORTAL_EXTENSION+lamp.x:survey.length+PORTAL_EXTENSION-lamp.x,lateral:sideLateral,height:8,heading:0,portalEnd:end,
+      position:world(streetlightHead(lamp)),pickId:`portal-structures:${end}/${lamp.node}`,box:portalLampBox(sideLateral)}
   })
   const originalPositions=devices.map(d=>Cartesian3.clone(d.position!))
   const initialDeltas=devices.map((device,index)=>{
     const record=survey.project?.assets.find(a=>a.id===device.id);if(!record)return Matrix4.clone(Matrix4.IDENTITY)
     const a=resolveAsset(record,survey.project!),tube=survey.project!.bores.findIndex(b=>b.id===a.boreId),b=survey.project!.bores[tube]!,station=assetStation(a,b),point=survey.actualPointAt!(tube,station,-a.lateral,a.height)
-    Object.assign(device,{tube,station,lateral:-a.lateral,height:a.height,position:point})
+    Object.assign(device,{tube,station,lateral:-a.lateral,height:a.height,position:point,box:portalLampBox(-a.lateral)})
     return Matrix4.multiply(surveyFrame(survey,point),Matrix4.inverse(surveyFrame(survey,originalPositions[index]!),new Matrix4()),new Matrix4())
   })
   const lampUniforms=Object.fromEntries(portalLamps.map((_,index)=>[`u_lamp${index}`,{type:UniformType.FLOAT,value:0}]))

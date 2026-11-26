@@ -295,16 +295,20 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       const target=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,h)
       orbit.setTarget(target)
       const yard=d.kind==='tank'||d.kind==='pump'
-      const approach=travelOf(d.tube)*(largeOverhead?11:lamp?6:5)
-      // Keep interior camera centered in the safe carriageway with a comfortable upright view instead of hugging the wall.
-      const camLateral=yard?8:Math.max(-1.8,Math.min(1.8,-d.lateral*0.25))
-      const camHeight=yard?h+2.5:lamp?Math.max(2.0,Math.min(3.5,h-1.35)):Math.max(1.7,Math.min(3.6,h-0.85))
+      const asset=project?.assets.find(item=>item.id===id)
+      const [bx,by,bz]=deviceBoxSize(d.kind,d)
+      const extent=Math.max(bx,by,bz)*(asset?.scale??1)
+      const dist=yard?14:largeOverhead?18:lamp?12:Math.max(11,Math.min(26,extent*3.8))
+      const approach=travelOf(d.tube)*dist
+      // Keep interior camera centered in the safe carriageway with a comfortable upright view and room for gizmo handles.
+      const camLateral=yard?10:Math.max(-2.0,Math.min(2.0,-d.lateral*0.25))
+      const camHeight=yard?h+3.2:lamp?Math.max(2.2,Math.min(3.8,h-1.2)):Math.max(2.0,Math.min(4.0,h-0.5))
       const position=tunnelPoint(survey,d.tube,d.station-approach,camLateral,camHeight)
       const up=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(position),Cartesian3.UNIT_Z,new Cartesian3())
       const duration=window.matchMedia('(prefers-reduced-motion: reduce)').matches?0:.85
       if(d.kind==='street'||d.kind==='substation') {
         viewer.camera.flyToBoundingSphere(new BoundingSphere(d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,3),1),{
-          duration,offset:new HeadingPitchRange(CesiumMath.toRadians(65),CesiumMath.toRadians(-15),d.kind==='substation'?28:20),
+          duration,offset:new HeadingPitchRange(CesiumMath.toRadians(65),CesiumMath.toRadians(-18),d.kind==='substation'?42:28),
         })
       } else {
         viewer.camera.flyTo({destination:position,
@@ -317,7 +321,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       }
       viewer.scene.requestRender()
     }
-  let wallsVisible=true,canopyVisible=true,positionSaving=false
+  let wallsVisible=true,canopyVisible=true,trafficVisible=true,positionSaving=false
   let stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic?.cars??[],()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
   report(95,'首帧准备','模型渲染与材质编译')
   focusPortal()
@@ -345,20 +349,20 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   report(100,'场景就绪','模型与资源初始化完成')
   playIntro()
   let editing:{original:AssetRecord;draft:AssetRecord;gizmo:ReturnType<typeof positionGizmo>}|undefined
-  function cancelPositionEdit():void{if(!editing||positionSaving)return;previewPosition({chainage:editing.original.chainage,lateral:editing.original.lateral,height:editing.original.height,heading:editing.original.heading});moveRecord(editing.original);editing.gizmo.dispose();editing=undefined;options.onPositionEdit?.(undefined)}
+  function cancelPositionEdit():void{if(!editing||positionSaving)return;previewPosition({chainage:editing.original.chainage,lateral:editing.original.lateral,height:editing.original.height,heading:editing.original.heading,scale:editing.original.scale});moveRecord(editing.original);editing.gizmo.dispose();editing=undefined;options.onPositionEdit?.(undefined)}
   function previewPosition(patch:Partial<AssetRecord>):void{if(!editing||positionSaving)return;editing.draft=moveAsset(editing.draft,patch,project!);
     if(['pedestrian','vehicle','layby'].includes(editing.draft.kind)){
       const preview=facilityProject(project!,{...editing.draft}),indices=preview.bores.flatMap((b,i)=>b.id===editing!.draft.boreId||b.id===editing!.draft.link?.targetBoreId?[i]:[])
       model.updateInterior(projectSurvey(preview),indices);bindLights();model.setLighting(state,systems.devices);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled)
       for(const id of editing.draft.link?.memberIds??[]){const a=preview.assets.find(a=>a.id===id);if(a)moveRecord(a)}
     }
-    moveRecord(editing.draft);const b=project!.bores.find(b=>b.id===editing!.draft.boreId)!;editing.gizmo.setOffset(new Cartesian3((editing.draft.chainage-editing.original.chainage)*Math.sign(b.end-b.start),editing.draft.lateral-editing.original.lateral,editing.draft.height-editing.original.height));options.onPositionEdit?.({...editing.draft})}
+    moveRecord(editing.draft);const b=project!.bores.find(b=>b.id===editing!.draft.boreId)!;editing.gizmo.setOffset(new Cartesian3((editing.draft.chainage-editing.original.chainage)*Math.sign(b.end-b.start),editing.draft.lateral-editing.original.lateral,editing.draft.height-editing.original.height));editing.gizmo.setScale(editing.draft.scale??1);options.onPositionEdit?.({...editing.draft})}
   function startPositionEdit(id:string):void{
     if(editing)return
     const a=project!.assets.find(a=>a.id===id),d=systems.devices.find(d=>d.id===id);if(!a||!d)return
     if(a.locked){options.onWarning?.(`${a.code} 已锁定，请先在场景大纲或属性栏解锁后再拖拽`);return}
-    stopCamera();const original=structuredClone(resolveAsset(a,project!)),point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind)),b=project!.bores[d.tube]!
-    const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit,deviceBoxSize(d.kind,d),deviceBoxOffset(d))
+    stopCamera();const original=structuredClone(resolveAsset(a,project!)),point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind)),b=project!.bores[d.tube]!,unscaled={...d,scale:1}
+    const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit,deviceBoxSize(d.kind,unscaled),deviceBoxOffset(unscaled),{initialScale:original.scale??1})
     editing={original,draft:structuredClone(original),gizmo};options.onPositionEdit?.({...original})
   }
   async function savePositionEdit():Promise<void>{
@@ -383,7 +387,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     const inst=systems.instances.get(a.id)
     inst?.move(frame)
     inst?.setVisible(a.visible!==false)
-    Object.assign(d,{tube,station,lateral:-a.lateral,height:a.height,position:point,name:a.name,code:a.code,boreName:b.name,chainage:formatChainage(a.chainage)})
+    Object.assign(d,{tube,station,lateral:-a.lateral,height:a.height,heading:a.heading,scale:a.scale,position:point,name:a.name,code:a.code,boreName:b.name,chainage:formatChainage(a.chainage)})
     if(refresh&&(a.kind==='basic'||a.kind==='enhanced'))model.setLightSample(state,systems.devices)
     if(refresh){interaction.refresh();options.onDevices?.([...systems.devices])}
   }
@@ -408,7 +412,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     const dirSign=Math.sign(bore.end-bore.start)||1
     const original=structuredClone(resolveAsset(a,project))
     const constrained=['pedestrian','vehicle','layby'].includes(original.kind)
-    const point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind))
+    const point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind)),unscaled={...d,scale:1}
     const gizmo=positionGizmo(
       viewer,
       surveyFrame(survey,point),
@@ -423,8 +427,8 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         editorGizmo.gizmo.setScale(editorGizmo.original.scale??1)
         opts.onCancel?.()
       },
-      deviceBoxSize(d.kind,d),
-      deviceBoxOffset(d),
+      deviceBoxSize(d.kind,unscaled),
+      deviceBoxOffset(unscaled),
       {
         mode:opts.mode,
         initialHeadingDelta:0,
@@ -516,6 +520,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
         systems=await addTunnelSystems(viewer,survey,undefined,model.sites)
         traffic=await addTunnelTraffic(viewer,survey,()=>state)
+        traffic.setVisible(trafficVisible)
         bindLights()
         resources.capture()
         interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i))
@@ -549,7 +554,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
         signResources.dispose();signResources=sceneResources(viewer);boards=await addPortalBoards(viewer,survey);trafficSigns=await addPortalTrafficSigns(viewer,survey);signResources.capture()
         for(const a of config.assets)moveRecord(resolveAsset(a,config),false)
         model.setLighting(state,systems.devices);model.setWallsVisible(wallsVisible);model.setCanopyVisible(canopyVisible);model.setUnderground(viewer.scene.globe.translucency.enabled);systems.update(state)
-        traffic?.dispose();traffic=await addTunnelTraffic(viewer,survey,()=>state)
+        traffic?.dispose();traffic=await addTunnelTraffic(viewer,survey,()=>state);traffic.setVisible(trafficVisible)
         stopOverlays();stopOverlays=addSceneOverlays(viewer,survey,systems.devices,traffic.cars,()=>state,()=>interaction.selected,items=>options.onOverlays?.(items),positions=>options.onOverlayPositions?.(positions),()=>wallsVisible)
         const selectedId=interaction.selected?.id;interaction.dispose();interaction=addDeviceInteraction(viewer,survey,systems.devices,systems.models,d=>focusDevice(d.id),()=>options.onSignEdit?.(),i=>options.onTrafficSignEdit?.(i));if(selectedId)interaction.select(systems.devices.find(d=>d.id===selectedId));interaction.update(state)
         detection.refresh(survey,systems.instances);model.applyPortalNames(config);await saveTunnelProject(config);publish(config);options.onDevices?.([...systems.devices])
@@ -651,6 +656,14 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     seekRoaming(progress:number) {cancelIntro();roamDistance=-220+Math.max(0,Math.min(1,progress))*(survey.length+440);moveRoaming();reportRoaming()},
     clearDeviceSelection(){interaction.select()},
     setCanopyVisible(visible:boolean){canopyVisible=visible;model.setCanopyVisible(visible);viewer.scene.requestRender()},
+    setTrafficVisible(visible:boolean){
+      trafficVisible=visible
+      traffic?.setVisible(visible)
+      for(const [index,car] of incidentCars.entries()){
+        car.show=visible&&(index===0?!!incidentDefinition(state.incident)?.car:['congestion','vehicle'].includes(state.incident))
+      }
+      viewer.scene.requestRender()
+    },
     setSystems(patch:Partial<SystemsState>) {
       state=changeSystems(state,patch);if(project&&patch.devices)void saveControlOverrides(project.id,state.devices).catch(e=>options.onWarning?.(String(e)));trafficSigns.setLighting(state.environment==='day');model.setLighting(state,systems.devices);systems.update(state);interaction.update(state);events.update(state)
       effects.update(state)
@@ -658,7 +671,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       const station=incidentStation(survey.length,state,direction)
       const lateral=state.incident==='emergency'?(direction===1?-6.1:6.1):state.incident==='line'?0:-2.15
       for(const [index,car] of incidentCars.entries()) {
-        car.show=index===0?!!incidentDefinition(state.incident)?.car:['congestion','vehicle'].includes(state.incident)
+        car.show=trafficVisible&&(index===0?!!incidentDefinition(state.incident)?.car:['congestion','vehicle'].includes(state.incident))
         const offset=index===0?0:-direction*index*8
         car.modelMatrix=vehicleMatrix(state.incidentTube,station+offset,index%2===1?2.15:lateral,state.incident==='collision'?.12:0)
         setEquipmentLighting(car,illuminationAt(station,survey.length,state))

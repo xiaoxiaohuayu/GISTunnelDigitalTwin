@@ -71,7 +71,7 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     if(survey.project&&listed&&!record)return {id,kind,tube,station,lateral,height}
     if(resolved){const bore=survey.project!.bores.find(b=>b.id===resolved.boreId)!;tube=survey.project!.bores.indexOf(bore);station=assetStation(resolved,bore);lateral=-resolved.lateral;height=resolved.height-assetMountOffset(kind);angle=resolved.heading*Math.PI/180}
     if(resolved&&kind==='escape')asset=`escape-sign-${escapeSignDirection(station,tube,survey.length,layoutPassages(survey,tube))}`
-    const device:SceneDevice = { id,kind,tube,station,lateral,height,...(resolved?{name:resolved.name,code:resolved.code,boreName:survey.project!.bores[tube]!.name,chainage:formatChainage(resolved.chainage),customModelId:resolved.customModelId,customModelUrl:resolved.customModelUrl}:{}) }
+    const device:SceneDevice = { id,kind,tube,station,lateral,height,heading:resolved?resolved.heading:(angle*180)/Math.PI,scale:resolved?.scale,...(resolved?{name:resolved.name,code:resolved.code,boreName:survey.project!.bores[tube]!.name,chainage:formatChainage(resolved.chainage),customModelId:resolved.customModelId,customModelUrl:resolved.customModelUrl}:{}) }
     if(resolved)device.position=survey.actualPointAt!(tube,station,lateral,resolved.height)
     if(listed)devices.push(device)
     const isCustom=kind==='custom'&&Boolean(resolved?.customModelId||resolved?.customModelUrl)
@@ -154,17 +154,17 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
   const portalVmsStart=counters.get('vms')??0
   for(const [end,site] of sites.entries()) {
     devices.push(...site.devices)
-    const substation:SceneDevice={id:`substation-${end+1}`,kind:'substation',tube:0,station:end===0?-110:survey.length+110,lateral:12,height:2.4,portalEnd:end as 0|1,position:Matrix4.multiplyByPoint(site.frame,new Cartesian3(-50,0,2.4),new Cartesian3())}
+    const substation:SceneDevice={id:`substation-${end+1}`,kind:'substation',tube:0,station:end===0?-110:survey.length+110,lateral:12,height:2.4,heading:end*180,portalEnd:end as 0|1,position:Matrix4.multiplyByPoint(site.frame,new Cartesian3(-50,0,2.4),new Cartesian3())}
     const substationRecord=survey.project?.assets.find(a=>a.id===substation.id)
-    if(substationRecord){const a=resolveAsset(substationRecord,survey.project!),tube=survey.project!.bores.findIndex(b=>b.id===a.boreId),station=assetStation(a,survey.project!.bores[tube]!);Object.assign(substation,{tube,station,lateral:-a.lateral,height:a.height,position:survey.actualPointAt!(tube,station,-a.lateral,a.height)})}
+    if(substationRecord){const a=resolveAsset(substationRecord,survey.project!),tube=survey.project!.bores.findIndex(b=>b.id===a.boreId),station=assetStation(a,survey.project!.bores[tube]!);Object.assign(substation,{tube,station,lateral:-a.lateral,height:a.height,heading:a.heading,scale:a.scale,position:survey.actualPointAt!(tube,station,-a.lateral,a.height)})}
     if(!survey.project||substationRecord){devices.push(substation);portalModels.push({model:site.substation,device:substation})}
     for(const [side,y] of [-12,12].entries()) {
       const tube=(y<0?0:1)^end
       let frame=Matrix4.multiplyByTranslation(site.frame,new Cartesian3(-112.12,y,7.05),new Matrix4())
-      const device:SceneDevice={id:`vms-${portalVmsStart+end*2+side+1}`,kind:'vms',tube,station:end===0?-172.12:survey.length+172.12,lateral:0,height:7.05,portalEnd:end as 0|1,position:Matrix4.getTranslation(frame,new Cartesian3())}
+      const device:SceneDevice={id:`vms-${portalVmsStart+end*2+side+1}`,kind:'vms',tube,station:end===0?-172.12:survey.length+172.12,lateral:0,height:7.05,heading:end*180,portalEnd:end as 0|1,position:Matrix4.getTranslation(frame,new Cartesian3())}
       const record=survey.project?.assets.find(a=>a.id===device.id)
       if(survey.project&&!record)continue
-      if(record){const a=resolveAsset(record,survey.project!),t=survey.project!.bores.findIndex(b=>b.id===a.boreId),s=assetStation(a,survey.project!.bores[t]!);Object.assign(device,{tube:t,station:s,lateral:-a.lateral,height:a.height,position:survey.actualPointAt!(t,s,-a.lateral,a.height)});frame=Matrix4.multiply(surveyFrame(survey,device.position!),Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(end*Math.PI)),new Matrix4())}
+      if(record){const a=resolveAsset(record,survey.project!),t=survey.project!.bores.findIndex(b=>b.id===a.boreId),s=assetStation(a,survey.project!.bores[t]!);Object.assign(device,{tube:t,station:s,lateral:-a.lateral,height:a.height,heading:a.heading,scale:a.scale,position:survey.actualPointAt!(t,s,-a.lateral,a.height)});frame=Matrix4.multiply(surveyFrame(survey,device.position!),Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(end*Math.PI)),new Matrix4())}
       devices.push(device)
       const housing=addEntity({id:device.id,position:device.position,orientation:Quaternion.fromRotationMatrix(Matrix4.getMatrix3(frame,new Matrix3())),box:{dimensions:new Cartesian3(.35,6.8,1.05),material:Color.fromCssColorString('#252c32')}})
       const face=Matrix4.multiply(frame,Matrix4.fromRotationTranslation(Matrix3.fromRotationZ(y<0?0:Math.PI)),new Matrix4())

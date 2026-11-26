@@ -63,7 +63,7 @@ const container=useTemplateRef<HTMLDivElement>('container')
 const overlayLayer=useTemplateRef<InstanceType<typeof SceneOverlayLayer>>('overlayLayer')
 const roamingOpen=shallowRef(false),detectionVisible=shallowRef(false),monitor=shallowRef<SceneDevice>()
 const roamingState=shallowRef<RoamingState>({playing:false,tube:0,speed:60,distance:-220,length:0})
-const wallsVisible=shallowRef(true),canopyVisible=shallowRef(true),cameraGuardEnabled=shallowRef(true),selectedDevice=shallowRef<SceneDevice>()
+const wallsVisible=shallowRef(true),canopyVisible=shallowRef(true),trafficVisible=shallowRef(true),cameraGuardEnabled=shallowRef(true),selectedDevice=shallowRef<SceneDevice>()
 const underground=shallowRef(false),panel=shallowRef<'devices'|'systems'|'events'|'sign'|'traffic'|null>(null)
 const returnPanel=shallowRef<'devices'|'systems'|'events'|null>(null)
 const returnLabel=computed(()=>returnPanel.value?{devices:'返回设备列表',systems:'返回系统控制',events:'返回演练清单'}[returnPanel.value]:'')
@@ -265,6 +265,10 @@ function editorToggleVisibility(id:string,visible:boolean):void{
 function editorToggleLock(id:string,locked:boolean):void{
   void runEditorTask(()=>editorStore.commitAssetTransform(id,{locked},{label:locked?'锁定设备':'解锁设备'}))
 }
+function editorSelectAsset(id:string,opts:{toggle:boolean}):void{
+  editorStore.select([id],opts)
+  if(!opts.toggle)focusDevice(id)
+}
 function onViewportDragOver(event:DragEvent):void{
   if(!isEditorMode.value||!event.dataTransfer?.types.includes('application/x-codex-aigis-asset'))return
   event.preventDefault()
@@ -432,6 +436,7 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
           <el-button size="small" :disabled="!ready" :type="underground?'primary':'default'" :aria-pressed="underground" @click="underground=!underground;getHandle()?.setUnderground(underground)">{{underground?'恢复山体':'地下结构'}}</el-button>
           <el-button size="small" :disabled="!ready" :type="canopyVisible?'primary':'default'" :aria-pressed="canopyVisible" @click="canopyVisible=!canopyVisible;getHandle()?.setCanopyVisible(canopyVisible)">遮雨棚：{{canopyVisible?'开':'关'}}</el-button>
           <el-button size="small" :disabled="!ready" :type="wallsVisible?'primary':'default'" :aria-pressed="wallsVisible" @click="wallsVisible=!wallsVisible;getHandle()?.setWallsVisible(wallsVisible)">隧道墙体：{{wallsVisible?'开':'关'}}</el-button>
+          <el-button size="small" :disabled="!ready" :type="trafficVisible?'primary':'default'" :aria-pressed="trafficVisible" @click="trafficVisible=!trafficVisible;getHandle()?.setTrafficVisible(trafficVisible)">车流：{{trafficVisible?'开':'关'}}</el-button>
         </div>
         <div class="tool-group" role="group" aria-label="视角定位">
           <span class="tool-group-label">视角</span>
@@ -462,6 +467,7 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
       :underground="underground"
       :walls-visible="wallsVisible"
       :canopy-visible="canopyVisible"
+      :traffic-visible="trafficVisible"
       :detection-visible="detectionVisible"
       :camera-guard-enabled="cameraGuardEnabled"
       @exit="exitEditorMode"
@@ -469,7 +475,7 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
       @redo="editorRedo"
       @set-gizmo-mode="(mode:GizmoMode)=>editorStore.setGizmoMode(mode)"
       @set-snap-mode="(mode:SnapMode)=>editorStore.setSnapMode(mode)"
-      @select="(id,opts)=>editorStore.select([id],opts)"
+      @select="editorSelectAsset"
       @clear-selection="editorStore.clearSelection()"
       @focus="focusDevice"
       @start-gizmo="id=>getHandle()?.startPositionEdit(id)"
@@ -495,6 +501,7 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
       @toggle-underground="val=>{underground=val;getHandle()?.setUnderground(val)}"
       @toggle-walls="val=>{wallsVisible=val;getHandle()?.setWallsVisible(val)}"
       @toggle-canopy="val=>{canopyVisible=val;getHandle()?.setCanopyVisible(val)}"
+      @toggle-traffic="val=>{trafficVisible=val;getHandle()?.setTrafficVisible(val)}"
       @toggle-detection="val=>{detectionVisible=val;getHandle()?.setDetectionVisible(val)}"
       @toggle-camera-guard="val=>{cameraGuardEnabled=val;getHandle()?.setCameraGuardEnabled(val)}"
     />

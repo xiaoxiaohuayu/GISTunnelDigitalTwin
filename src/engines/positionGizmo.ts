@@ -252,7 +252,7 @@ export function positionGizmo(
   function currentCenter(): Cartesian3 {
     return Matrix4.multiplyByPoint(
       frame,
-      new Cartesian3(offset.x + boxOffset[0], -offset.y + boxOffset[1], offset.z + boxOffset[2]),
+      new Cartesian3(offset.x + boxOffset[0] * scale, -offset.y + boxOffset[1] * scale, offset.z + boxOffset[2] * scale),
       new Cartesian3(),
     )
   }
@@ -332,13 +332,14 @@ export function positionGizmo(
     const [bx, by, bz] = boxSize
     const [ox, oy, oz] = boxOffset
     const hx = bx * 0.5 * scale, hy = by * 0.5 * scale, hz = bz * 0.5 * scale
+    const sox = ox * scale, soy = oy * scale, soz = oz * scale
     const corners: (Cartesian2 | undefined)[] = []
     for (const sx of [-1, 1]) {
       for (const sy of [-1, 1]) {
         for (const sz of [-1, 1]) {
           const p = Matrix4.multiplyByPoint(
             frame,
-            new Cartesian3(offset.x + ox + sx * hx, -offset.y + oy + sy * hy, offset.z + oz + sz * hz),
+            new Cartesian3(offset.x + sox + sx * hx, -offset.y + soy + sy * hy, offset.z + soz + sz * hz),
             new Cartesian3(),
           )
           corners.push(SceneTransforms.worldToWindowCoordinates(viewer.scene, p))

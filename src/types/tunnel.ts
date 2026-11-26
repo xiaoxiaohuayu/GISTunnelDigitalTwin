@@ -42,6 +42,7 @@ export interface TunnelMapHandle extends EngineHandle {
   seekRoaming: (progress:number) => void
   clearDeviceSelection: () => void
   setCanopyVisible: (visible: boolean) => void
+  setTrafficVisible: (visible: boolean) => void
   setSystems: (patch: Partial<import('../engines/tunnelSystemsState').SystemsState>) => import('../engines/tunnelSystemsState').SystemsState
   focusIncident: () => void
   focusDevice: (id: string) => void

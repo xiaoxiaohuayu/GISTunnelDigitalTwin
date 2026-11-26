@@ -17,6 +17,7 @@ const props = defineProps<{
   underground: boolean
   wallsVisible: boolean
   canopyVisible: boolean
+  trafficVisible: boolean
   detectionVisible: boolean
   cameraGuardEnabled: boolean
 }>()
@@ -53,6 +54,7 @@ const emit = defineEmits<{
   toggleUnderground: [enabled: boolean]
   toggleWalls: [enabled: boolean]
   toggleCanopy: [enabled: boolean]
+  toggleTraffic: [enabled: boolean]
   toggleDetection: [enabled: boolean]
   toggleCameraGuard: [enabled: boolean]
 }>()
@@ -247,6 +249,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         :underground="underground"
         :walls-visible="wallsVisible"
         :canopy-visible="canopyVisible"
+        :traffic-visible="trafficVisible"
         :detection-visible="detectionVisible"
         :camera-guard-enabled="cameraGuardEnabled"
         @preview-transform="(id, patch) => emit('previewTransform', id, patch)"
@@ -267,6 +270,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         @toggle-underground="emit('toggleUnderground', $event)"
         @toggle-walls="emit('toggleWalls', $event)"
         @toggle-canopy="emit('toggleCanopy', $event)"
+        @toggle-traffic="emit('toggleTraffic', $event)"
         @toggle-detection="emit('toggleDetection', $event)"
         @toggle-camera-guard="emit('toggleCameraGuard', $event)"
       />
