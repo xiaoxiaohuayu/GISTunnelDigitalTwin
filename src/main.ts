@@ -5,6 +5,7 @@ import { registerElementPlus } from './plugins/elementPlus'
 import './style.css'
 import './element-theme.css'
 import './theme-command.css'
+import 'virtual:uno.css'
 
 const app = createApp(App)
 registerElementPlus(app)

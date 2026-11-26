@@ -4,8 +4,13 @@ import type { EditorSceneBridge } from './editorStore.ts'
 export { CommandStack } from './commandStack.ts'
 export type { CommandHistoryEntry, CommandStackOptions, CommandTransition, EditorCommand } from './commandStack.ts'
 export { EditorStore } from './editorStore.ts'
-export { evaluateTelemetryBinding } from './telemetryBinding.ts'
-export type { EvaluatedBindingReading } from './telemetryBinding.ts'
+export {
+  applyTelemetryToOverlays,
+  evaluateTelemetryBinding,
+  mergeBoundDeviceAlerts,
+  resolveBoundDeviceReading,
+} from './telemetryBinding.ts'
+export type { EvaluatedBindingReading, RuntimeDeviceAlert } from './telemetryBinding.ts'
 export type {
   EditorMode,
   EditorSceneBridge,

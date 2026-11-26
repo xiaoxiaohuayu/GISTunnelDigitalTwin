@@ -12,6 +12,7 @@ const props = defineProps<{
   snapshot: EditorSnapshot
   customModels: CustomModelEntry[]
   telemetrySnapshot: TelemetrySnapshot
+  dropActive?: boolean
   environment: SystemsState['environment']
   underground: boolean
   wallsVisible: boolean
@@ -31,6 +32,8 @@ const emit = defineEmits<{
   focus: [id: string]
   startGizmo: [id: string]
   addAsset: [kind: DeviceKind, boreId: string]
+  toggleVisibility: [id: string, visible: boolean]
+  toggleLock: [id: string, locked: boolean]
   uploadGlb: [file: File]
   addRemoteGlb: [url: string, name: string]
   deleteCustomModel: [id: string]
@@ -113,17 +116,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <template>
-  <div class="editor-shell" role="region" aria-label="三维场景编辑器工作台">
-    <header class="editor-topbar">
-      <div class="topbar-group topbar-brand">
-        <span class="editor-badge">场景编辑模式</span>
-        <strong class="editor-title">{{ snapshot.project.name }}</strong>
-        <span class="editor-status" :class="{ dirty: snapshot.dirty }">
+  <div
+    class="absolute inset-0 z-8 flex flex-col p-[12px_14px_14px] max-md:p-2 gap-2.5 pointer-events-none box-border"
+    role="region"
+    aria-label="三维场景编辑器工作台"
+  >
+    <header class="twin-topbar max-md:px-2 max-md:py-1.5">
+      <div class="flex items-center flex-wrap gap-2">
+        <span class="px-2 py-0.5 rounded-full bg-[#6cbaff]/20 border border-solid border-[#6cbaff]/55 text-[#9dd4ff] text-[11px] font-600 tracking-[0.04em]">
+          场景编辑模式
+        </span>
+        <strong class="text-[13.5px] text-[#f2f7ff]">{{ snapshot.project.name }}</strong>
+        <span
+          class="text-[11px] pl-2 border-0 border-l border-solid border-[#84baf8]/24"
+          :class="snapshot.dirty ? 'text-twin-warn' : 'text-twin-sub'"
+        >
           {{ snapshot.busy ? '同步中…' : snapshot.dirty ? '有未归档变更' : '已同步' }}
         </span>
       </div>
 
-      <div class="topbar-group topbar-tools">
+      <div class="flex items-center flex-wrap gap-2">
         <el-radio-group
           :model-value="snapshot.gizmoMode"
           size="small"
@@ -146,7 +158,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           <el-radio-button value="surface">吸附</el-radio-button>
         </el-radio-group>
 
-        <div class="topbar-sep" />
+        <div class="w-px h-[18px] bg-[#84baf8]/24" />
 
         <el-button
           size="small"
@@ -184,7 +196,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         </el-button>
       </div>
 
-      <div class="topbar-group topbar-right">
+      <div class="flex items-center flex-wrap gap-2">
         <el-button size="small" :type="leftVisible ? 'primary' : 'default'" plain @click="leftVisible = !leftVisible">
           大纲
         </el-button>
@@ -196,7 +208,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
       </div>
     </header>
 
-    <div class="editor-workspace">
+    <div class="flex-1 min-h-0 flex items-stretch justify-between gap-3 pointer-events-none">
       <SceneOutline
         v-show="leftVisible"
         :project="snapshot.project"
@@ -206,13 +218,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
         @select="(id, options) => emit('select', id, options)"
         @focus="emit('focus', $event)"
         @add-asset="(kind, boreId) => emit('addAsset', kind, boreId)"
+        @toggle-visibility="(id, visible) => emit('toggleVisibility', id, visible)"
+        @toggle-lock="(id, locked) => emit('toggleLock', id, locked)"
         @upload-glb="emit('uploadGlb', $event)"
         @add-remote-glb="(url, name) => emit('addRemoteGlb', url, name)"
         @delete-custom-model="emit('deleteCustomModel', $event)"
         @place-custom-model="(model, boreId) => emit('placeCustomModel', model, boreId)"
       />
 
-      <div class="editor-viewport-spacer" />
+      <div class="flex-1 min-w-0 relative flex items-start justify-center pt-4 pointer-events-none">
+        <div
+          v-if="dropActive"
+          class="px-3.5 py-1.5 rounded-full bg-[#0c2044]/90 border border-solid border-[#6cbaff]/80 text-[#dff1ff] text-[12px] font-600 shadow-[0_8px_24px_rgba(2,8,22,0.55)]"
+        >
+          松手放置到当前三维落点
+        </div>
+      </div>
 
       <PropertyInspector
         v-show="rightVisible"
@@ -252,98 +273,3 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     </div>
   </div>
 </template>
-
-<style scoped>
-.editor-shell {
-  position: absolute;
-  inset: 0;
-  z-index: 8;
-  display: flex;
-  flex-direction: column;
-  padding: 12px 14px 14px;
-  gap: 10px;
-  pointer-events: none;
-  box-sizing: border-box;
-}
-
-.editor-topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 10px;
-  padding: 8px 12px;
-  border-radius: 12px;
-  background: var(--twin-glass-dock);
-  backdrop-filter: blur(20px) saturate(155%);
-  -webkit-backdrop-filter: blur(20px) saturate(155%);
-  border: 1px solid var(--twin-border-strong);
-  box-shadow: var(--twin-shadow);
-  pointer-events: auto;
-}
-
-.topbar-group {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.editor-badge {
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(108, 186, 255, 0.2);
-  border: 1px solid rgba(108, 186, 255, 0.55);
-  color: #9dd4ff;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-.editor-title {
-  font-size: 13.5px;
-  color: #f2f7ff;
-}
-
-.editor-status {
-  font-size: 11px;
-  color: #8fb4de;
-  padding-left: 8px;
-  border-left: 1px solid rgba(132, 186, 248, 0.24);
-}
-
-.editor-status.dirty {
-  color: #ffd89c;
-}
-
-.topbar-sep {
-  width: 1px;
-  height: 18px;
-  background: rgba(132, 186, 248, 0.24);
-}
-
-.editor-workspace {
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  align-items: stretch;
-  justify-content: space-between;
-  gap: 12px;
-  pointer-events: none;
-}
-
-.editor-viewport-spacer {
-  flex: 1;
-  min-width: 0;
-  pointer-events: none;
-}
-
-@media (max-width: 960px) {
-  .editor-shell {
-    padding: 8px;
-  }
-  .editor-topbar {
-    padding: 6px 8px;
-  }
-}
-</style>

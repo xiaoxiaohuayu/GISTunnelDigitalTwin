@@ -1,5 +1,6 @@
 // @env node
 import vue from '@vitejs/plugin-vue'
+import UnoCSS from 'unocss/vite'
 import { defineConfig } from 'vite'
 import { viteStaticCopy } from 'vite-plugin-static-copy'
 
@@ -25,6 +26,7 @@ export default defineConfig({
   base: './',
   plugins: [
     vue(),
+    UnoCSS(),
     viteStaticCopy({
       targets: ['Workers', 'Assets', 'Widgets', 'ThirdParty'].map(directory => ({
         src: `${cesiumRoot}/${directory}`,

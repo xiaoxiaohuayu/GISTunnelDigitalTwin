@@ -185,6 +185,8 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     for(const screen of screens)if(screen.device.id===device.id){instance.addTransform(delta=>screen.surface.move(delta));if(screen.housing)instance.addEntity(screen.housing)}
     for(const entity of viewer.entities.values)if(entity.id===device.id||entity.id.startsWith(`device-part:${device.id}:`)||entity.id.startsWith(`device-lens:${device.id}:`))instance.addEntity(entity)
     if(device.kind==='street'&&device.pickId){const site=sites[device.portalEnd??0];if(site)instance.addTransform(delta=>site.moveLamp(device.id,delta))}
+    const record=survey.project?.assets.find(a=>a.id===device.id)
+    if(record&&record.visible===false)instance.setVisible(false)
     instances.set(device.id,instance)
   }
   }

@@ -44,7 +44,7 @@ defineExpose({updatePositions})
   <div ref="root" class="scene-overlays" aria-label="场景模拟信息">
     <svg class="overlay-leaders" aria-hidden="true"><line v-for="item in placed" :key="item.id" :ref="(node:unknown)=>setLine(item.id,node)" :x1="item.x" :y1="item.y" :x2="item.left+110" :y2="item.top>item.y?item.top:item.top+82" :class="{selected:item.selected}"/><circle v-for="item in placed" :key="`dot-${item.id}`" :ref="(node:unknown)=>setDot(item.id,node)" :cx="item.x" :cy="item.y" r="3"/></svg>
     <component :is="item.plateColor?'div':'button'" v-for="item in placed" :key="item.id" :ref="(node:unknown)=>setCard(item.id,node)" class="scene-overlay-card" :class="[item.severity,{selected:item.selected,vehicle:!!item.plateColor}]" :style="{left:0,top:0,transform:`translate3d(${item.left}px,${item.top}px,0)`,willChange:'transform'}" :aria-label="item.plateColor?undefined:`选择${item.title}`" @click="!item.plateColor&&emit('select',item.id)">
-      <span class="overlay-title"><i v-if="item.plateColor" class="plate-swatch" :class="{'plate-yellow':item.plateColor==='黄牌','plate-green':item.plateColor==='绿牌'}"/>{{item.title}}<small>{{item.selected?'已选中':'模拟'}}</small></span><strong>{{item.value}}</strong><span class="overlay-status"><i aria-hidden="true" />{{item.status}}</span>
+      <span class="overlay-title"><i v-if="item.plateColor" class="plate-swatch" :class="{'plate-yellow':item.plateColor==='黄牌','plate-green':item.plateColor==='绿牌'}"/>{{item.title}}<small>{{item.selected?'已选中':(item.sourceTag??'模拟')}}</small></span><strong>{{item.value}}</strong><span class="overlay-status"><i aria-hidden="true" />{{item.status}}</span>
     </component>
   </div>
 </template>

@@ -7,7 +7,7 @@ import { createCesiumMap } from '../engines/cesiumMap'
 import type { IntroPhase, SceneRuntimeError } from '../engines/cesiumMap'
 import { deviceCatalog, initialSystems, deviceAlarmIds, deviceEnabled } from '../engines/tunnelSystemsState'
 import type { DeviceKind } from '../engines/tunnelSystemsState'
-import { EditorStore, createCesiumEditorBridge } from '../editor'
+import { EditorStore, applyTelemetryToOverlays, createCesiumEditorBridge, mergeBoundDeviceAlerts, resolveBoundDeviceReading } from '../editor'
 import type { GizmoMode, SnapMode } from '../editor'
 import { deleteCustomModel, listCustomModels, registerLocalGlb, registerRemoteGlb } from '../engines/customModelLibrary'
 import type { CustomModelEntry } from '../engines/customModelLibrary'
@@ -47,6 +47,7 @@ const project=shallowRef<TunnelProject>(defaultProject()),projectOpen=shallowRef
 const editorStore=new EditorStore({project:project.value})
 const editorSnapshot=shallowRef(editorStore.getSnapshot())
 const customModels=shallowRef<CustomModelEntry[]>([])
+const draggingAsset=shallowRef(false)
 const isEditorMode=computed(()=>editorSnapshot.value.mode==='editor')
 let editorInitialized=false,editorMutating=false,priorCameraGuard=true
 const unsubscribeEditor=editorStore.subscribe(snapshot=>{editorSnapshot.value=snapshot})
@@ -92,10 +93,12 @@ function bindServices(config:RuntimeConfig):void{
   services.telemetry.start()
 }
 onBeforeUnmount(()=>{unsubscribeEditor();unsubscribeTelemetry();services.dispose()})
+const selectedAsset=computed(()=>selectedDevice.value?project.value.assets.find(item=>item.id===selectedDevice.value!.id):undefined)
 const selectedLiveReading=computed(()=>{
-  if(!selectedDevice.value||services.telemetry.mode!=='live')return undefined
-  void telemetrySnapshot.value
-  return services.telemetry.getReading(selectedDevice.value,state.value,roamingState.value.length)
+  if(!selectedDevice.value)return undefined
+  const snap=telemetrySnapshot.value
+  const liveFallback=services.telemetry.mode==='live'?services.telemetry.getReading(selectedDevice.value,state.value,roamingState.value.length):undefined
+  return resolveBoundDeviceReading(selectedDevice.value,selectedAsset.value,snap,state.value,roamingState.value.length,liveFallback)
 })
 const {ready,error,resetView,getHandle}=useEngine(container,element=>createCesiumMap(element,{
   onRuntimeConfig:bindServices,
@@ -144,8 +147,8 @@ function exitEditorMode():void{
   getHandle()?.setCameraGuardEnabled(priorCameraGuard)
 }
 watch(
-  [isEditorMode, () => editorSnapshot.value.selectedIds, () => positionDraft.value],
-  ([editorOn, ids, draft]) => {
+  [isEditorMode, () => editorSnapshot.value.selectedIds, () => positionDraft.value, () => editorSnapshot.value.project],
+  ([editorOn, ids, draft, proj]) => {
     const handle = getHandle()
     if (!handle) return
     if (!editorOn || draft || ids.length !== 1) {
@@ -153,6 +156,11 @@ watch(
       return
     }
     const targetId = ids[0]!
+    const targetAsset = proj.assets.find(item => item.id === targetId)
+    if (!targetAsset || targetAsset.locked || targetAsset.visible === false) {
+      handle.detachEditorGizmo()
+      return
+    }
     handle.attachEditorGizmo(targetId, {
       mode: editorSnapshot.value.gizmoMode,
       snapMode: editorSnapshot.value.snapMode,
@@ -251,6 +259,52 @@ function editorFlyBookmark(bookmark:CameraBookmark):void{
 function editorDeleteBookmark(id:string):void{
   void runEditorTask(()=>editorStore.updateProject(draft=>{draft.bookmarks=(draft.bookmarks??[]).filter(item=>item.id!==id)},'删除视角书签'))
 }
+function editorToggleVisibility(id:string,visible:boolean):void{
+  void runEditorTask(()=>editorStore.commitAssetTransform(id,{visible},{label:visible?'显示设备':'隐藏设备'}))
+}
+function editorToggleLock(id:string,locked:boolean):void{
+  void runEditorTask(()=>editorStore.commitAssetTransform(id,{locked},{label:locked?'锁定设备':'解锁设备'}))
+}
+function onViewportDragOver(event:DragEvent):void{
+  if(!isEditorMode.value||!event.dataTransfer?.types.includes('application/x-codex-aigis-asset'))return
+  event.preventDefault()
+  event.dataTransfer.dropEffect='copy'
+  draggingAsset.value=true
+}
+function onViewportDragLeave(event:DragEvent):void{
+  if(event.currentTarget===event.target)draggingAsset.value=false
+}
+function onViewportDrop(event:DragEvent):void{
+  draggingAsset.value=false
+  if(!isEditorMode.value)return
+  const raw=event.dataTransfer?.getData('application/x-codex-aigis-asset')
+  if(!raw)return
+  event.preventDefault()
+  let payload:{type:'builtin';kind:DeviceKind}|{type:'custom';modelId:string}
+  try{payload=JSON.parse(raw)}catch{return}
+  const hit=getHandle()?.pickTunnelDropLocation(event.clientX,event.clientY)
+  const bore=project.value.bores.find(b=>b.id===hit?.boreId)??project.value.bores[0]
+  if(!bore)return
+  const id=crypto.randomUUID()
+  const existingCodes=new Set(project.value.assets.map(a=>a.code))
+  const heading=bore.lanes[0]?.direction===-1?180:0
+  if(payload.type==='builtin'){
+    const kind=payload.kind
+    const label=deviceCatalog.find(row=>row[1]===kind)?.[2]??kind
+    let seq=project.value.assets.length+1,code=`${kind.toUpperCase()}-${seq}`
+    while(existingCodes.has(code)){seq+=1;code=`${kind.toUpperCase()}-${seq}`}
+    const defaultHeight=kind==='fan'?6.2:kind==='vms'||kind==='lane'?5.6:kind==='pump'||kind==='tank'?1.2:4.2
+    const record:AssetRecord={id,code,name:label,kind,boreId:bore.id,chainage:hit?.chainage??Math.round((bore.start+bore.end)/2),lateral:hit?.lateral??0,height:hit?Math.max(0.2,hit.height):defaultHeight,heading}
+    void runEditorTask(()=>editorStore.addAsset(record,`拖放设备 ${code}`))
+  }else{
+    const model=customModels.value.find(item=>item.id===payload.modelId)
+    if(!model)return
+    let seq=project.value.assets.length+1,code=`GLB-${seq}`
+    while(existingCodes.has(code)){seq+=1;code=`GLB-${seq}`}
+    const record:AssetRecord={id,code,name:model.name,kind:'custom',boreId:bore.id,chainage:hit?.chainage??Math.round((bore.start+bore.end)/2),lateral:hit?.lateral??0,height:hit?Math.max(0.1,hit.height):0.2,heading,scale:1,customModelId:model.id,customModelUrl:model.url}
+    void runEditorTask(()=>editorStore.addAsset(record,`拖放模型 ${model.name}`))
+  }
+}
 function openProject(id?:string):void{if(!permissions.value.canEditProject){storageWarning.value='当前角色无权修改配置与台账';return}if(positionDraft.value){storageWarning.value="请先保存或取消位置调整";return}editAssetId.value=id;projectOpen.value=true;closeDevice();panel.value=null;stopRoaming()}
 async function applyProject(value:TunnelProject|null,focusId?:string,extras?:TunnelPackageExtras):Promise<void>{
   if(extras?.portalSign){await savePortalSign(extras.portalSign);signConfig.value=extras.portalSign}
@@ -320,7 +374,8 @@ async function togglePanel(next:'devices'|'systems'|'events',event:Event):Promis
 function dismiss():void{if(positionDraft.value){getHandle()?.cancelPositionEdit();return}closePanel();closeDevice();monitor.value=undefined}
 async function applyTrafficSigns(config:TrafficSignsConfig):Promise<void>{await getHandle()?.updateTrafficSigns(config)}
 async function applySign(config:PortalSignConfig):Promise<void>{await getHandle()?.updatePortalSign(config)}
-const alerts=computed(()=>activeDeviceAlerts(devices.value,state.value,roamingState.value.length))
+const alerts=computed(()=>mergeBoundDeviceAlerts(activeDeviceAlerts(devices.value,state.value,roamingState.value.length),devices.value,project.value.assets,telemetrySnapshot.value,state.value,roamingState.value.length))
+const displayOverlays=computed(()=>applyTelemetryToOverlays(overlays.value,project.value.assets,telemetrySnapshot.value,devices.value,state.value,roamingState.value.length))
 const siblings=computed(()=>devices.value.filter(device=>device.kind===selectedDevice.value?.kind))
 const selectedIndex=computed(()=>siblings.value.findIndex(device=>device.id===selectedDevice.value?.id))
 function nextDevice(direction:number):void {
@@ -339,7 +394,7 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
 
 </script>
 <template>
-  <section class="viewport" aria-label="GIS 隧道场景" :class="{'is-roaming':roamingOpen,'has-device-alerts':alerts.length>0}" :style="alerts.length?{'--alert-panel-top':`${154+Math.min(150,alerts.length*70)}px`,'--alert-mobile-top':`${170+Math.min(110,alerts.length*62)}px`}:undefined" @keydown.esc="dismiss">
+  <section class="viewport" aria-label="GIS 隧道场景" :class="{'is-roaming':roamingOpen,'has-device-alerts':alerts.length>0}" :style="alerts.length?{'--alert-panel-top':`${154+Math.min(150,alerts.length*70)}px`,'--alert-mobile-top':`${170+Math.min(110,alerts.length*62)}px`}:undefined" @keydown.esc="dismiss" @dragover="onViewportDragOver" @dragleave="onViewportDragLeave" @drop="onViewportDrop">
     <div ref="container" class="engine-container" />
     <SceneLoading v-if="!ready" :progress="progress" :error="error" />
     <div v-if="runtimeError" class="viewport-message runtime-error-card" role="alert">
@@ -365,9 +420,9 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
         <template v-if="panel==='systems'||panel==='sign'||panel==='traffic'"><SystemsControls :bore-names="incidentNames" v-if="panel==='systems'&&permissions.canControl" :state="state" :devices="devices" :device-id="controlDeviceId" :length="roamingState.length" :audit-entries="auditEntries" :control-busy="controlBusy" @select-device="controlDeviceId=$event" @locate-device="focusDevice" @device-change="changeDevice" @change="change" @locate-incident="focusIncident" /><PortalSignEditor v-if="panel!=='traffic'&&permissions.canEditProject" :config="signConfig" :length="roamingState.length" :apply="applySign" @position="getHandle()?.editPortalPosition('board',$event)" :warning="signWarning" @saved="signConfig=$event" /><TrafficSignEditor v-if="(panel==='traffic'||panel==='systems')&&permissions.canEditProject" :config="trafficSignsConfig" :active-index="panel==='traffic'?trafficSignIndex:-1" :warning="trafficSignWarning" :apply="applyTrafficSigns" @position="getHandle()?.editPortalPosition('traffic',$event)" @saved="trafficSignsConfig=$event" /></template>
       </aside>
       <DeviceAlerts v-if="ready" :alerts="alerts" @focus="focusDevice" />
-      <DeviceInspector v-if="selectedDevice&&!positionDraft" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" :live-reading="selectedLiveReading" :can-control="permissions.canControl" :can-edit-project="permissions.canEditProject" @edit-position="getHandle()?.startPositionEdit(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
+      <DeviceInspector v-if="selectedDevice&&!positionDraft" :device="selectedDevice" :state="state" :index="selectedIndex" :total="siblings.length" :length="roamingState.length" :return-label="returnLabel" :live-reading="selectedLiveReading" :telemetry-binding="selectedAsset?.telemetry" :can-control="permissions.canControl" :can-edit-project="permissions.canEditProject" @edit-position="getHandle()?.startPositionEdit(selectedDevice.id)" @back="backToPanel" @close="closeDevice" @locate="focusDevice" @change="changeDevice(selectedDevice.id,$event)" @camera="previewCamera" @next="nextDevice" @edit-vms="editVms" />
       <EventConsole v-if="permissions.canDrill" :bore-names="boreNames" :open="panel==='events'" :state="state" :ready="ready" :devices="devices" :length="roamingState.length" @close="closePanel" @change="change" @locate-incident="focusIncident" @locate-device="focusDevice" />
-      <SceneOverlayLayer ref="overlayLayer" :items="overlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
+      <SceneOverlayLayer ref="overlayLayer" :items="displayOverlays" :panel-open="!!panel||!!selectedDevice" @select="focusDevice" />
       <SceneRoaming :bore-names="travelNames" v-if="roamingOpen" :state="roamingState" @close="roamingOpen=false" @play="playRoaming" @options="getHandle()?.setRoamingOptions($event)" @seek="getHandle()?.seekRoaming($event)" />
       <CameraPlayer v-if="monitor" :device="monitor" :bore-name="monitor.boreName" :stream-url="runtimeConfig.streams[monitor.id]" @close="monitor=undefined;view(()=>getHandle()?.focusPortal())" />
       <div v-if="devices.some(d=>d.kind==='speaker'&&deviceEnabled(d,state))" class="broadcast-state" role="status">应急广播中 · {{['fire','smoke','collision'].includes(state.incident)?'请按指示前往就近横洞':'广播状态本地演示'}}（静音演示）</div>
@@ -395,13 +450,14 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
           <el-button size="small" :disabled="!ready" :type="roamingOpen?'primary':'default'" :aria-pressed="roamingOpen" @click="openRoaming">巡检漫游</el-button>
         </div>
       </div>
-      <div class="scene-help">点选设备查看详情 · 左键平移 · 滚轮缩放 · 中键倾斜</div>
+      <div class="scene-help">点选设备查看详情 · 左键平移 · 右键绕中心旋转 · 滚轮缩放</div>
     </template>
     <EditorShell
       v-if="isEditorMode"
       :snapshot="editorSnapshot"
       :custom-models="customModels"
       :telemetry-snapshot="telemetrySnapshot"
+      :drop-active="draggingAsset"
       :environment="state.environment"
       :underground="underground"
       :walls-visible="wallsVisible"
@@ -418,6 +474,8 @@ function openRoaming():void{roamingOpen.value=!roamingOpen.value;playRoaming(roa
       @focus="focusDevice"
       @start-gizmo="id=>getHandle()?.startPositionEdit(id)"
       @add-asset="editorAddAsset"
+      @toggle-visibility="editorToggleVisibility"
+      @toggle-lock="editorToggleLock"
       @upload-glb="editorUploadGlb"
       @add-remote-glb="editorAddRemoteGlb"
       @delete-custom-model="editorDeleteCustomModel"

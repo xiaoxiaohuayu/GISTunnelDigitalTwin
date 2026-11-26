@@ -3,7 +3,7 @@ export interface PortalSignConfig { mode:'text'|'mixed'|'image'; name:string; le
 export interface VehicleInfo { id:string; plate:string; plateColor:'蓝牌'|'黄牌'|'绿牌'; vehicleType:string }
 export interface SceneOverlay {
   id:string; title:string; value:string; status:string; severity:string; selected:boolean
-  x:number; y:number; distance:number; plateColor?:VehicleInfo['plateColor']
+  x:number; y:number; distance:number; plateColor?:VehicleInfo['plateColor']; sourceTag?:string
 }
 export interface OverlayRect { x:number; y:number; width:number; height:number }
 export interface PlacedOverlay extends SceneOverlay { left:number; top:number }

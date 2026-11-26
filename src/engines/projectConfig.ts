@@ -11,7 +11,7 @@ export interface TelemetryBinding { pointId:string;metric?:string;unit?:string;w
 export interface CameraBookmark { id:string;name:string;longitude:number;latitude:number;height:number;heading:number;pitch:number;roll:number }
 export interface SceneVisualSettings { sunIntensity:number;sunAzimuth:number;sunElevation:number;fogDensity:number }
 export const DEFAULT_SCENE_VISUALS: SceneVisualSettings = { sunIntensity: 2.4, sunAzimuth: 58, sunElevation: 62, fogDensity: 0.0002 }
-export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number;scale?:number;customModelId?:string;customModelUrl?:string;telemetry?:TelemetryBinding }
+export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number;scale?:number;customModelId?:string;customModelUrl?:string;telemetry?:TelemetryBinding;visible?:boolean;locked?:boolean }
 export interface PassageRecord { station:number;vehicle:boolean }
 export interface MouthName { boreId:string;end:0|1;name:string }
 export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[];section?:SectionProfile;passages?:PassageRecord[];mouths?:MouthName[];bookmarks?:CameraBookmark[];visuals?:SceneVisualSettings }
@@ -72,6 +72,8 @@ export function projectErrors(value:unknown):string[] {
       if(a.telemetry.alarmThreshold!==undefined&&!Number.isFinite(a.telemetry.alarmThreshold))errors.push(`${a.code}：告警阈值须为有效数值`)
       if(a.telemetry.warningThreshold!==undefined&&a.telemetry.alarmThreshold!==undefined&&a.telemetry.alarmThreshold<a.telemetry.warningThreshold)errors.push(`${a.code}：告警阈值不能小于预警阈值`)
     }
+    if(a.visible!==undefined&&typeof a.visible!=='boolean')errors.push(`${a.code}：显隐标记须为布尔值`)
+    if(a.locked!==undefined&&typeof a.locked!=='boolean')errors.push(`${a.code}：锁定标记须为布尔值`)
     if(assetStation(a,b)<-240||assetStation(a,b)>boreLength(b)+240)errors.push(`${a.code}：桩号超出 ${b.name} 的起止范围`)
     if(a.endChainage!==undefined&&(!Number.isFinite(a.endChainage)||a.endChainage<Math.min(b.start,b.end)||a.endChainage>Math.max(b.start,b.end)))errors.push(`${a.code}：设施结束桩号超出洞筒范围`)
   }

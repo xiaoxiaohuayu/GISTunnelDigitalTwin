@@ -33,6 +33,7 @@ export interface TunnelMapHandle extends EngineHandle {
   captureCameraBookmark:(name:string)=>import('../engines/projectConfig').CameraBookmark
   flyToCameraBookmark:(bookmark:import('../engines/projectConfig').CameraBookmark)=>void
   setSceneVisuals:(visuals:Partial<import('../engines/projectConfig').SceneVisualSettings>)=>void
+  pickTunnelDropLocation:(clientX:number,clientY:number)=>import('../engines/dropPlacement').TunnelDropLocation|null
   updateTrafficSigns: (config: import('./scene').TrafficSignsConfig) => Promise<void>
   updatePortalSign: (config: import('./scene').PortalSignConfig) => Promise<void>
   setDetectionVisible: (visible:boolean) => void

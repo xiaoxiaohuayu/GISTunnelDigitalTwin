@@ -10,7 +10,7 @@ import { modelAssetUrl } from './modelAssets'
 import { disposeCustomModelUrls } from './customModelLibrary'
 import {
   CesiumTerrainProvider, createWorldImageryAsync, createWorldTerrainAsync, EllipsoidTerrainProvider, ImageryLayer, BoundingSphere,
-  Cartesian3, DirectionalLight, HeadingPitchRange, Ion, IonWorldImageryStyle, Math as CesiumMath, Matrix4, Transforms, Viewer,
+  Cartesian2, Cartesian3, DirectionalLight, HeadingPitchRange, Ion, IonWorldImageryStyle, Math as CesiumMath, Matrix4, Transforms, Viewer,
   Model, Axis, Matrix3, Credit, Cartographic, EasingFunction, SingleTileImageryProvider, UrlTemplateImageryProvider,
   WebMapServiceImageryProvider, WebMapTileServiceImageryProvider,
 } from 'cesium'
@@ -26,6 +26,9 @@ import { addSceneOverlays } from './sceneOverlays'
 import { createLoadReporter } from './scenePresentation'
 import type { LoadProgress, OverlayPosition, PortalSignConfig, SceneOverlay, TrafficSignsConfig } from '../types/scene'
 import { addCameraGuard } from './cameraGuard'
+import { addTunnelOrbitController } from './tunnelOrbitController'
+import { resolveDropLocation } from './dropPlacement'
+import type { BoreLocalSample, TunnelDropLocation } from './dropPlacement'
 import { addDeviceInteraction, deviceBoxOffset, deviceBoxSize, deviceHeight } from './deviceInteraction'
 import type { RoamingState, TunnelMapHandle } from '../types/tunnel'
 import { surveyTunnel } from './tunnelSurvey'
@@ -209,6 +212,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   } catch(error){traffic?.dispose();systems.dispose();viewer.destroy();throw error}
   let roaming=false,roamDistance=-220,roamTube:0|1=0,roamSpeed=60,previousFrame=0,introGeneration=0,introPlaying=false,disposed=false,lastReport=0
   const cameraGuard=addCameraGuard({viewer,getSurvey:()=>survey,isRoaming:()=>roaming,isIntroPlaying:()=>introPlaying,isUnderground:()=>viewer.scene.globe.translucency.enabled,isWallsVisible:()=>wallsVisible})
+  const orbit=addTunnelOrbitController({viewer,getSurvey:()=>survey,isRoaming:()=>roaming,isIntroPlaying:()=>introPlaying,isUnderground:()=>viewer.scene.globe.translucency.enabled})
   function travelOf(tube:number):1|-1 {return lanePositions(survey,tube)[0]?.direction===-1?-1:1}
   function rightLane(tube:number):number {
     const direction=travelOf(tube),lanes=lanePositions(survey,tube)
@@ -253,7 +257,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   function stopCamera():void {cancelIntro();roaming=false;reportRoaming()}
   function look(point:Cartesian3,heading:number,pitch:number,range:number):void {
     viewer.camera.lookAt(point,new HeadingPitchRange(CesiumMath.toRadians(heading),CesiumMath.toRadians(pitch),range))
-    viewer.camera.lookAtTransform(Matrix4.IDENTITY);viewer.scene.requestRender()
+    viewer.camera.lookAtTransform(Matrix4.IDENTITY);orbit.setTarget(point);viewer.scene.requestRender()
   }
   function focusPortal(end:0|1=0):void {stopCamera();look(tunnelPoint(survey,0,end===0?-PORTAL_EXTENSION:survey.length+PORTAL_EXTENSION,12,4),76+end*180,-17,122)}
   function resetView():void {stopCamera();look(survey.center,20,-35,survey.length*1.5)}
@@ -289,6 +293,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       const lamp=d.kind==='basic'||d.kind==='enhanced'
       const h=deviceHeight(d)
       const target=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,h)
+      orbit.setTarget(target)
       const yard=d.kind==='tank'||d.kind==='pump'
       const approach=travelOf(d.tube)*(largeOverhead?11:lamp?6:5)
       // Keep interior camera centered in the safe carriageway with a comfortable upright view instead of hugging the wall.
@@ -327,7 +332,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       })
       viewer.scene.requestRender()
     })
-  } catch(error){cameraGuard.dispose();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect();viewer.destroy();throw error}
+  } catch(error){orbit.dispose();cameraGuard.dispose();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect();viewer.destroy();throw error}
   const stopRenderError=viewer.scene.renderError.addEventListener((_scene:unknown,err:Error)=>{
     if(disposed)return
     stopCamera()
@@ -351,6 +356,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
   function startPositionEdit(id:string):void{
     if(editing)return
     const a=project!.assets.find(a=>a.id===id),d=systems.devices.find(d=>d.id===id);if(!a||!d)return
+    if(a.locked){options.onWarning?.(`${a.code} 已锁定，请先在场景大纲或属性栏解锁后再拖拽`);return}
     stopCamera();const original=structuredClone(resolveAsset(a,project!)),point=d.position??tunnelPoint(survey,d.tube,d.station,d.lateral,d.height+importMount(d.kind)),b=project!.bores[d.tube]!
     const gizmo=positionGizmo(viewer,surveyFrame(survey,point),['pedestrian','vehicle','layby'].includes(a.kind),offset=>previewPosition({chainage:original.chainage+offset.x*Math.sign(b.end-b.start),lateral:original.lateral+offset.y,height:original.height+offset.z}),cancelPositionEdit,deviceBoxSize(d.kind,d),deviceBoxOffset(d))
     editing={original,draft:structuredClone(original),gizmo};options.onPositionEdit?.({...original})
@@ -374,7 +380,9 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     const rot=Matrix3.fromRotationZ(CesiumMath.toRadians(a.heading-(referenceHeadings.get(a.id)??0)))
     if(a.scale!==undefined&&a.scale!==1)Matrix3.multiplyByUniformScale(rot,a.scale,rot)
     const frame=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(rot),new Matrix4())
-    systems.instances.get(a.id)?.move(frame)
+    const inst=systems.instances.get(a.id)
+    inst?.move(frame)
+    inst?.setVisible(a.visible!==false)
     Object.assign(d,{tube,station,lateral:-a.lateral,height:a.height,position:point,name:a.name,code:a.code,boreName:b.name,chainage:formatChainage(a.chainage)})
     if(refresh&&(a.kind==='basic'||a.kind==='enhanced'))model.setLightSample(state,systems.devices)
     if(refresh){interaction.refresh();options.onDevices?.([...systems.devices])}
@@ -394,7 +402,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     detachEditorGizmo()
     if(editing||!project)return
     const a=project.assets.find(item=>item.id===id),d=systems.devices.find(item=>item.id===id)
-    if(!a||!d)return
+    if(!a||!d||a.locked||a.visible===false)return
     const bore=project.bores[d.tube]
     if(!bore)return
     const dirSign=Math.sign(bore.end-bore.start)||1
@@ -590,9 +598,41 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     })
     viewer.scene.requestRender()
   }
+  function pickTunnelDropLocation(clientX:number,clientY:number):TunnelDropLocation|null{
+    if(!project||project.bores.length===0)return null
+    const rect=viewer.canvas.getBoundingClientRect()
+    const screen=new Cartesian2(clientX-rect.left,clientY-rect.top)
+    let world:Cartesian3|undefined
+    if(viewer.scene.pickPositionSupported){
+      world=viewer.scene.pickPosition(screen)
+    }
+    if(!world){
+      const ray=viewer.camera.getPickRay(screen)
+      if(ray){
+        const enu=Transforms.eastNorthUpToFixedFrame(survey.center)
+        const up=Cartesian3.normalize(Matrix4.multiplyByPointAsVector(enu,Cartesian3.UNIT_Z,new Cartesian3()),new Cartesian3())
+        const denom=Cartesian3.dot(ray.direction,up)
+        if(Math.abs(denom)>1e-4){
+          const diff=Cartesian3.subtract(survey.center,ray.origin,new Cartesian3())
+          const t=Cartesian3.dot(diff,up)/denom
+          if(t>0)world=Cartesian3.add(ray.origin,Cartesian3.multiplyByScalar(ray.direction,t,new Cartesian3()),new Cartesian3())
+        }
+      }
+    }
+    if(!world)return null
+    const gradeRatio=survey.grade/100
+    const samples:BoreLocalSample[]=[]
+    for(const [tube,bore] of project.bores.entries()){
+      const origin=tunnelPoint(survey,tube,0,0,0)
+      const inv=Matrix4.inverse(surveyFrame(survey,origin),new Matrix4())
+      const local=Matrix4.multiplyByPoint(inv,world,new Cartesian3())
+      samples.push({bore,station:local.x,localY:local.y,height:local.z-local.x*gradeRatio})
+    }
+    return resolveDropLocation(samples)
+  }
   options.onSystems?.(state)
   return {
-    editPortalPosition:(kind:string,end:number)=>editPortalPosition(viewer,`${kind}:${end}`),startPositionEdit,previewPosition,savePositionEdit,cancelPositionEdit,applyProject,previewAsset:moveRecord,commitAssetRecord,attachEditorGizmo,setEditorGizmoOptions,detachEditorGizmo,captureCameraBookmark,flyToCameraBookmark,setSceneVisuals,resetView,focusPortal,playIntro,skipIntro:focusPortal,
+    editPortalPosition:(kind:string,end:number)=>editPortalPosition(viewer,`${kind}:${end}`),startPositionEdit,previewPosition,savePositionEdit,cancelPositionEdit,applyProject,previewAsset:moveRecord,commitAssetRecord,attachEditorGizmo,setEditorGizmoOptions,detachEditorGizmo,captureCameraBookmark,flyToCameraBookmark,setSceneVisuals,pickTunnelDropLocation,resetView,focusPortal,playIntro,skipIntro:focusPortal,
     updateTrafficSigns:config=>trafficSigns.update(config),
     updatePortalSign:config=>boards.update(config),
     setDetectionVisible(visible:boolean){detection.setVisible(visible)},
@@ -636,6 +676,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
       const position=tunnelPoint(survey,state.incidentTube,s+direction*offset,1.4,2.5)
       const up=Matrix4.multiplyByPointAsVector(Transforms.eastNorthUpToFixedFrame(target),Cartesian3.UNIT_Z,new Cartesian3())
       viewer.camera.setView({destination:position,orientation:{direction:Cartesian3.normalize(Cartesian3.subtract(target,position,new Cartesian3()),new Cartesian3()),up}})
+      orbit.setTarget(target)
       viewer.scene.requestRender()
     },
     focusDevice,
@@ -643,12 +684,12 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     setCameraGuardEnabled(enabled:boolean) { cameraGuard.setEnabled(enabled) },
     setWallsVisible(visible:boolean) { wallsVisible=visible;model.setWallsVisible(visible) },
     setUnderground(enabled:boolean) {viewer.scene.globe.translucency.enabled=enabled;model.setUnderground(enabled);viewer.scene.requestRender()},
-    focusLayBy() {stopCamera();const bay=projectLayBy(survey,0);viewer.camera.setView({destination:tunnelPoint(survey,0,bay.start-17,-1.5,2.2),orientation:{heading:CesiumMath.toRadians(96),pitch:-.015,roll:0}});viewer.scene.requestRender()},
+    focusLayBy() {stopCamera();const bay=projectLayBy(survey,0);viewer.camera.setView({destination:tunnelPoint(survey,0,bay.start-17,-1.5,2.2),orientation:{heading:CesiumMath.toRadians(96),pitch:-.015,roll:0}});orbit.setTarget(tunnelPoint(survey,0,bay.center,-2.5,2.0));viewer.scene.requestRender()},
     focusSubstation() {stopCamera();look(tunnelPoint(survey,0,-PORTAL_EXTENSION-50,12,2.4),35,-25,32)},
-    focusInterior(crossPassage=false) {stopCamera();viewer.camera.setView({destination:tunnelPoint(survey,0,crossPassage?(layoutPassages(survey,0).find(p=>p.vehicle)?.station??survey.length*.5):survey.length*.25-25,0,1.8),
-      orientation:{heading:CesiumMath.toRadians((survey.heading??90)-(crossPassage?90:0)),pitch:crossPassage?0:Math.atan(survey.grade/100),roll:0}});viewer.scene.requestRender()},
+    focusInterior(crossPassage=false) {stopCamera();const station=crossPassage?(layoutPassages(survey,0).find(p=>p.vehicle)?.station??survey.length*.5):survey.length*.25-25;viewer.camera.setView({destination:tunnelPoint(survey,0,station,0,1.8),
+      orientation:{heading:CesiumMath.toRadians((survey.heading??90)-(crossPassage?90:0)),pitch:crossPassage?0:Math.atan(survey.grade/100),roll:0}});orbit.setTarget(tunnelPoint(survey,0,crossPassage?station:station+30,crossPassage?4:0,1.8));viewer.scene.requestRender()},
     dispose() {
-      disposed=true;introGeneration++;introPlaying=false;detachEditorGizmo();disposeCustomModelUrls();cameraGuard.dispose();stopRenderError();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);editing?.gizmo.dispose();detection.dispose();events.dispose();model.dispose();stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect()
+      disposed=true;introGeneration++;introPlaying=false;detachEditorGizmo();disposeCustomModelUrls();orbit.dispose();cameraGuard.dispose();stopRenderError();viewer.canvas.removeEventListener('webglcontextlost',onWebglContextLost,false);viewer.canvas.removeEventListener('webglcontextrestored',onWebglContextRestored,false);editing?.gizmo.dispose();detection.dispose();events.dispose();model.dispose();stopOverlays();effects.dispose();interaction.dispose();stopVehicleTick();traffic?.dispose();systems.dispose();stopRoamingTick();observer.disconnect()
       if(!viewer.isDestroyed()){viewer.camera.cancelFlight();const context=viewer.canvas.getContext('webgl2')??viewer.canvas.getContext('webgl');viewer.destroy();context?.getExtension('WEBGL_lose_context')?.loseContext()}
     },
   }

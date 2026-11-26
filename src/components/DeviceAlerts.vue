@@ -1,7 +1,15 @@
 <script setup lang="ts">
-import type { activeDeviceAlerts } from '../engines/deviceTelemetry'
-defineProps<{ alerts: ReturnType<typeof activeDeviceAlerts> }>()
+import { computed } from 'vue'
+import type { RuntimeDeviceAlert } from '../editor'
+const props = defineProps<{ alerts: RuntimeDeviceAlert[] }>()
 defineEmits<{ focus: [id: string] }>()
+const hasBoundAlert = computed(() => props.alerts.some(alert => Boolean(alert.pointId)))
+const hasLiveAlert = computed(() => props.alerts.some(alert => alert.source === 'live'))
+const sourceFooter = computed(() => {
+  if (hasLiveAlert.value) return '含实时遥测告警 · 恢复后自动清除'
+  if (hasBoundAlert.value) return '含点位映射阈值告警 · 恢复后自动清除'
+  return '本地演练 · 设备恢复后自动清除'
+})
 </script>
 <template>
   <section v-if="alerts.length" class="device-alerts" aria-label="持续设备告警">
@@ -15,7 +23,7 @@ defineEmits<{ focus: [id: string] }>()
         </button>
       </li>
     </ul>
-    <p class="alerts-source">本地演练 · 设备恢复后自动清除</p>
+    <p class="alerts-source">{{ sourceFooter }}</p>
   </section>
 </template>
 <style scoped>

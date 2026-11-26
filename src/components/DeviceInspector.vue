@@ -2,6 +2,7 @@
 import DeviceControls from './DeviceControls.vue'
 import { computed } from 'vue'
 import type { SceneDevice, SystemsState, DeviceSettings } from '../engines/tunnelSystemsState'
+import type { TelemetryBinding } from '../engines/projectConfig'
 import { deviceName, deviceTelemetry } from '../engines/deviceTelemetry'
 import type { TelemetryReading } from '../services'
 const props = withDefaults(defineProps<{
@@ -12,17 +13,31 @@ const props = withDefaults(defineProps<{
   length: number
   returnLabel?: string
   liveReading?: TelemetryReading
+  telemetryBinding?: TelemetryBinding
   canControl?: boolean
   canEditProject?: boolean
 }>(), { canControl: true, canEditProject: true })
 defineEmits<{ close: []; back:[]; locate: [id: string]; change:[patch:DeviceSettings]; camera:[id:string];next:[direction:number];editVms:[];editPosition:[] }>()
 const reading = computed(() => props.liveReading ?? deviceTelemetry(props.device, props.state, props.length))
+const bindingSummary = computed(() => {
+  const b = props.telemetryBinding
+  if (!b) return ''
+  const parts = [b.pointId]
+  if (b.metric) parts.push(b.metric)
+  if (b.warningThreshold !== undefined || b.alarmThreshold !== undefined) {
+    parts.push(`阈值 ${b.warningThreshold ?? '-'} / ${b.alarmThreshold ?? '-'}${b.unit ? ` ${b.unit}` : ''}`)
+  }
+  return parts.join(' · ')
+})
 const sourceLabel = computed(() => {
-  if (props.liveReading?.source !== 'live') return '模拟数据 · 本地演示'
-  if (!props.liveReading.updatedAt) return '实时数据 · 等待上报'
+  if (props.liveReading?.source !== 'live') {
+    return props.telemetryBinding ? `点位映射（${props.telemetryBinding.pointId}）· 本地演示` : '模拟数据 · 本地演示'
+  }
+  const prefix = props.telemetryBinding ? `点位映射（${props.telemetryBinding.pointId}）` : '实时数据'
+  if (!props.liveReading.updatedAt) return `${prefix} · 等待上报`
   const ageSec = Math.max(0, Math.round((Date.now() - props.liveReading.updatedAt) / 1000))
   const clock = new Date(props.liveReading.updatedAt).toLocaleTimeString('zh-CN', { hour12: false })
-  return ageSec > 60 ? `实时数据 · 更新于 ${clock}（已超过 60s）` : `实时数据 · 更新于 ${clock}`
+  return ageSec > 60 ? `${prefix} · 更新于 ${clock}（已超过 60s）` : `${prefix} · 更新于 ${clock}`
 })
 
 </script>
@@ -37,7 +52,7 @@ const sourceLabel = computed(() => {
       <p class="device-address">{{device.boreName??(device.portalEnd===undefined?(device.tube===0?'上行洞':'下行洞'):(device.portalEnd===0?'西洞口':'东洞口'))}} · {{device.chainage??`距基点 ${Math.round(device.station)} m`}}</p>
       <div class="device-state"><span class="state-caption">运行状态</span><span class="state-badge" :class="reading.severity"><i aria-hidden="true" />{{reading.status}}</span></div>
       <div class="device-reading"><span class="reading-caption">当前数值</span><strong :key="`${device.id}:${reading.value}`" class="reading-value">{{reading.value}}</strong><span class="reading-source">{{sourceLabel}}</span></div>
-      <dl class="device-facts"><div><dt>设备编号</dt><dd>{{device.code??device.id}}</dd></div><div><dt>所属洞筒</dt><dd>{{device.boreName??(device.tube===0?'上行洞':'下行洞')}}</dd></div><div><dt>沿线位置</dt><dd>{{Math.round(device.station)}} m</dd></div></dl>
+      <dl class="device-facts"><div><dt>设备编号</dt><dd>{{device.code??device.id}}</dd></div><div><dt>所属洞筒</dt><dd>{{device.boreName??(device.tube===0?'上行洞':'下行洞')}}</dd></div><div><dt>沿线位置</dt><dd>{{Math.round(device.station)}} m</dd></div><div v-if="bindingSummary"><dt>遥测映射</dt><dd>{{bindingSummary}}</dd></div></dl>
       <p class="reading-note" :class="reading.severity" role="status">{{reading.note}}</p>
       <div class="inspector-actions">
         <el-button v-if="canEditProject" class="locate-device" @click="$emit('editPosition')">调整位置</el-button>

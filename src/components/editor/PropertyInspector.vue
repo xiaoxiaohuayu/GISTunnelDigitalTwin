@@ -56,6 +56,7 @@ const selectedAssets = computed(() => {
 const single = computed(() => (selectedAssets.value.length === 1 ? selectedAssets.value[0]! : null))
 const resolvedSingle = computed(() => (single.value ? resolveAsset(single.value, props.project) : null))
 const constrained = computed(() => !!single.value && ['pedestrian', 'vehicle', 'layby'].includes(single.value.kind))
+const isLocked = computed(() => Boolean(single.value?.locked))
 
 const kindNameMap = new Map<string, string>(deviceCatalog.map(([, kind, name]) => [kind, name]))
 const kindName = (kind: string) => kindNameMap.get(kind) ?? kind
@@ -236,80 +237,84 @@ const bookmarks = computed(() => props.project.bookmarks ?? [])
 </script>
 
 <template>
-  <aside class="editor-dock editor-dock--right" aria-label="属性检查器">
+  <aside class="twin-dock w-[304px]" aria-label="属性检查器">
     <template v-if="single && resolvedSingle">
-      <header class="inspector-head">
+      <header class="flex items-start justify-between gap-2 px-3.5 py-3 bg-twin-header twin-divider-b">
         <div>
-          <h2>{{ single.code }}</h2>
-          <p>{{ kindName(single.kind) }} · {{ boreName(single.boreId) }} · {{ formatChainage(single.chainage) }}</p>
+          <h2 class="m-0 text-[14px] font-600 text-twin-ink">{{ single.code }}</h2>
+          <p class="mt-1 mb-0 text-[11.5px] text-twin-muted tabular">
+            {{ kindName(single.kind) }} · {{ boreName(single.boreId) }} · {{ formatChainage(single.chainage) }}
+          </p>
         </div>
         <el-button size="small" text @click="emit('clearSelection')">取消选中</el-button>
       </header>
 
-      <div class="inspector-quick-actions">
+      <div class="flex flex-wrap gap-1.5 px-3 py-[9px] twin-divider-b">
         <el-button size="small" @click="emit('focus', single.id)">聚焦视角</el-button>
-        <el-button size="small" type="primary" plain @click="emit('startGizmo', single.id)">3D 拖拽</el-button>
+        <el-button size="small" type="primary" plain :disabled="isLocked" @click="emit('startGizmo', single.id)">3D 拖拽</el-button>
+        <el-button size="small" :disabled="busy" @click="emit('commitTransform', single.id, { locked: !isLocked })">{{ isLocked ? '解锁' : '锁定' }}</el-button>
+        <el-button size="small" :disabled="busy" @click="emit('commitTransform', single.id, { visible: single.visible === false })">{{ single.visible === false ? '显示' : '隐藏' }}</el-button>
         <el-button size="small" :disabled="busy" @click="emit('duplicate', [single.id])">复制</el-button>
         <el-button size="small" type="danger" plain :disabled="busy" @click="emit('delete', [single.id])">删除</el-button>
       </div>
 
-      <div class="dock-scroll">
-        <section class="inspector-section">
-          <h3>空间变换</h3>
-          <label class="field">
+      <div class="flex-1 min-h-0 overflow-y-auto px-3.5 py-3">
+        <section class="mb-4 pb-3.5 twin-divider-b">
+          <h3 class="twin-section-title mb-2.5">空间变换{{ isLocked ? '（已锁定）' : '' }}</h3>
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>桩号</span>
-            <el-input v-model="chainageInput" size="small" :disabled="busy" @change="commitChainage" />
+            <el-input v-model="chainageInput" size="small" :disabled="busy || isLocked" @change="commitChainage" />
           </label>
-          <p v-if="chainageError" class="field-error" role="alert">{{ chainageError }}</p>
+          <p v-if="chainageError" class="mt-1 mb-2 text-[11.5px] text-twin-danger leading-[1.5]" role="alert">{{ chainageError }}</p>
 
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>所属洞筒</span>
-            <el-select :model-value="single.boreId" size="small" :disabled="busy || constrained" @change="commitBore">
+            <el-select :model-value="single.boreId" size="small" :disabled="busy || constrained || isLocked" @change="commitBore">
               <el-option v-for="bore in project.bores" :key="bore.id" :value="bore.id" :label="bore.name" />
             </el-select>
           </label>
 
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>横向偏移（m）</span>
             <el-input-number
               :model-value="Number(resolvedSingle.lateral.toFixed(3))"
               size="small"
               :step="0.1"
-              :disabled="busy || constrained"
+              :disabled="busy || constrained || isLocked"
               controls-position="right"
               @change="commitNumber('lateral', $event)"
             />
           </label>
 
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>安装高度（m）</span>
             <el-input-number
               :model-value="Number(single.height.toFixed(3))"
               size="small"
               :step="0.1"
-              :disabled="busy || constrained"
+              :disabled="busy || constrained || isLocked"
               controls-position="right"
               @change="commitNumber('height', $event)"
             />
           </label>
 
-          <label class="field field--stack">
-            <span class="field-label-row">
+          <label class="flex flex-col items-stretch gap-0.5 mb-[9px] text-[12px] text-[#c8dcf4]">
+            <span class="flex justify-between items-center">
               <span>相对线路朝向（°）</span>
-              <strong>{{ headingDraft.toFixed(0) }}°</strong>
+              <strong class="text-[#7cc4ff] font-600 tabular">{{ headingDraft.toFixed(0) }}°</strong>
             </span>
             <el-slider
               v-model="headingDraft"
               :min="-180"
               :max="360"
               :step="1"
-              :disabled="busy || constrained"
+              :disabled="busy || constrained || isLocked"
               @input="previewHeading"
               @change="commitHeading"
             />
           </label>
 
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>缩放比例</span>
             <el-input-number
               :model-value="Number((single.scale ?? 1).toFixed(2))"
@@ -317,18 +322,18 @@ const bookmarks = computed(() => props.project.bookmarks ?? [])
               :min="0.25"
               :max="4"
               :step="0.05"
-              :disabled="busy || constrained"
+              :disabled="busy || constrained || isLocked"
               controls-position="right"
               @change="commitNumber('scale', $event)"
             />
           </label>
 
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>安装参照</span>
             <el-select
               :model-value="single.mount?.kind ?? 'unresolved'"
               size="small"
-              :disabled="busy || constrained"
+              :disabled="busy || constrained || isLocked"
               @change="commitMount"
             >
               <el-option value="unresolved" label="待确认" />
@@ -341,456 +346,215 @@ const bookmarks = computed(() => props.project.bookmarks ?? [])
           </label>
         </section>
 
-        <section class="inspector-section">
-          <h3>基础标识</h3>
-          <label class="field">
+        <section class="mb-4 pb-3.5 twin-divider-b">
+          <h3 class="twin-section-title mb-2.5">基础标识</h3>
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>设备编号</span>
             <el-input v-model="codeDraft" size="small" :disabled="busy" @change="commitText('code', codeDraft)" />
           </label>
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>设备名称</span>
             <el-input v-model="nameDraft" size="small" :disabled="busy" @change="commitText('name', nameDraft)" />
           </label>
         </section>
 
-        <section class="inspector-section">
-          <h3>遥测点位映射</h3>
-          <div v-if="evaluatedTelemetry" class="telemetry-live-card" :class="evaluatedTelemetry.severity">
-            <strong>{{ evaluatedTelemetry.metric }}：{{ evaluatedTelemetry.formattedValue }}</strong>
-            <span>点位 {{ evaluatedTelemetry.pointId }} · {{ evaluatedTelemetry.note }}</span>
+        <section class="mb-0 pb-0">
+          <h3 class="twin-section-title mb-2.5">遥测点位映射</h3>
+          <div
+            v-if="evaluatedTelemetry"
+            class="flex flex-col gap-[3px] mb-2.5 px-2.5 py-2 rounded-[8px] bg-[#0e2244]/72 border-0 border-l-[3px] border-solid text-[11.5px]"
+            :class="evaluatedTelemetry.severity === 'alarm'
+              ? 'border-l-[#ff6b6b]'
+              : evaluatedTelemetry.severity === 'warning'
+                ? 'border-l-[#f0b15b]'
+                : 'border-l-twin-accent'"
+          >
+            <strong class="text-twin-ink">{{ evaluatedTelemetry.metric }}：{{ evaluatedTelemetry.formattedValue }}</strong>
+            <span class="text-twin-muted text-[11px]">点位 {{ evaluatedTelemetry.pointId }} · {{ evaluatedTelemetry.note }}</span>
           </div>
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>点位 ID</span>
             <el-input v-model="telemetryPointId" size="small" :placeholder="single.id" :disabled="busy" />
           </label>
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>监测指标</span>
             <el-input v-model="telemetryMetric" size="small" placeholder="如 CO 浓度 / 温度" :disabled="busy" />
           </label>
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>单位</span>
             <el-input v-model="telemetryUnit" size="small" placeholder="如 ppm / °C / m/s" :disabled="busy" />
           </label>
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>预警阈值</span>
             <el-input-number v-model="telemetryWarn" size="small" :step="1" controls-position="right" :disabled="busy" />
           </label>
-          <label class="field">
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>告警阈值</span>
             <el-input-number v-model="telemetryAlarm" size="small" :step="1" controls-position="right" :disabled="busy" />
           </label>
-          <p v-if="telemetryError" class="field-error" role="alert">{{ telemetryError }}</p>
-          <div class="inline-actions">
+          <p v-if="telemetryError" class="mt-1 mb-2 text-[11.5px] text-twin-danger leading-[1.5]" role="alert">{{ telemetryError }}</p>
+          <div class="flex items-center gap-2 mt-1">
             <el-button size="small" type="primary" plain :disabled="busy" @click="saveTelemetryBinding">保存映射</el-button>
             <el-button v-if="single.telemetry" size="small" text :disabled="busy" @click="clearTelemetryBinding">清除</el-button>
           </div>
         </section>
 
-        <p v-if="error" class="field-error" role="alert">{{ error }}</p>
+        <p v-if="error" class="mt-2 mb-0 text-[11.5px] text-twin-danger leading-[1.5]" role="alert">{{ error }}</p>
       </div>
     </template>
 
     <template v-else-if="selectedAssets.length > 1">
-      <header class="inspector-head">
+      <header class="flex items-start justify-between gap-2 px-3.5 py-3 bg-twin-header twin-divider-b">
         <div>
-          <h2>多选对象 ({{ selectedAssets.length }})</h2>
-          <p>支持批量复制与批量删除</p>
+          <h2 class="m-0 text-[14px] font-600 text-twin-ink">多选对象 ({{ selectedAssets.length }})</h2>
+          <p class="mt-1 mb-0 text-[11.5px] text-twin-muted">支持批量复制与批量删除</p>
         </div>
         <el-button size="small" text @click="emit('clearSelection')">清空</el-button>
       </header>
-      <div class="inspector-quick-actions">
+      <div class="flex flex-wrap gap-1.5 px-3 py-[9px] twin-divider-b">
         <el-button size="small" :disabled="busy" @click="emit('duplicate', selectedIds)">批量复制</el-button>
         <el-button size="small" type="danger" plain :disabled="busy" @click="emit('delete', selectedIds)">批量删除</el-button>
       </div>
-      <div class="dock-scroll">
-        <ul class="multi-list">
-          <li v-for="asset in selectedAssets" :key="asset.id">
-            <strong>{{ asset.code }}</strong>
-            <span>{{ asset.name }} · {{ formatChainage(asset.chainage) }}</span>
+      <div class="flex-1 min-h-0 overflow-y-auto px-3.5 py-3">
+        <ul class="list-none m-0 p-0 flex flex-col gap-1.5">
+          <li
+            v-for="asset in selectedAssets"
+            :key="asset.id"
+            class="flex flex-col gap-0.5 px-[9px] py-[7px] rounded-[8px] bg-[#0e1c3a]/56 text-[11.5px]"
+          >
+            <strong class="text-twin-ink">{{ asset.code }}</strong>
+            <span class="text-twin-muted">{{ asset.name }} · {{ formatChainage(asset.chainage) }}</span>
           </li>
         </ul>
       </div>
     </template>
 
     <template v-else>
-      <header class="inspector-head">
+      <header class="flex items-start justify-between gap-2 px-3.5 py-3 bg-twin-header twin-divider-b">
         <div>
-          <h2>场景与环境</h2>
-          <p>{{ project.bores.length }} 个洞筒 · {{ project.assets.length }} 条设备台账</p>
+          <h2 class="m-0 text-[14px] font-600 text-twin-ink">场景与环境</h2>
+          <p class="mt-1 mb-0 text-[11.5px] text-twin-muted tabular">
+            {{ project.bores.length }} 个洞筒 · {{ project.assets.length }} 条设备台账
+          </p>
         </div>
       </header>
 
-      <div class="dock-scroll">
-        <section class="inspector-section">
-          <h3>隧道项目</h3>
-          <label class="field">
+      <div class="flex-1 min-h-0 overflow-y-auto px-3.5 py-3">
+        <section class="mb-4 pb-3.5 twin-divider-b">
+          <h3 class="twin-section-title mb-2.5">隧道项目</h3>
+          <label class="field grid grid-cols-[92px_1fr] items-center gap-2 mb-[9px] text-[12px] text-[#c8dcf4]">
             <span>隧道名称</span>
             <el-input v-model="projectNameDraft" size="small" :disabled="busy" @change="commitProjectName" />
           </label>
-          <dl class="origin-summary">
-            <div><dt>入口坐标</dt><dd>{{ project.origin.longitude.toFixed(5) }}, {{ project.origin.latitude.toFixed(5) }}</dd></div>
-            <div><dt>高程 / 方位 / 纵坡</dt><dd>{{ project.origin.elevation }} m · {{ project.origin.heading }}° · {{ project.origin.grade }}%</dd></div>
+          <dl class="my-2 mb-2.5 flex flex-col gap-1.5">
+            <div class="flex justify-between gap-2 text-[11.5px]">
+              <dt class="text-twin-sub">入口坐标</dt>
+              <dd class="m-0 text-[#e4f0ff] tabular">{{ project.origin.longitude.toFixed(5) }}, {{ project.origin.latitude.toFixed(5) }}</dd>
+            </div>
+            <div class="flex justify-between gap-2 text-[11.5px]">
+              <dt class="text-twin-sub">高程 / 方位 / 纵坡</dt>
+              <dd class="m-0 text-[#e4f0ff] tabular">{{ project.origin.elevation }} m · {{ project.origin.heading }}° · {{ project.origin.grade }}%</dd>
+            </div>
           </dl>
-          <el-button size="small" plain style="width: 100%" @click="emit('openFullConfig')">
+          <el-button size="small" plain class="w-full" @click="emit('openFullConfig')">
             打开洞筒结构与配置包管理
           </el-button>
         </section>
 
-        <section class="inspector-section">
-          <h3>光照与雾效</h3>
-          <div class="env-row">
+        <section class="mb-4 pb-3.5 twin-divider-b">
+          <h3 class="twin-section-title mb-2.5">光照与雾效</h3>
+          <div class="mb-2.5">
             <el-radio-group :model-value="environment" size="small" @change="emit('setEnvironment', $event as SystemsState['environment'])">
               <el-radio-button value="day">白天</el-radio-button>
               <el-radio-button value="night">夜间</el-radio-button>
               <el-radio-button value="fog">雾天</el-radio-button>
             </el-radio-group>
           </div>
-          <label class="field field--stack">
-            <span class="field-label-row"><span>日照强度</span><strong>{{ visualsDraft.sunIntensity.toFixed(1) }}</strong></span>
+          <label class="flex flex-col items-stretch gap-0.5 mb-[9px] text-[12px] text-[#c8dcf4]">
+            <span class="flex justify-between items-center"><span>日照强度</span><strong class="text-[#7cc4ff] font-600 tabular">{{ visualsDraft.sunIntensity.toFixed(1) }}</strong></span>
             <el-slider v-model="visualsDraft.sunIntensity" :min="0.1" :max="5" :step="0.1" @input="handleVisualInput" @change="handleVisualCommit" />
           </label>
-          <label class="field field--stack">
-            <span class="field-label-row"><span>日照方位角</span><strong>{{ visualsDraft.sunAzimuth.toFixed(0) }}°</strong></span>
+          <label class="flex flex-col items-stretch gap-0.5 mb-[9px] text-[12px] text-[#c8dcf4]">
+            <span class="flex justify-between items-center"><span>日照方位角</span><strong class="text-[#7cc4ff] font-600 tabular">{{ visualsDraft.sunAzimuth.toFixed(0) }}°</strong></span>
             <el-slider v-model="visualsDraft.sunAzimuth" :min="0" :max="360" :step="5" @input="handleVisualInput" @change="handleVisualCommit" />
           </label>
-          <label class="field field--stack">
-            <span class="field-label-row"><span>太阳高度角</span><strong>{{ visualsDraft.sunElevation.toFixed(0) }}°</strong></span>
+          <label class="flex flex-col items-stretch gap-0.5 mb-[9px] text-[12px] text-[#c8dcf4]">
+            <span class="flex justify-between items-center"><span>太阳高度角</span><strong class="text-[#7cc4ff] font-600 tabular">{{ visualsDraft.sunElevation.toFixed(0) }}°</strong></span>
             <el-slider v-model="visualsDraft.sunElevation" :min="5" :max="89" :step="1" @input="handleVisualInput" @change="handleVisualCommit" />
           </label>
-          <label class="field field--stack">
-            <span class="field-label-row"><span>大气雾浓度</span><strong>{{ (visualsDraft.fogDensity * 1000).toFixed(2) }}‰</strong></span>
+          <label class="flex flex-col items-stretch gap-0.5 mb-[9px] text-[12px] text-[#c8dcf4]">
+            <span class="flex justify-between items-center"><span>大气雾浓度</span><strong class="text-[#7cc4ff] font-600 tabular">{{ (visualsDraft.fogDensity * 1000).toFixed(2) }}‰</strong></span>
             <el-slider v-model="visualsDraft.fogDensity" :min="0" :max="0.004" :step="0.0001" @input="handleVisualInput" @change="handleVisualCommit" />
           </label>
-          <label class="switch-row">
+          <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>地下透明观察</span>
             <el-switch :model-value="underground" size="small" @change="emit('toggleUnderground', Boolean($event))" />
           </label>
-          <label class="switch-row">
+          <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>隧道墙体显示</span>
             <el-switch :model-value="wallsVisible" size="small" @change="emit('toggleWalls', Boolean($event))" />
           </label>
-          <label class="switch-row">
+          <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>入口遮雨棚</span>
             <el-switch :model-value="canopyVisible" size="small" @change="emit('toggleCanopy', Boolean($event))" />
           </label>
-          <label class="switch-row">
+          <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>摄像机检测范围</span>
             <el-switch :model-value="detectionVisible" size="small" @change="emit('toggleDetection', Boolean($event))" />
           </label>
-          <label class="switch-row">
+          <label class="flex items-center justify-between py-[5px] text-[12px] text-twin-text">
             <span>镜头防穿模保护</span>
             <el-switch :model-value="cameraGuardEnabled" size="small" @change="emit('toggleCameraGuard', Boolean($event))" />
           </label>
         </section>
 
-        <section class="inspector-section">
-          <h3>相机视角书签 ({{ bookmarks.length }})</h3>
-          <div class="bookmark-add-row">
+        <section class="mb-4 pb-3.5 twin-divider-b">
+          <h3 class="twin-section-title mb-2.5">相机视角书签 ({{ bookmarks.length }})</h3>
+          <div class="flex gap-1.5 mb-2">
             <el-input v-model="bookmarkName" size="small" placeholder="输入视角名称" :disabled="busy" />
             <el-button size="small" type="primary" plain :disabled="busy" @click="handleCaptureBookmark">记录视角</el-button>
           </div>
-          <ul v-if="bookmarks.length" class="bookmark-list">
-            <li v-for="bm in bookmarks" :key="bm.id" class="bookmark-item">
-              <div class="bookmark-meta">
-                <strong>{{ bm.name }}</strong>
-                <span>H {{ bm.height.toFixed(0) }}m · {{ bm.heading.toFixed(0) }}°</span>
+          <ul v-if="bookmarks.length" class="list-none m-0 p-0 flex flex-col gap-1.5">
+            <li
+              v-for="bm in bookmarks"
+              :key="bm.id"
+              class="twin-card flex items-center justify-between gap-1.5 px-[9px] py-[7px]"
+            >
+              <div class="min-w-0 flex flex-col gap-0.5">
+                <strong class="text-[12px] text-twin-ink truncate">{{ bm.name }}</strong>
+                <span class="text-[10.5px] text-twin-sub tabular">H {{ bm.height.toFixed(0) }}m · {{ bm.heading.toFixed(0) }}°</span>
               </div>
-              <div class="bookmark-actions">
+              <div class="flex items-center gap-0.5 shrink-0">
                 <el-button size="small" text type="primary" @click="emit('flyBookmark', bm)">跳转</el-button>
                 <el-button size="small" text type="danger" :disabled="busy" @click="emit('deleteBookmark', bm.id)">删</el-button>
               </div>
             </li>
           </ul>
-          <p v-else class="history-empty">可将常用巡检、洞口或横洞视角存为书签一键飞转。</p>
+          <p v-else class="m-0 text-[11.5px] text-[#87a3c7]">可将常用巡检、洞口或横洞视角存为书签一键飞转。</p>
         </section>
 
-        <section class="inspector-section">
-          <h3>操作历史 ({{ history.length }})</h3>
-          <ul v-if="recentHistory.length" class="history-list">
-            <li v-for="entry in recentHistory" :key="entry.id">{{ entry.label }}</li>
+        <section class="mb-0 pb-0">
+          <h3 class="twin-section-title mb-2.5">操作历史 ({{ history.length }})</h3>
+          <ul v-if="recentHistory.length" class="list-none m-0 p-0 flex flex-col gap-1.5">
+            <li
+              v-for="entry in recentHistory"
+              :key="entry.id"
+              class="px-2 py-[5px] rounded-[6px] bg-[#0e1c3a]/50 border-0 border-l-2 border-solid border-l-[#6cbaff]/55 text-[11.5px] text-twin-text"
+            >
+              {{ entry.label }}
+            </li>
           </ul>
-          <p v-else class="history-empty">暂无可撤销记录</p>
+          <p v-else class="m-0 text-[11.5px] text-[#87a3c7]">暂无可撤销记录</p>
         </section>
 
-        <p v-if="error" class="field-error" role="alert">{{ error }}</p>
+        <p v-if="error" class="mt-2 mb-0 text-[11.5px] text-twin-danger leading-[1.5]" role="alert">{{ error }}</p>
       </div>
     </template>
   </aside>
 </template>
 
 <style scoped>
-.editor-dock--right {
-  display: flex;
-  flex-direction: column;
-  width: 304px;
-  min-height: 0;
-  border-radius: 14px;
-  background: var(--twin-glass-bg);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  border: 1px solid var(--twin-border);
-  box-shadow: var(--twin-shadow);
-  overflow: hidden;
-  pointer-events: auto;
-}
-
-.inspector-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 12px 14px;
-  background: var(--twin-glass-header);
-  border-bottom: 1px solid rgba(124, 182, 248, 0.16);
-}
-
-.inspector-head h2 {
-  margin: 0;
-  font-size: 14px;
-  font-weight: 600;
-  color: #eef5ff;
-}
-
-.inspector-head p {
-  margin: 4px 0 0;
-  font-size: 11.5px;
-  color: #9ec0e6;
-  font-variant-numeric: tabular-nums;
-}
-
-.inspector-quick-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 9px 12px;
-  border-bottom: 1px solid rgba(124, 182, 248, 0.14);
-}
-
-.dock-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 12px 14px;
-}
-
-.inspector-section {
-  margin-bottom: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid rgba(124, 182, 248, 0.14);
-}
-
-.inspector-section:last-of-type {
-  border-bottom: 0;
-  margin-bottom: 0;
-}
-
-.inspector-section h3 {
-  margin: 0 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #9ed0ff;
-}
-
-.field {
-  display: grid;
-  grid-template-columns: 92px 1fr;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 9px;
-  font-size: 12px;
-  color: #c8dcf4;
-}
-
-.field--stack {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
-}
-
-.field-label-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.field-label-row strong {
-  color: #7cc4ff;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
 .field :deep(.el-input-number) {
   width: 100%;
-}
-
-.field-error {
-  margin: 4px 0 8px;
-  font-size: 11.5px;
-  color: #ffb4a9;
-  line-height: 1.5;
-}
-
-.inline-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
-.telemetry-live-card {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-bottom: 10px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: rgba(14, 34, 68, 0.72);
-  border-left: 3px solid #6cbaff;
-  font-size: 11.5px;
-}
-
-.telemetry-live-card.warning {
-  border-left-color: #f0b15b;
-}
-
-.telemetry-live-card.alarm {
-  border-left-color: #ff6b6b;
-}
-
-.telemetry-live-card strong {
-  color: #eef5ff;
-}
-
-.telemetry-live-card span {
-  color: #9ec0e6;
-  font-size: 11px;
-}
-
-.origin-summary {
-  margin: 8px 0 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.origin-summary > div {
-  display: flex;
-  justify-content: space-between;
-  gap: 8px;
-  font-size: 11.5px;
-}
-
-.origin-summary dt {
-  color: #8faed3;
-}
-
-.origin-summary dd {
-  margin: 0;
-  color: #e4f0ff;
-  font-variant-numeric: tabular-nums;
-}
-
-.env-row {
-  margin-bottom: 10px;
-}
-
-.switch-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 5px 0;
-  font-size: 12px;
-  color: #cfe1f7;
-}
-
-.bookmark-add-row {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.bookmark-list,
-.multi-list,
-.history-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.bookmark-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  background: rgba(14, 28, 58, 0.62);
-  border: 1px solid rgba(120, 182, 252, 0.22);
-}
-
-.bookmark-meta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.bookmark-meta strong {
-  font-size: 12px;
-  color: #eef5ff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bookmark-meta span {
-  font-size: 10.5px;
-  color: #8fb4de;
-  font-variant-numeric: tabular-nums;
-}
-
-.bookmark-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.multi-list li {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 7px 9px;
-  border-radius: 8px;
-  background: rgba(14, 28, 58, 0.56);
-  font-size: 11.5px;
-}
-
-.multi-list li strong {
-  color: #eef5ff;
-}
-
-.multi-list li span {
-  color: #9ec0e6;
-}
-
-.history-list li {
-  padding: 5px 8px;
-  border-radius: 6px;
-  background: rgba(14, 28, 58, 0.5);
-  border-left: 2px solid rgba(108, 186, 255, 0.55);
-  font-size: 11.5px;
-  color: #cfe1f7;
-}
-
-.history-empty {
-  margin: 0;
-  font-size: 11.5px;
-  color: #87a3c7;
 }
 </style>

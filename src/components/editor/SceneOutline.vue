@@ -17,6 +17,8 @@ const emit = defineEmits<{
   select: [id: string, options: { toggle: boolean }]
   focus: [id: string]
   addAsset: [kind: DeviceKind, boreId: string]
+  toggleVisibility: [id: string, visible: boolean]
+  toggleLock: [id: string, locked: boolean]
   uploadGlb: [file: File]
   addRemoteGlb: [url: string, name: string]
   deleteCustomModel: [id: string]
@@ -139,11 +141,23 @@ function submitRemoteGlb(): void {
   remoteName.value = ''
   remoteOpen.value = false
 }
+
+function onDragStartBuiltin(kind: DeviceKind, event: DragEvent): void {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('application/x-codex-aigis-asset', JSON.stringify({ type: 'builtin', kind }))
+}
+
+function onDragStartCustom(model: CustomModelEntry, event: DragEvent): void {
+  if (!event.dataTransfer) return
+  event.dataTransfer.effectAllowed = 'copy'
+  event.dataTransfer.setData('application/x-codex-aigis-asset', JSON.stringify({ type: 'custom', modelId: model.id }))
+}
 </script>
 
 <template>
-  <aside class="editor-dock editor-dock--left" aria-label="场景大纲与资产库">
-    <div class="dock-tabs">
+  <aside class="twin-dock w-[286px]" aria-label="场景大纲与资产库">
+    <div class="px-3 py-2.5 twin-divider-b bg-twin-header flex justify-center">
       <el-radio-group v-model="tab" size="small">
         <el-radio-button value="outline">场景大纲 ({{ project.assets.length }})</el-radio-button>
         <el-radio-button value="assets">设备资产库</el-radio-button>
@@ -151,9 +165,9 @@ function submitRemoteGlb(): void {
     </div>
 
     <template v-if="tab === 'outline'">
-      <div class="dock-filters">
+      <div class="px-3 py-2.5 flex flex-col gap-2 twin-divider-b">
         <el-input v-model="query" size="small" clearable placeholder="搜索编号、名称或桩号" aria-label="搜索大纲设备" />
-        <div class="dock-filter-row">
+        <div class="grid grid-cols-2 gap-1.5">
           <el-select v-model="boreFilter" size="small" aria-label="按洞筒筛选">
             <el-option value="all" label="全部洞筒" />
             <el-option v-for="bore in project.bores" :key="bore.id" :value="bore.id" :label="bore.name" />
@@ -165,409 +179,150 @@ function submitRemoteGlb(): void {
         </div>
       </div>
 
-      <div class="dock-scroll">
-        <section v-for="group in groupedByBore" :key="group.bore.id" class="outline-group">
+      <div class="flex-1 min-h-0 overflow-y-auto px-2.5 py-2">
+        <section v-for="group in groupedByBore" :key="group.bore.id" class="mb-2">
           <button
             type="button"
-            class="outline-group-head"
+            class="w-full flex items-center gap-1.5 px-2 py-1.5 border-0 rounded-[8px] bg-[#76aef0]/10 hover:bg-[#76aef0]/18 text-[#e6f2ff] text-[12.5px] cursor-pointer text-left"
             :aria-expanded="!collapsedBores[group.bore.id]"
             @click="toggleBore(group.bore.id)"
           >
-            <span class="outline-caret">{{ collapsedBores[group.bore.id] ? '▸' : '▾' }}</span>
+            <span class="w-3 text-twin-accent">{{ collapsedBores[group.bore.id] ? '▸' : '▾' }}</span>
             <strong>{{ group.bore.name }}</strong>
-            <span class="outline-count">{{ group.items.length }}</span>
+            <span class="ml-auto text-[11px] text-twin-muted tabular">{{ group.items.length }}</span>
           </button>
 
-          <ul v-show="!collapsedBores[group.bore.id]" class="outline-list">
-            <li v-for="asset in group.items" :key="asset.id">
+          <ul v-show="!collapsedBores[group.bore.id]" class="list-none mt-1 mb-0 p-0 flex flex-col gap-[3px]">
+            <li v-for="asset in group.items" :key="asset.id" class="flex items-stretch gap-1">
               <button
                 type="button"
-                class="outline-item"
-                :class="{ selected: selectedSet.has(asset.id) }"
+                class="flex-1 min-w-0 flex flex-col gap-[3px] px-[9px] py-[7px] border border-solid border-transparent rounded-[8px] bg-[#0a142c]/44 hover:bg-[#18305c]/65 hover:border-[#78b6fc]/28 text-[#dcebff] cursor-pointer text-left transition-colors duration-150"
+                :class="[
+                  selectedSet.has(asset.id) ? '!bg-[#1c3e76]/85 !border-[#6cbaff]/78 shadow-[inset_2px_0_0_var(--twin-accent)]' : '',
+                  asset.visible === false ? 'opacity-48' : '',
+                  asset.locked ? 'border-dashed !border-[#f0b15b]/45' : '',
+                ]"
                 :aria-pressed="selectedSet.has(asset.id)"
                 @click="handlePick(asset.id, $event)"
                 @dblclick="emit('focus', asset.id)"
               >
-                <span class="outline-item-main">
-                  <span class="outline-code">{{ asset.code }}</span>
-                  <span class="outline-name">{{ asset.name }}</span>
+                <span class="flex items-baseline gap-1.5 min-w-0">
+                  <span class="text-[12px] font-600 text-[#f4f9ff] shrink-0">{{ asset.code }}</span>
+                  <span class="text-[11.5px] text-[#a8c4e4] truncate">{{ asset.name }}</span>
                 </span>
-                <span class="outline-meta">
+                <span class="flex justify-between text-[11px] text-[#88a9d0]">
                   <span>{{ kindName(asset.kind) }}</span>
-                  <span class="outline-station">{{ formatChainage(asset.chainage) }}</span>
+                  <span class="text-[#79c4ff] tabular">{{ formatChainage(asset.chainage) }}</span>
                 </span>
               </button>
+              <div class="flex flex-col justify-center gap-[3px] shrink-0">
+                <button
+                  type="button"
+                  class="w-6 h-5 p-0 rounded-[5px] border border-solid text-[10px] leading-none cursor-pointer disabled:opacity-50"
+                  :class="asset.visible === false
+                    ? 'bg-[#f0b15b]/22 border-[#f0b15b]/65 text-twin-warn'
+                    : 'bg-[#0a142c]/56 border-[#78b6fc]/22 text-twin-muted hover:border-[#6cbaff]/65 hover:text-twin-ink'"
+                  :disabled="busy"
+                  :title="asset.visible === false ? '显示设备' : '隐藏设备'"
+                  :aria-label="asset.visible === false ? `显示 ${asset.code}` : `隐藏 ${asset.code}`"
+                  @click.stop="emit('toggleVisibility', asset.id, asset.visible === false)"
+                >
+                  {{ asset.visible === false ? '隐' : '显' }}
+                </button>
+                <button
+                  type="button"
+                  class="w-6 h-5 p-0 rounded-[5px] border border-solid text-[10px] leading-none cursor-pointer disabled:opacity-50"
+                  :class="asset.locked
+                    ? 'bg-[#f0b15b]/22 border-[#f0b15b]/65 text-twin-warn'
+                    : 'bg-[#0a142c]/56 border-[#78b6fc]/22 text-twin-muted hover:border-[#6cbaff]/65 hover:text-twin-ink'"
+                  :disabled="busy"
+                  :title="asset.locked ? '解锁防误拖' : '锁定防误拖'"
+                  :aria-label="asset.locked ? `解锁 ${asset.code}` : `锁定 ${asset.code}`"
+                  @click.stop="emit('toggleLock', asset.id, !asset.locked)"
+                >
+                  {{ asset.locked ? '锁' : '开' }}
+                </button>
+              </div>
             </li>
-            <li v-if="group.items.length === 0" class="outline-empty">无匹配设备</li>
+            <li v-if="group.items.length === 0" class="px-2 py-2.5 text-[11.5px] text-[#87a3c7] text-center">无匹配设备</li>
           </ul>
         </section>
       </div>
-      <footer class="dock-foot">单击选中（Ctrl 多选）· 双击聚焦视角</footer>
+      <footer class="px-3 py-[7px] border-0 border-t border-solid border-[#7cb6f8]/14 bg-[#091226]/72 text-[11px] text-twin-sub text-center">
+        单击选中（Ctrl 多选）· 双击聚焦视角
+      </footer>
     </template>
 
     <template v-else>
-      <div class="dock-filters">
+      <div class="px-3 py-2.5 flex flex-col gap-2 twin-divider-b">
         <el-input v-model="catalogQuery" size="small" clearable placeholder="搜索设备类型" aria-label="搜索设备资产库" />
         <el-select v-model="targetBoreId" size="small" aria-label="默认落位洞筒">
           <el-option v-for="bore in project.bores" :key="bore.id" :value="bore.id" :label="`添加到：${bore.name}`" />
         </el-select>
       </div>
 
-      <div class="dock-scroll">
-        <section class="catalog-group custom-glb-section">
-          <div class="custom-glb-head">
-            <h3 class="catalog-title">自定义 GLB 模型 ({{ filteredCustomModels.length }})</h3>
-            <div class="custom-glb-actions">
+      <div class="flex-1 min-h-0 overflow-y-auto px-2.5 py-2">
+        <section class="mb-3 pb-2.5 twin-divider-b">
+          <div class="flex items-center justify-between gap-1.5 mb-2">
+            <h3 class="twin-section-title text-[11.5px]">自定义 GLB 模型 ({{ filteredCustomModels.length }})</h3>
+            <div class="flex items-center gap-1">
               <el-button size="small" type="primary" plain :disabled="busy" @click="triggerGlbPick">上传 .glb</el-button>
               <el-button size="small" text @click="remoteOpen = !remoteOpen">{{ remoteOpen ? '收起' : '外链' }}</el-button>
             </div>
-            <input ref="fileInput" type="file" accept=".glb" style="display: none" @change="onFilePicked" />
+            <input ref="fileInput" type="file" accept=".glb" class="hidden" @change="onFilePicked" />
           </div>
-          <div v-if="remoteOpen" class="remote-glb-form">
+          <div v-if="remoteOpen" class="flex flex-col gap-1.5 mb-2 p-2 rounded-[8px] bg-[#0a1630]/70 border border-solid border-[#78b6fc]/20">
             <el-input v-model="remoteName" size="small" placeholder="模型名称（可选）" />
             <el-input v-model="remoteUrl" size="small" placeholder="https://.../model.glb" />
             <el-button size="small" type="primary" :disabled="!remoteUrl.trim()" @click="submitRemoteGlb">添加到资产库</el-button>
           </div>
-          <div v-if="filteredCustomModels.length" class="custom-glb-list">
-            <div v-for="item in filteredCustomModels" :key="item.id" class="custom-glb-card">
-              <div class="custom-glb-info">
-                <strong>{{ item.name }}</strong>
-                <span>{{ item.source === 'local' ? '本地' : '外链' }} · {{ item.bounds.map(n => n.toFixed(1)).join('×') }}m</span>
+          <div v-if="filteredCustomModels.length" class="flex flex-col gap-1.5">
+            <div
+              v-for="item in filteredCustomModels"
+              :key="item.id"
+              class="twin-card flex items-center justify-between gap-1.5 px-2 py-[7px] cursor-grab"
+              :draggable="!busy"
+              title="可拖入三维视口直接落位"
+              @dragstart="onDragStartCustom(item, $event)"
+            >
+              <div class="min-w-0 flex flex-col gap-0.5">
+                <strong class="text-[12px] text-twin-ink truncate">{{ item.name }}</strong>
+                <span class="text-[10.5px] text-twin-sub tabular">{{ item.source === 'local' ? '本地' : '外链' }} · {{ item.bounds.map(n => n.toFixed(1)).join('×') }}m</span>
               </div>
-              <div class="custom-glb-card-actions">
+              <div class="flex items-center gap-0.5 shrink-0">
                 <el-button size="small" type="primary" plain :disabled="busy" @click="handlePlaceCustom(item)">放置</el-button>
                 <el-button size="small" type="danger" text :disabled="busy" @click="emit('deleteCustomModel', item.id)">删</el-button>
               </div>
             </div>
           </div>
-          <p v-else class="custom-glb-empty">支持上传本地 .glb（自动存 IndexedDB 并解析包围盒）或添加外链 URL。</p>
+          <p v-else class="m-0 text-[11px] leading-[1.5] text-[#87a3c7]">
+            支持上传本地 .glb（自动存 IndexedDB 并解析包围盒）或添加外链 URL。
+          </p>
         </section>
 
-        <section v-for="group in groupedCatalog" :key="group.category" class="catalog-group">
-          <h3 class="catalog-title">{{ group.category }}</h3>
-          <div class="catalog-grid">
+        <section v-for="group in groupedCatalog" :key="group.category" class="mb-3">
+          <h3 class="twin-section-title text-[11.5px] mb-1.5 px-0.5">{{ group.category }}</h3>
+          <div class="grid grid-cols-2 gap-1.5">
             <button
               v-for="item in group.items"
               :key="item.kind"
               type="button"
-              class="catalog-card"
+              class="flex flex-col items-start gap-1 px-[9px] py-2 rounded-[8px] border border-solid border-[#78b6fc]/22 bg-[#0e1c3a]/62 hover:bg-[#183462]/80 hover:border-[#6cbaff]/70 text-[#e6f2ff] cursor-pointer text-left transition-colors duration-150 disabled:opacity-55 disabled:cursor-not-allowed"
               :disabled="busy"
+              :draggable="!busy"
+              title="点击放到洞筒中点，或直接拖入三维视口落位"
+              @dragstart="onDragStartBuiltin(item.kind, $event)"
               @click="handleAdd(item.kind)"
             >
-              <span class="catalog-name">{{ item.name }}</span>
-              <span class="catalog-add">+ 放置</span>
+              <span class="text-[12px] font-500 leading-[1.3]">{{ item.name }}</span>
+              <span class="text-[10.5px] text-[#7cc4ff]">拖入 / +放置</span>
             </button>
           </div>
         </section>
       </div>
-      <footer class="dock-foot">点击设备卡片立即添加到所选洞筒（支持撤销）</footer>
+      <footer class="px-3 py-[7px] border-0 border-t border-solid border-[#7cb6f8]/14 bg-[#091226]/72 text-[11px] text-twin-sub text-center">
+        支持拖入三维视口落位，或单击直接放置（可撤销）
+      </footer>
     </template>
   </aside>
 </template>
-
-<style scoped>
-.editor-dock--left {
-  display: flex;
-  flex-direction: column;
-  width: 286px;
-  min-height: 0;
-  border-radius: 14px;
-  background: var(--twin-glass-bg);
-  backdrop-filter: blur(22px) saturate(150%);
-  -webkit-backdrop-filter: blur(22px) saturate(150%);
-  border: 1px solid var(--twin-border);
-  box-shadow: var(--twin-shadow);
-  overflow: hidden;
-  pointer-events: auto;
-}
-
-.dock-tabs {
-  padding: 10px 12px;
-  border-bottom: 1px solid rgba(124, 182, 248, 0.16);
-  background: var(--twin-glass-header);
-  display: flex;
-  justify-content: center;
-}
-
-.dock-filters {
-  padding: 10px 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  border-bottom: 1px solid rgba(124, 182, 248, 0.14);
-}
-
-.dock-filter-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.dock-scroll {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 8px 10px;
-}
-
-.outline-group {
-  margin-bottom: 8px;
-}
-
-.outline-group-head {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 0;
-  border-radius: 8px;
-  background: rgba(118, 174, 240, 0.1);
-  color: #e6f2ff;
-  font-size: 12.5px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.outline-group-head:hover {
-  background: rgba(118, 174, 240, 0.18);
-}
-
-.outline-caret {
-  width: 12px;
-  color: var(--twin-accent);
-}
-
-.outline-count {
-  margin-left: auto;
-  font-size: 11px;
-  color: #9ec0e6;
-  font-variant-numeric: tabular-nums;
-}
-
-.outline-list {
-  list-style: none;
-  margin: 4px 0 0;
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-}
-
-.outline-item {
-  width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  padding: 7px 9px;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: rgba(10, 20, 44, 0.44);
-  color: #dcebff;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.14s ease, border-color 0.14s ease;
-}
-
-.outline-item:hover {
-  background: rgba(24, 48, 92, 0.65);
-  border-color: rgba(120, 182, 252, 0.28);
-}
-
-.outline-item.selected {
-  background: rgba(28, 62, 118, 0.85);
-  border-color: rgba(108, 186, 255, 0.78);
-  box-shadow: inset 2px 0 0 var(--twin-accent);
-}
-
-.outline-item-main {
-  display: flex;
-  align-items: baseline;
-  gap: 6px;
-  min-width: 0;
-}
-
-.outline-code {
-  font-size: 12px;
-  font-weight: 600;
-  color: #f4f9ff;
-  flex-shrink: 0;
-}
-
-.outline-name {
-  font-size: 11.5px;
-  color: #a8c4e4;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.outline-meta {
-  display: flex;
-  justify-content: space-between;
-  font-size: 11px;
-  color: #88a9d0;
-}
-
-.outline-station {
-  color: #79c4ff;
-  font-variant-numeric: tabular-nums;
-}
-
-.outline-empty {
-  padding: 10px 8px;
-  font-size: 11.5px;
-  color: #87a3c7;
-  text-align: center;
-}
-
-.catalog-group {
-  margin-bottom: 12px;
-}
-
-.catalog-title {
-  margin: 0 0 6px;
-  padding: 0 2px;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
-  color: #9ed0ff;
-}
-
-.catalog-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 6px;
-}
-
-.catalog-card {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 4px;
-  padding: 8px 9px;
-  border-radius: 8px;
-  border: 1px solid rgba(120, 182, 252, 0.22);
-  background: rgba(14, 28, 58, 0.62);
-  color: #e6f2ff;
-  cursor: pointer;
-  text-align: left;
-  transition: border-color 0.14s ease, background 0.14s ease;
-}
-
-.catalog-card:hover:not(:disabled) {
-  background: rgba(24, 52, 98, 0.8);
-  border-color: rgba(108, 186, 255, 0.7);
-}
-
-.catalog-card:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
-}
-
-.catalog-name {
-  font-size: 12px;
-  font-weight: 500;
-  line-height: 1.3;
-}
-
-.catalog-add {
-  font-size: 10.5px;
-  color: #7cc4ff;
-}
-
-.custom-glb-section {
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgba(124, 182, 248, 0.16);
-}
-
-.custom-glb-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  margin-bottom: 8px;
-}
-
-.custom-glb-head .catalog-title {
-  margin: 0;
-}
-
-.custom-glb-actions {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.remote-glb-form {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 8px;
-  background: rgba(10, 22, 48, 0.7);
-  border: 1px solid rgba(120, 182, 252, 0.2);
-}
-
-.custom-glb-list {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.custom-glb-card {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 6px;
-  padding: 7px 8px;
-  border-radius: 8px;
-  background: rgba(14, 28, 58, 0.68);
-  border: 1px solid rgba(120, 182, 252, 0.24);
-}
-
-.custom-glb-info {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.custom-glb-info strong {
-  font-size: 12px;
-  color: #eef5ff;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.custom-glb-info span {
-  font-size: 10.5px;
-  color: #8fb4de;
-  font-variant-numeric: tabular-nums;
-}
-
-.custom-glb-card-actions {
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  flex-shrink: 0;
-}
-
-.custom-glb-empty {
-  margin: 0;
-  font-size: 11px;
-  line-height: 1.5;
-  color: #87a3c7;
-}
-
-.dock-foot {
-  padding: 7px 12px;
-  border-top: 1px solid rgba(124, 182, 248, 0.14);
-  background: rgba(9, 18, 38, 0.72);
-  font-size: 11px;
-  color: #8faed3;
-  text-align: center;
-}
-</style>
