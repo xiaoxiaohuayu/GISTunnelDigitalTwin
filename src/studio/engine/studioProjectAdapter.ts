@@ -51,17 +51,16 @@ export function adaptStudioDocToSurvey(doc: TunnelSceneDocument): AdaptedTunnelS
   const metrics = computeAlignmentMetrics(tunnel.startPoint, tunnel.endPoint)
   const horizontalLength = Math.max(80, Math.round(metrics.horizontalLength))
 
-  // 原版洞口 GLB 支持 1～2 洞；这里取前两个可见洞筒作为主洞口，后续多洞可扩展独立参数化渲染
+  // 保留全部可见洞筒（支持单洞、双洞及三洞及以上多洞扩展）
   const visibleBores = tunnel.bores.filter(bore => bore.visible)
-  const activeBores = (visibleBores.length > 0 ? visibleBores : tunnel.bores).slice(0, 2)
+  const activeBores = visibleBores.length > 0 ? visibleBores : tunnel.bores
 
-  const bores: BoreConfig[] = activeBores.map((bore, index) => ({
+  const bores: BoreConfig[] = activeBores.map(bore => ({
     id: bore.id,
     name: bore.name,
     start: bore.startChainage,
     end: bore.startChainage + horizontalLength,
-    // 原版坐标系中左侧洞筒为负偏移、右侧为正偏移；若仅单洞则允许自定义偏移
-    offset: activeBores.length === 1 ? bore.lateralOffset : (bore.lateralOffset || (index === 0 ? -12 : 12)),
+    offset: bore.lateralOffset,
     laneWidth: Math.max(2.5, Math.min(4.5, bore.laneWidth)),
     lanes: buildBoreLanes(bore),
   }))

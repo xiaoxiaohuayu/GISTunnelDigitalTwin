@@ -214,39 +214,74 @@ export async function addStudioPortalSite(viewer: Viewer, survey: TunnelSurvey, 
     compressVertices: false,
   })
 
-  const urls = await Promise.all(
-    ['terrain', 'structures', 'substation-new', 'finishes'].map(part =>
-      part === 'substation-new'
-        ? Promise.resolve(modelAssetUrl(part))
-        : studioPortalGeometryUrl(
-            modelAssetUrl(part === 'terrain' && survey.project ? 'portal-terrain-editable' : `portal-${part}`),
-            survey.project,
-            end,
-          ),
-    ),
-  )
+  const primaryProject =
+    survey.project && survey.project.bores.length > 2
+      ? { ...survey.project, bores: survey.project.bores.slice(0, 2) }
+      : survey.project
 
-  const models = await Promise.all(
-    ['terrain', 'structures', 'substation-new', 'finishes'].map((part, i) =>
-      Model.fromGltfAsync({
-        url: urls[i]!,
-        modelMatrix:
-          part === 'substation-new'
-            ? Matrix4.multiplyByTranslation(frame, new Cartesian3(-50, 0, 0.14), new Matrix4())
-            : frame,
-        upAxis: Axis.Y,
-        forwardAxis: Axis.X,
-        id:
-          part === 'structures'
-            ? `portal-structures:${end}`
-            : part === 'substation-new'
-              ? `substation-${end + 1}`
-              : undefined,
-        enableVerticalExaggeration: false,
-        allowPicking: part !== 'finishes',
-      }),
+  const extraBores =
+    survey.project && survey.project.bores.length > 2
+      ? survey.project.bores.slice(2).map((bore, idx) => ({
+          tube: idx + 2,
+          project: { ...survey.project!, bores: [bore] },
+        }))
+      : []
+
+  const [urls, extraUrls] = await Promise.all([
+    Promise.all(
+      ['terrain', 'structures', 'substation-new', 'finishes'].map(part =>
+        part === 'substation-new'
+          ? Promise.resolve(modelAssetUrl(part))
+          : studioPortalGeometryUrl(
+              modelAssetUrl(part === 'terrain' && primaryProject ? 'portal-terrain-editable' : `portal-${part}`),
+              primaryProject,
+              end,
+            ),
+      ),
     ),
-  )
+    Promise.all(
+      extraBores.map(({ project }) =>
+        studioPortalGeometryUrl(modelAssetUrl('portal-structures'), project, end),
+      ),
+    ),
+  ])
+
+  const [models, extraModels] = await Promise.all([
+    Promise.all(
+      ['terrain', 'structures', 'substation-new', 'finishes'].map((part, i) =>
+        Model.fromGltfAsync({
+          url: urls[i]!,
+          modelMatrix:
+            part === 'substation-new'
+              ? Matrix4.multiplyByTranslation(frame, new Cartesian3(-50, 0, 0.14), new Matrix4())
+              : frame,
+          upAxis: Axis.Y,
+          forwardAxis: Axis.X,
+          id:
+            part === 'structures'
+              ? `portal-structures:${end}`
+              : part === 'substation-new'
+                ? `substation-${end + 1}`
+                : undefined,
+          enableVerticalExaggeration: false,
+          allowPicking: part !== 'finishes',
+        }),
+      ),
+    ),
+    Promise.all(
+      extraUrls.map((url, idx) =>
+        Model.fromGltfAsync({
+          url,
+          modelMatrix: frame,
+          upAxis: Axis.Y,
+          forwardAxis: Axis.X,
+          id: `portal-structures:${end}:extra-${extraBores[idx]!.tube}`,
+          enableVerticalExaggeration: false,
+          allowPicking: true,
+        }),
+      ),
+    ),
+  ])
 
   const mountain = models[0]!
   const structures = models[1]!
@@ -365,18 +400,39 @@ export async function addStudioPortalSite(viewer: Viewer, survey: TunnelSurvey, 
     () => true,
   )
 
+  // 第 3 条及以上扩展洞筒直接复用 portal-structures.glb 单洞洞门（端墙、檐口、黄黑警示拱圈、护栏与主洞完全一致）
+  const extraShaders = extraModels.map(model => {
+    model.imageBasedLighting.sphericalHarmonicCoefficients = daylight
+    const shader = new CustomShader({
+      uniforms: {
+        u_day: { type: UniformType.FLOAT, value: 1 },
+        u_street: { type: UniformType.FLOAT, value: 0 },
+        u_hideZ0: { type: UniformType.FLOAT, value: 999 },
+      },
+      fragmentShaderText: `void fragmentMain(FragmentInput fsInput, inout czm_modelMaterial material) {
+        material.diffuse *= mix(0.6, 1.0, u_day);
+        vec3 vertex = fsInput.attributes.positionMC;
+        bool fascia = vertex.y > 8.9 && vertex.y < 10.0 && abs(vertex.x + 1.54) < 0.04;
+        if (fascia && abs(vertex.z - u_hideZ0) < 6.0) discard;
+        if (length(material.emissive) > 0.05 && material.emissive.g > material.emissive.r * 0.7) {
+          material.diffuse = mix(vec3(0.055, 0.065, 0.075), vec3(1.0, 0.94, 0.78), u_street);
+          material.roughness = 0.28;
+          material.emissive = vec3(1.0, 0.86, 0.58) * u_street * 6.0;
+        }
+      }`,
+    })
+    model.customShader = shader
+    viewer.scene.primitives.add(model)
+    return shader
+  })
+
   const nameMaterials = survey.tubes.map(() => new ImageMaterialProperty({ transparent: true }))
   const namePanels = survey.tubes.map((_, tube) => {
     const y = studioPortalNameLateral(survey.project, end, tube)
+    const along = tube < 2 && survey.project ? studioPortalAlong(survey.project, end, (tube ^ end) === 0 ? -12 : 12) : 0
     return viewer.entities.add({
       show: false,
-      position: world(
-        new Cartesian3(
-          -1.59 + (survey.project ? studioPortalAlong(survey.project, end, (tube ^ end) === 0 ? -12 : 12) : 0),
-          y,
-          9.45,
-        ),
-      ),
+      position: world(new Cartesian3(-1.59 + along, y, 9.45)),
       orientation: Quaternion.fromRotationMatrix(Matrix4.getMatrix3(frame, new Matrix3())),
       plane: {
         plane: new Plane(new Cartesian3(-1, 0, 0), 0),
@@ -411,7 +467,14 @@ export async function addStudioPortalSite(viewer: Viewer, survey: TunnelSurvey, 
     survey.tubes.forEach((_, tube) => {
       const name = (names[tube] ?? '青山隧道').trim() || '青山隧道'
       const custom = name !== '青山隧道' || customColor
-      if (custom && slot < 2) hideZ[slot++] = -studioPortalNameLateral(survey.project, end, tube)
+      if (tube < 2) {
+        if (custom && slot < 2) hideZ[slot++] = -studioPortalNameLateral(survey.project, end, tube)
+      } else {
+        extraShaders[tube - 2]?.setUniform(
+          'u_hideZ0',
+          custom ? -studioPortalNameLateral(survey.project, end, tube) : 999,
+        )
+      }
       if (custom) nameMaterials[tube]!.image = new ConstantProperty(paintName(name, textColor))
       namePanels[tube]!.show = custom
     })
@@ -441,17 +504,21 @@ export async function addStudioPortalSite(viewer: Viewer, survey: TunnelSurvey, 
     substation,
     dispose() {
       streetlights.dispose()
-      urls.filter(u => u.startsWith('blob:')).forEach(u => URL.revokeObjectURL(u))
+      ;[...urls, ...extraUrls].filter(u => u.startsWith('blob:')).forEach(u => URL.revokeObjectURL(u))
     },
     setLighting(state: SystemsState) {
       const skyLight = state.environment === 'night' ? 0.65 : state.environment === 'fog' ? 0.7 : 1
       mountain.imageBasedLighting.imageBasedLightingFactor = new Cartesian2(skyLight, skyLight)
-      for (const model of models.slice(1)) {
+      for (const model of [...models.slice(1), ...extraModels]) {
         model.imageBasedLighting.imageBasedLightingFactor = new Cartesian2(skyLight, skyLight)
       }
       streetlights.setLighting(state)
       lighting.setUniform('u_street', Number(state.street))
       lighting.setUniform('u_day', Number(state.environment === 'day'))
+      for (const shader of extraShaders) {
+        shader.setUniform('u_street', Number(state.street))
+        shader.setUniform('u_day', Number(state.environment === 'day'))
+      }
     },
     setUnderground(enabled: boolean) {
       streetlights.setVisible(!enabled)

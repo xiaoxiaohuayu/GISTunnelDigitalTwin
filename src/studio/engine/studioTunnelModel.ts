@@ -68,7 +68,10 @@ function clearStaleContactOcclusionStage(viewer: Viewer): void {
 function createTunnelFloorReferenceGrid(viewer: Viewer, survey: TunnelSurvey): Primitive {
   const minS = -260
   const maxS = survey.length + 260
-  const halfW = 280
+  const maxOffset = survey.project
+    ? survey.project.bores.reduce((acc, b) => Math.max(acc, Math.abs(b.offset)), 12)
+    : 12
+  const halfW = Math.max(280, maxOffset + 240)
   const z = -0.02
 
   // 以双洞中线为参考中心点铺设大平面网格

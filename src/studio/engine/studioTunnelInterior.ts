@@ -442,7 +442,7 @@ export function addStudioTunnelInterior(viewer: Viewer, survey: TunnelSurvey, do
     }
 
     const baseline = { ...state, devices: {} }
-    const adjustments = [0, 1].map(tube => {
+    const adjustments = survey.tubes.map((_, tube) => {
       const canvas = document.createElement('canvas')
       canvas.width = Math.ceil((survey.length + 480) / 2)
       canvas.height = 1
@@ -458,7 +458,7 @@ export function addStudioTunnelInterior(viewer: Viewer, survey: TunnelSurvey, do
       return canvas.toDataURL()
     })
     for (const { material, tube } of materials) {
-      material.uniforms.u_deviceLight = adjustments[tube]
+      material.uniforms.u_deviceLight = adjustments[tube] ?? adjustments[0]
       Object.assign(material.uniforms, {
         u_basic: state.basic === 'off' ? 0 : state.basic === 'all' ? 2 : 1,
         u_enhanced: Number(state.enhanced),
