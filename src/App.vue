@@ -3,9 +3,20 @@ import { defineAsyncComponent } from 'vue'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import ViewportLoading from './components/ViewportLoading.vue'
 import ViewportError from './components/ViewportError.vue'
+import { useAppRouter } from './router'
+
+const { isStudioRoute } = useAppRouter()
 
 const CesiumViewport = defineAsyncComponent({
   loader: () => import('./components/CesiumViewport.vue'),
+  loadingComponent: ViewportLoading,
+  errorComponent: ViewportError,
+  delay: 200,
+  timeout: 30000,
+})
+
+const TunnelStudioView = defineAsyncComponent({
+  loader: () => import('./studio/views/TunnelStudioView.vue'),
   loadingComponent: ViewportLoading,
   errorComponent: ViewportError,
   delay: 200,
@@ -15,7 +26,8 @@ const CesiumViewport = defineAsyncComponent({
 
 <template>
   <el-config-provider :locale="zhCn">
-    <div class="workspace">
+    <TunnelStudioView v-if="isStudioRoute" />
+    <div v-else class="workspace">
       <main class="workspace-main">
         <CesiumViewport />
       </main>

@@ -31,3 +31,19 @@
 .has-device-alerts>.device-inspector{top:var(--device-panel-top)}
 .has-device-alerts>.scene-panel{top:var(--device-panel-top);width:360px}
 @media(max-width:760px){.has-device-alerts{--device-panel-top:var(--alert-mobile-top)}.has-device-alerts>.scene-panel{width:calc(100% - 20px)}}
+.cesium-viewer{
+  width:100%;
+  height:100%;
+  .cesium-viewer-cesiumWidgetContainer{
+    width:100%;
+    height:100%;
+    .cesium-widget{
+      width:100%;
+      height:100%;
+      canvas{
+        width:100%;
+        height:100%;
+      }
+    }
+  }
+}
