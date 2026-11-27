@@ -9,7 +9,7 @@ function same(left: unknown, right: unknown): boolean {
 }
 
 export function projectUpdateKind(previous: TunnelProject, next: TunnelProject): ProjectUpdateKind {
-  if (!same(previous.section ?? null, next.section ?? null) || !same(previous.passages ?? null, next.passages ?? null)) return 'rebuild'
+  if (!same(previous.section ?? null, next.section ?? null) || !same(previous.passages ?? null, next.passages ?? null) || !same(previous.portalAccess ?? null, next.portalAccess ?? null)) return 'rebuild'
   const assetKey = (project: TunnelProject) => project.assets.map(asset => [asset.id, asset.kind])
   const sameAssets = same(assetKey(previous), assetKey(next))
   if (same([previous.origin, previous.bores], [next.origin, next.bores]) && sameAssets) return 'records'

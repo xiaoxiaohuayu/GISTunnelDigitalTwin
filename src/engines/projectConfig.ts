@@ -11,10 +11,12 @@ export interface TelemetryBinding { pointId:string;metric?:string;unit?:string;w
 export interface CameraBookmark { id:string;name:string;longitude:number;latitude:number;height:number;heading:number;pitch:number;roll:number }
 export interface SceneVisualSettings { sunIntensity:number;sunAzimuth:number;sunElevation:number;fogDensity:number }
 export const DEFAULT_SCENE_VISUALS: SceneVisualSettings = { sunIntensity: 2.4, sunAzimuth: 58, sunElevation: 62, fogDensity: 0.0002 }
+export interface PortalAccessConfig { enabled:boolean;start:number;end:number;halfWidth:number }
+export const DEFAULT_PORTAL_ACCESS: PortalAccessConfig = { enabled: true, start: -92, end: -68, halfWidth: 7.5 }
 export interface AssetRecord { mount?:Mount;link?:FacilityLink;id:string;code:string;name:string;kind:DeviceKind;boreId:string;chainage:number;endChainage?:number;lateral:number;height:number;heading:number;scale?:number;customModelId?:string;customModelUrl?:string;telemetry?:TelemetryBinding;visible?:boolean;locked?:boolean }
 export interface PassageRecord { station:number;vehicle:boolean }
 export interface MouthName { boreId:string;end:0|1;name:string }
-export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[];section?:SectionProfile;passages?:PassageRecord[];mouths?:MouthName[];bookmarks?:CameraBookmark[];visuals?:SceneVisualSettings }
+export interface TunnelProject { version:1|2;id:string;name:string;origin:{longitude:number;latitude:number;elevation:number;heading:number;grade:number};bores:BoreConfig[];assets:AssetRecord[];section?:SectionProfile;passages?:PassageRecord[];portalAccess?:PortalAccessConfig;mouths?:MouthName[];bookmarks?:CameraBookmark[];visuals?:SceneVisualSettings }
 export function mouthName(project:TunnelProject,boreId:string,end:0|1):string {
   return project.mouths?.find(mouth=>mouth.boreId===boreId&&mouth.end===end)?.name.trim()||project.name
 }
@@ -101,6 +103,10 @@ export function projectErrors(value:unknown):string[] {
   if(p.bookmarks!==undefined){
     if(!Array.isArray(p.bookmarks)||p.bookmarks.length>20)errors.push('相机视角书签最多保存 20 个')
     else if(p.bookmarks.some(bm=>!bm||typeof bm.id!=='string'||!bm.id||typeof bm.name!=='string'||!bm.name.trim()||![bm.longitude,bm.latitude,bm.height,bm.heading,bm.pitch,bm.roll].every(Number.isFinite)))errors.push('相机视角书签包含无效的名称或坐标参数')
+  }
+  if(p.portalAccess!==undefined){
+    const a=p.portalAccess
+    if(!a||typeof a.enabled!=='boolean'||![a.start,a.end,a.halfWidth].every(Number.isFinite)||a.start<-170||a.end>-6||a.end-a.start<4||a.end-a.start>80||a.halfWidth<2||a.halfWidth>40)errors.push('洞口联络通道参数无效：起止范围须在 -170～-6 m、长度 4～80 m、半宽 2～40 m')
   }
   if(p.visuals!==undefined){
     const v=p.visuals

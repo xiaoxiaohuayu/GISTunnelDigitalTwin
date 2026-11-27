@@ -102,7 +102,15 @@ export function addTunnelDetails(viewer: Viewer, survey: TunnelSurvey) {
     for (const side of [-1, 1]) {
       const outer = side === -innerSide
       const bay = projectLayBy(survey,tube)
-      const lineIntervals = outer ? [[-240, bay.start], [bay.end, survey.length + 240]] : [[-240,-PORTAL_EXTENSION+portalAccess.start],[-PORTAL_EXTENSION+portalAccess.end,survey.length+PORTAL_EXTENSION-portalAccess.end],[survey.length+PORTAL_EXTENSION-portalAccess.start,survey.length+240]]
+      const access = survey.project?.portalAccess
+      const accessEnabled = access ? access.enabled : true
+      const accessStart = access?.start ?? portalAccess.start
+      const accessEnd = access?.end ?? portalAccess.end
+      const lineIntervals = outer
+        ? [[-240, bay.start], [bay.end, survey.length + 240]]
+        : accessEnabled
+          ? [[-240,-PORTAL_EXTENSION+accessStart],[-PORTAL_EXTENSION+accessEnd,survey.length+PORTAL_EXTENSION-accessEnd],[survey.length+PORTAL_EXTENSION-accessStart,survey.length+240]]
+          : [[-240, survey.length + 240]]
       for (const [a, b] of lineIntervals) {
         for (let s = a!; s < b!; s += 12) {
           const extent = Math.min(12,b!-s)

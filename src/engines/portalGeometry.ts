@@ -55,11 +55,17 @@ export async function portalGeometryUrl(url:string,project:TunnelProject|undefin
           sourceYs.forEach((_,i)=>{const value=sums.get(root(i))!;alongByVertex[i]=portalAlong(project,end,value.sum/value.count)})
         }
       }
+      const isCrossoverRoad=node.name==='Open median crossover'
+      const isCrossoverStripe=node.name==='Crossover edge stripe'
+      const isCrossover=isCrossoverRoad||isCrossoverStripe
+      const customAccess=project.portalAccess
       // Remove the inner pair of guardrails and drain channels, not whole shared meshes.
       if(primitive.indices!==undefined){
         const indices={...gltf.accessors[primitive.indices]},ib=gltf.bufferViews[indices.bufferView]
         if(ib){const offset=binaryOffset+(ib.byteOffset??0)+(indices.byteOffset??0),size=indices.componentType===5125?4:2,read=(i:number)=>size===4?view.getUint32(offset+i*size,true):view.getUint16(offset+i*size,true),kept:number[]=[]
-          for(let i=0;i<indices.count;i+=3){const face=[read(i),read(i+1),read(i+2)];const removed=face.every(v=>{const at=start+v*stride,x=view.getFloat32(at,true),h=view.getFloat32(at+4,true),y=sourceYs[v]!;return x>=-58.51&&x<=-41.49&&Math.abs(y)<=4.51&&h>=-.041&&h<=.141})||face.every(v=>{const at=start+v*stride,x=view.getFloat32(at,true),h=view.getFloat32(at+4,true),y=Math.abs(sourceYs[v]!);return x< -2&&x> -175&&h>=.914&&h<=1.066&&(Math.abs(y-7.08)<.025||Math.abs(y-16.92)<.025)});if(removed)continue;if(single&&(node.name?.includes('Lettering')?face.every(v=>sourceYs[v]!>0):face.every(v=>Math.abs(sourceYs[v]!)<11.99)&&face.every(v=>{const x=view.getFloat32(start+v*stride,true);return x>-120&&x<160})))continue;kept.push(...face)}
+          if(!(isCrossover&&customAccess&&!customAccess.enabled)){
+            for(let i=0;i<indices.count;i+=3){const face=[read(i),read(i+1),read(i+2)];const removed=face.every(v=>{const at=start+v*stride,x=view.getFloat32(at,true),h=view.getFloat32(at+4,true),y=sourceYs[v]!;return x>=-58.51&&x<=-41.49&&Math.abs(y)<=4.51&&h>=-.041&&h<=.141})||face.every(v=>{const at=start+v*stride,x=view.getFloat32(at,true),h=view.getFloat32(at+4,true),y=Math.abs(sourceYs[v]!);return x< -2&&x> -175&&h>=.914&&h<=1.066&&(Math.abs(y-7.08)<.025||Math.abs(y-16.92)<.025)});if(removed)continue;if(single&&(node.name?.includes('Lettering')?face.every(v=>sourceYs[v]!>0):face.every(v=>Math.abs(sourceYs[v]!)<11.99)&&face.every(v=>{const x=view.getFloat32(start+v*stride,true);return x>-120&&x<160})))continue;kept.push(...face)}
+          }
           if(kept.length!==indices.count){if(!kept.length)kept.push(0,0,0);gltf.accessors.push(indices);primitive.indices=gltf.accessors.length-1;const data=new Uint32Array(kept);gltf.bufferViews.push({buffer:0,byteOffset:binaryLength,byteLength:data.byteLength});indices.bufferView=gltf.bufferViews.length-1;indices.byteOffset=0;indices.componentType=5125;indices.count=kept.length;indices.min=[kept.reduce((min,i)=>Math.min(min,i),Infinity)];indices.max=[accessor.count-1];extra.push(new Uint8Array(data.buffer));binaryLength+=data.byteLength}
         }
       }
@@ -67,14 +73,24 @@ export async function portalGeometryUrl(url:string,project:TunnelProject|undefin
       for(let i=0;i<accessor.count;i++){
         const offset=start+i*stride,y=sourceYs[i]!
         // A single bore joins the two outside half profiles at their centreline.
+        let baseX=view.getFloat32(offset,true)
         let along=alongByVertex[i]!
         let z=node.name?.includes("Lettering")?-(y+portalLateral(project,end,y<0?-12:12)-(y<0?-12:12)):project.bores.length===1&&Math.abs(y)<12?-(end===0?-project.bores[0].offset:project.bores[0].offset): -portalLateral(project,end,y)
+        if(isCrossover&&customAccess&&customAccess.enabled){
+          if(isCrossoverRoad){
+            const t=(baseX-(-92))/((-68)-(-92))
+            baseX=customAccess.start+t*(customAccess.end-customAccess.start)
+          }else{
+            baseX=baseX<-80?baseX+(customAccess.start-(-92)):baseX+(customAccess.end-(-68))
+          }
+          z=-(y/7.5)*customAccess.halfWidth
+        }
         // Leave the terrain perimeter fixed so it still meets the satellite skirt.
         if(node.name==='Sculpted mountain with two excavated bores'||node.name==='terrain / Poliigon_GrassPatchyGround_4585'){
-          const x=view.getFloat32(offset,true),weight=Math.max(0,Math.min(1,(100-Math.abs(y))/50,(220-x)/60,(180+x)/60))
+          const x=baseX,weight=Math.max(0,Math.min(1,(100-Math.abs(y))/50,(220-x)/60,(180+x)/60))
           z=-y+(z+y)*weight;along=portalAlong(project,end,y)*weight
         }
-        view.setFloat32(offset,view.getFloat32(offset,true)+along,true)
+        view.setFloat32(offset,baseX+along,true)
         view.setFloat32(offset+8,z,true)
         for(let c=0;c<3;c++){const n=view.getFloat32(offset+c*4,true);min[c]=Math.min(min[c]!,n);max[c]=Math.max(max[c]!,n)}
       }
