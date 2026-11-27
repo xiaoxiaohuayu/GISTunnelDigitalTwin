@@ -203,8 +203,9 @@ function editorAddAsset(kind:DeviceKind,boreId:string):void{
   let seq=project.value.assets.length+1,code=`${kind.toUpperCase()}-${seq}`
   while(existingCodes.has(code)){seq+=1;code=`${kind.toUpperCase()}-${seq}`}
   const mid=Math.round((bore.start+bore.end)/2)
-  const height=kind==='fan'?6.2:kind==='vms'||kind==='lane'?5.6:kind==='pump'||kind==='tank'?1.2:4.2
-  const record:AssetRecord={id,code,name:label,kind,boreId:bore.id,chainage:mid,lateral:0,height,heading:bore.lanes[0]?.direction===-1?180:0}
+  const height=kind==='fan'?6.2:kind==='vms'||kind==='lane'?5.6:kind==='milestone'?1.05:kind==='pump'||kind==='tank'?1.2:4.2
+  const lateral=kind==='milestone'?(bore.lanes[0]?.direction===-1?-5.44:5.44):0
+  const record:AssetRecord={id,code,name:label,kind,boreId:bore.id,chainage:mid,lateral,height,heading:bore.lanes[0]?.direction===-1?180:0}
   void runEditorTask(async()=>{await editorStore.addAsset(record);focusDevice(id)})
 }
 function editorCommitTransform(id:string,patch:Partial<AssetRecord>,mergeKey?:string):void{
@@ -297,8 +298,8 @@ function onViewportDrop(event:DragEvent):void{
     const label=deviceCatalog.find(row=>row[1]===kind)?.[2]??kind
     let seq=project.value.assets.length+1,code=`${kind.toUpperCase()}-${seq}`
     while(existingCodes.has(code)){seq+=1;code=`${kind.toUpperCase()}-${seq}`}
-    const defaultHeight=kind==='fan'?6.2:kind==='vms'||kind==='lane'?5.6:kind==='pump'||kind==='tank'?1.2:4.2
-    const record:AssetRecord={id,code,name:label,kind,boreId:bore.id,chainage:hit?.chainage??Math.round((bore.start+bore.end)/2),lateral:hit?.lateral??0,height:hit?Math.max(0.2,hit.height):defaultHeight,heading}
+    const defaultHeight=kind==='fan'?6.2:kind==='vms'||kind==='lane'?5.6:kind==='milestone'?1.05:kind==='pump'||kind==='tank'?1.2:4.2
+    const record:AssetRecord={id,code,name:label,kind,boreId:bore.id,chainage:hit?.chainage??Math.round((bore.start+bore.end)/2),lateral:hit?.lateral??(kind==='milestone'?(bore.lanes[0]?.direction===-1?-5.44:5.44):0),height:hit?Math.max(0.2,hit.height):defaultHeight,heading}
     void runEditorTask(()=>editorStore.addAsset(record,`拖放设备 ${code}`))
   }else{
     const model=customModels.value.find(item=>item.id===payload.modelId)

@@ -45,6 +45,7 @@ export function deviceTelemetry(device: SceneDevice, state: SystemsState, length
     case 'escape': value = escapeSignDirection(device.station,device.tube,length)==='left'?'← 安全出口':'安全出口 →'; break
     case 'pedestrian': case 'vehicle': value = '通道畅通'; break
     case 'layby': value = '空闲'; break
+    case 'milestone': value = device.chainage ?? `K${Math.floor(Math.max(0, device.station) / 1000)}+${String(Math.round(Math.max(0, device.station) % 1000)).padStart(3, '0')}`; break
     default: value = '正常反馈'
   }
   return { status, value, severity: 'normal', note: '本地模拟数据，未接入现场监测' }

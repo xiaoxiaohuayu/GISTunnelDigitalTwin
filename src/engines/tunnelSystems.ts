@@ -7,6 +7,7 @@ import { boreIndices, lanePositions, surveyFrame } from './projectSurvey'
 // @env browser
 import type { addPortalSite } from './portalSite'
 import { ledPlane } from './ledScreen'
+import { createChainageMarker, MILESTONE_MOUNT_HEIGHT, MILESTONE_SPACING, MILESTONE_WALL_OFFSET } from './chainageMarker'
 import { createVmsText, vmsOffset, vmsSize } from './vmsDisplay'
 import { modelAssetUrl } from './modelAssets'
 import { resolveCustomModelUrl } from './customModelLibrary'
@@ -57,6 +58,7 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
   const fibres: import('cesium').Entity[]=[]
   const models: { model: Model; device: SceneDevice; shader: CustomShader; shutter: boolean }[] = []
   const screens: { surface: ReturnType<typeof ledPlane>; device: SceneDevice; type: 'lane' | 'vms'; reverse?:boolean; housing?: import('cesium').Entity; key?: string; started?:number }[] = []
+  const markers: { marker: ReturnType<typeof createChainageMarker>; device: SceneDevice }[] = []
   const trafficLenses: { entity: import('cesium').Entity; color: string; tube: number }[] = []
   const requests: Promise<void>[] = []
   const counters=new Map<DeviceKind,number>()
@@ -74,6 +76,16 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     const device:SceneDevice = { id,kind,tube,station,lateral,height,heading:resolved?resolved.heading:(angle*180)/Math.PI,scale:resolved?.scale,...(resolved?{name:resolved.name,code:resolved.code,boreName:survey.project!.bores[tube]!.name,chainage:formatChainage(resolved.chainage),customModelId:resolved.customModelId,customModelUrl:resolved.customModelUrl}:{}) }
     if(resolved)device.position=survey.actualPointAt!(tube,station,lateral,resolved.height)
     if(listed)devices.push(device)
+    if (kind==='milestone') {
+      const point=resolved?survey.actualPointAt!(tube,station,lateral,height):tunnelPoint(survey,tube,station,lateral,height)
+      const rotation=Matrix3.multiply(Matrix3.fromRotationY(-Math.atan(survey.grade/100)),Matrix3.fromRotationZ(angle),new Matrix3())
+      if(resolved?.scale!==undefined&&resolved.scale!==1)Matrix3.multiplyByUniformScale(rotation,resolved.scale,rotation)
+      const matrix=Matrix4.multiply(surveyFrame(survey,point),Matrix4.fromRotationTranslation(rotation),new Matrix4())
+      const label=resolved?formatChainage(resolved.chainage):formatChainage((survey.project?.bores[tube]?.start??0)+station)
+      device.chainage=label
+      markers.push({marker:createChainageMarker(viewer,matrix,label,device.id),device})
+      return device
+    }
     const isCustom=kind==='custom'&&Boolean(resolved?.customModelId||resolved?.customModelUrl)
     if (!asset&&!isCustom) return device
     const point=resolved?survey.actualPointAt!(tube,station,lateral,height):tunnelPoint(survey,tube,station,lateral,height)
@@ -113,6 +125,9 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
       // Existing detailed fire cabinet and camera are retained alongside the new systems.
       placement('cabinet','fire-cabinet',tube,s,outer*(5.05+projectLayByWidth(s,survey,tube)),.45,wallAngle)
       placement('camera','camera',tube,s+15,outer*4.5,4.5,wallAngle)
+    }
+    for (let s=MILESTONE_SPACING;s<survey.length;s+=MILESTONE_SPACING) {
+      placement('milestone',null,tube,s,outer*(MILESTONE_WALL_OFFSET+projectLayByWidth(s,survey,tube)),MILESTONE_MOUNT_HEIGHT,angle)
     }
     for (const s of [0,survey.length/2,survey.length]) {
       placement('detector','vehicle-detector',tube,s,0,7.2,radarHeading(tube))
@@ -183,6 +198,7 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     const instance=new DeviceInstance(device,surveyFrame(survey,position),viewer)
     for(const entry of [...models,...portalModels])if(entry.device.id===device.id)instance.addModel(entry.model)
     for(const screen of screens)if(screen.device.id===device.id){instance.addTransform(delta=>screen.surface.move(delta));if(screen.housing)instance.addEntity(screen.housing)}
+    for(const entry of markers)if(entry.device.id===device.id)instance.addTransform(delta=>entry.marker.move(delta),undefined,visible=>entry.marker.setVisible(visible))
     for(const entity of viewer.entities.values)if(entity.id===device.id||entity.id.startsWith(`device-part:${device.id}:`)||entity.id.startsWith(`device-lens:${device.id}:`))instance.addEntity(entity)
     if(device.kind==='street'&&device.pickId){const site=sites[device.portalEnd??0];if(site)instance.addTransform(delta=>site.moveLamp(device.id,delta))}
     const record=survey.project?.assets.find(a=>a.id===device.id)
@@ -290,16 +306,23 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
       const active=deviceEntrance(signal,state)
       if (lens.entity.ellipsoid) lens.entity.ellipsoid.material=new ColorMaterialProperty(Color.fromCssColorString(active===lens.color?lens.color:'#16202a'))
     }
+    for (const entry of markers) {
+      entry.marker.setBrightness(illuminationAt(entry.device.station,survey.length,state,entry.device.tube,lamps))
+    }
     viewer.scene.requestRender()
   }
+  function updateMarkerText(id:string,label:string):void {
+    for (const entry of markers) if (entry.device.id===id) entry.marker.setText(label)
+  }
   update(state)
-  return {devices,instances,get models(){return [...models,...portalModels]},update,
+  return {devices,instances,get models(){return [...models,...portalModels]},update,updateMarkerText,
     async reconcileAssets(next:TunnelSurvey){
       survey=next
       const ids=new Set(next.project!.assets.map(a=>a.id)),added=new Set<string>()
       for(const device of [...devices])if(!ids.has(device.id)||next.project!.assets.find(a=>a.id===device.id)?.kind!==device.kind){
         for(let i=models.length-1;i>=0;i--)if(models[i]!.device.id===device.id){const [entry]=models.splice(i,1);if(viewer.scene.primitives.contains(entry!.model))viewer.scene.primitives.remove(entry!.model)}
         for(let i=screens.length-1;i>=0;i--)if(screens[i]!.device.id===device.id)screens.splice(i,1)[0]!.surface.dispose()
+        for(let i=markers.length-1;i>=0;i--)if(markers[i]!.device.id===device.id)markers.splice(i,1)[0]!.marker.dispose()
         for(let i=ownedEntities.length-1;i>=0;i--){const entity=ownedEntities[i]!;if(entity.id===device.id||entity.id.startsWith(`device-part:${device.id}:`)||entity.id.startsWith(`device-lens:${device.id}:`)){viewer.entities.remove(entity);ownedEntities.splice(i,1)}}
         devices.splice(devices.indexOf(device),1);instances.delete(device.id)
       }
@@ -311,6 +334,6 @@ export async function addTunnelSystems(viewer: Viewer, survey: TunnelSurvey, pro
     for(const site of sites){for(const incoming of site.devices){const d=devices.find(d=>d.id===incoming.id);if(d){Object.assign(d,incoming);ids.add(d.id)}}}
     for(const [end,site] of sites.entries()){const entry=portalModels.find(p=>p.device.id===`substation-${end+1}`);if(entry){entry.model=site.substation;entry.device.position=Matrix4.multiplyByPoint(site.substation.modelMatrix,new Cartesian3(0,0,2.26),new Cartesian3());ids.add(entry.device.id)}}
     bindInstances(ids)
-  },dispose(){stopTick();for(const entry of models)if(viewer.scene.primitives.contains(entry.model))viewer.scene.primitives.remove(entry.model);screens.forEach(s=>s.surface.dispose());ownedEntities.forEach(e=>viewer.entities.remove(e))}}
+  },dispose(){stopTick();for(const entry of models)if(viewer.scene.primitives.contains(entry.model))viewer.scene.primitives.remove(entry.model);screens.forEach(s=>s.surface.dispose());markers.forEach(m=>m.marker.dispose());ownedEntities.forEach(e=>viewer.entities.remove(e))}}
 }
 import { ColorMaterialProperty, ConstantProperty } from 'cesium'

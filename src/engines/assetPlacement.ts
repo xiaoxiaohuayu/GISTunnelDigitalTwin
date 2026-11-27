@@ -25,7 +25,7 @@ export function inferMount(a:AssetRecord,b:BoreConfig,known:boolean):Mount {
   let mount:Mount={kind:known?'site':'unresolved',offset:0}
   if(known){
     if(a.kind==='lane')mount={kind:'lane',laneId:b.lanes.reduce((best,l,i)=>Math.abs(laneLateral(b,i)-a.lateral)<Math.abs(laneLateral(b,b.lanes.indexOf(best))-a.lateral)?l:best,b.lanes[0]!).id,offset:0}
-    else if(['camera','cabinet','manual','flame','speaker','telephone','distribution','escape','plc','covi','no2','wind','humidity','fbg','shutter','basic','layby'].includes(a.kind))mount={kind:'wall',side,offset:0}
+    else if(['camera','cabinet','manual','flame','speaker','telephone','distribution','escape','milestone','plc','covi','no2','wind','humidity','fbg','shutter','basic','layby'].includes(a.kind))mount={kind:'wall',side,offset:0}
     else if(a.kind==='street')mount={kind:'edge',side,offset:0}
     else if(['enhanced','fan','detector'].includes(a.kind))mount={kind:'ceiling',offset:0}
   }

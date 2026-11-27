@@ -42,6 +42,7 @@ const DEVICE_BOX_PROFILES: Partial<Record<DeviceKind, DeviceBoxDescriptor>> = {
   substation: { size: [16.2, 12.2, 6.7], offset: [0, 0, 1.0] },
   // Standalone streetlight.glb has its origin at the base of the pole (z = 0..8m).
   street: { size: [0.8, 3.1, 8.2], offset: [0, 0, 4.0] },
+  milestone: { size: [1.16, 0.14, 0.40] },
 }
 
 export interface ResolvedDeviceBox {

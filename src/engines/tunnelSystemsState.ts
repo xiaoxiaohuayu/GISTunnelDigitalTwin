@@ -188,7 +188,7 @@ export const deviceCatalog = [
   ['ventilation','fan','射流风机'], ['communication','speaker','应急广播'], ['communication','telephone','紧急电话'], ['communication','escape','安全出口标志'],
   ['fire','pump','消防水泵'], ['fire','tank','消防水箱'], ['fire','flame','红外火焰探测器'], ['fire','manual','火灾手报'], ['fire','shutter','横洞卷帘门'],
   ['environment','covi','CO / VI 监测器'], ['environment','no2','二氧化氮监测器'], ['environment','wind','风向风速传感器'], ['environment','fbg','感温光栅'], ['environment','humidity','温湿度监测器'],
-  ['facility','pedestrian','人行横洞'], ['facility','vehicle','车行横洞'], ['facility','layby','紧急停车带'], ['facility','distribution','洞内变电箱'], ['facility','substation','洞口变电所'], ['facility','custom','自定义模型'],
+  ['facility','pedestrian','人行横洞'], ['facility','vehicle','车行横洞'], ['facility','layby','紧急停车带'], ['facility','distribution','洞内变电箱'], ['facility','substation','洞口变电所'], ['facility','milestone','洞内桩号牌'], ['facility','custom','自定义模型'],
 ] as const
 export type DeviceKind = typeof deviceCatalog[number][1]
 export interface DeviceBoxDescriptor { size: [number, number, number]; offset?: [number, number, number]; offsetSpace?: 'local' | 'survey' }

@@ -24,7 +24,11 @@ export class DeviceInstance {
   }
   get currentTransform():Matrix4{return Matrix4.clone(this.delta)}
   get referenceFrame():Matrix4{return Matrix4.clone(this.frame)}
-  addTransform(apply:(delta:Matrix4)=>void,key?:string):void{if(key)this.parts=this.parts.filter(p=>p.key!==key);this.parts.push({apply,key})}
+  addTransform(apply:(delta:Matrix4)=>void,key?:string,setVisible?:(visible:boolean)=>void):void{
+    if(key)this.parts=this.parts.filter(p=>p.key!==key)
+    this.parts.push({apply,key})
+    if(setVisible)this.visibilityTargets.push(setVisible)
+  }
   move(frame:Matrix4):void{
     const delta=Matrix4.multiply(frame,Matrix4.inverse(this.frame,new Matrix4()),new Matrix4())
     this.delta=delta

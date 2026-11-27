@@ -45,11 +45,13 @@ import type { CameraBookmark, SceneVisualSettings, TunnelProject } from './proje
 import { centerlineProject } from './centerlineProject'
 import { lanePositions, projectSurvey, surveyFrame } from './projectSurvey'
 import { DEMO_LATITUDE, DEMO_LONGITUDE, travelHeadingRadians, travelModelYaw, travelPitchRadians } from './sceneFrame'
-import { upgradeProject,resolveAsset } from './assetPlacement'
+import { inferMount,upgradeProject,resolveAsset } from './assetPlacement'
 import { sceneResources } from './sceneResources'
-import { assetMountOffset as importMount,assetStation,formatChainage,projectErrors } from './projectConfig'
+import { assetMountOffset as importMount,assetStation,boreLength,formatChainage,projectErrors } from './projectConfig'
 import { applyTunnelProject } from './projectApply'
 import { demoProject,readControlOverrides,saveControlOverrides,saveTunnelProject } from './projectStorage'
+import { MILESTONE_MOUNT_HEIGHT,MILESTONE_SPACING,MILESTONE_WALL_OFFSET } from './chainageMarker'
+import { projectLayByWidth } from './facilityLayout'
 
 export type IntroPhase = 'earth' | 'region' | 'overview' | 'portal' | 'complete'
 export interface SceneRuntimeError {
@@ -165,6 +167,29 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     trafficSigns=await addPortalTrafficSigns(viewer,survey)
     options.onTrafficSignsConfig?.(trafficSigns.config,trafficSigns.warning)
     signResources.capture()
+    if(project&&!project.assets.some(a=>a.kind==='milestone')&&!window.localStorage.getItem(`codex-aigis:milestones-seeded:${project.id}`)){
+      const existingIds=new Set(project.assets.map(a=>a.id)),existingCodes=new Set(project.assets.map(a=>a.code))
+      let seq=1
+      const added:AssetRecord[]=[]
+      for(const [tube,bore] of project.bores.entries()){
+        const outer=tube===0?-1:1,length=boreLength(bore),sign=Math.sign(bore.end-bore.start)||1
+        for(let s=MILESTONE_SPACING;s<length;s+=MILESTONE_SPACING){
+          while(existingIds.has(`milestone-${seq}`)||existingCodes.has(`milestone-${seq}`))seq+=1
+          const id=`milestone-${seq}`
+          existingIds.add(id);existingCodes.add(id)
+          const lateral=-outer*(MILESTONE_WALL_OFFSET+projectLayByWidth(s,survey,tube))
+          const record:AssetRecord={id,code:id,name:'洞内桩号牌',kind:'milestone',boreId:bore.id,chainage:bore.start+s*sign,lateral,height:MILESTONE_MOUNT_HEIGHT,heading:tube===0?0:180}
+          record.mount=inferMount(record,bore,true)
+          added.push(record)
+        }
+      }
+      if(added.length){
+        project={...project,assets:[...project.assets,...added]}
+        survey=projectSurvey(project)
+        void saveTunnelProject(project).catch(()=>{})
+      }
+      window.localStorage.setItem(`codex-aigis:milestones-seeded:${project.id}`,'1')
+    }
     report(55,'设备模型','加载交通、通风、消防和检测设备')
     systems=await addTunnelSystems(viewer,survey,(done,total,resource)=>report(55+done/total*25,'设备模型',resource),model.sites)
     traffic=await addTunnelTraffic(viewer,survey,()=>state,(done,total,resource)=>report(80+done/total*10,'车辆模型',resource))
@@ -388,6 +413,7 @@ export async function createCesiumMap(container: HTMLDivElement, options: MapOpt
     inst?.move(frame)
     inst?.setVisible(a.visible!==false)
     Object.assign(d,{tube,station,lateral:-a.lateral,height:a.height,heading:a.heading,scale:a.scale,position:point,name:a.name,code:a.code,boreName:b.name,chainage:formatChainage(a.chainage)})
+    if(a.kind==='milestone')systems.updateMarkerText(a.id,formatChainage(a.chainage))
     if(refresh&&(a.kind==='basic'||a.kind==='enhanced'))model.setLightSample(state,systems.devices)
     if(refresh){interaction.refresh();options.onDevices?.([...systems.devices])}
   }
